@@ -6,7 +6,7 @@ export default function RecipesScreen() {
       <View style={styles.content}>
         <Text style={styles.headerTitle}>Recettes 🍲</Text>
         <Text style={styles.subText}>Idées repas à moins de 2€</Text>
-        
+
         <View style={styles.placeholderBox}>
           <Text style={{color: '#AAA'}}>Liste des recettes à venir...</Text>
         </View>
