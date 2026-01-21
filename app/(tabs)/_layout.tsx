@@ -8,7 +8,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: '#FF9F1C', // Orange quand actif
         tabBarInactiveTintColor: '#A0A0A0', // Gris quand inactif
         headerShown: false, // On cache le titre par défaut en haut (on le fera nous-même)
-        
+
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopWidth: 0, // Enlève la ligne du haut pour un look plus moderne
