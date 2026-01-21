@@ -8,6 +8,8 @@ import {
   Modal,
   TextInput,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -16,26 +18,44 @@ type Ingredient = {
   name: string;
   category: string;
   emoji: string;
+  quantity: string;
 };
 
 const suggestedIngredients: Ingredient[] = [
-  { id: "1", name: "Tomates", category: "Légumes", emoji: "🍅" },
-  { id: "2", name: "Oignons", category: "Légumes", emoji: "🧅" },
-  { id: "3", name: "Pâtes", category: "Féculents", emoji: "🍝" },
-  { id: "4", name: "Riz", category: "Féculents", emoji: "🍚" },
-  { id: "5", name: "Œufs", category: "Produits laitiers", emoji: "🥚" },
-  { id: "6", name: "Fromage", category: "Produits laitiers", emoji: "🧀" },
-  { id: "7", name: "Poulet", category: "Viandes", emoji: "🍗" },
-  { id: "8", name: "Carottes", category: "Légumes", emoji: "🥕" },
+  { id: "1", name: "Tomates", category: "Légumes", emoji: "🍅", quantity: "1" },
+  { id: "2", name: "Oignons", category: "Légumes", emoji: "🧅", quantity: "1" },
+  { id: "3", name: "Pâtes", category: "Féculents", emoji: "🍝", quantity: "250g" },
+  { id: "4", name: "Riz", category: "Féculents", emoji: "🍚", quantity: "250g" },
+  { id: "5", name: "Œufs", category: "Produits laitiers", emoji: "🥚", quantity: "6" },
+  { id: "6", name: "Fromage", category: "Produits laitiers", emoji: "🧀", quantity: "200g" },
+  { id: "7", name: "Poulet", category: "Viandes", emoji: "🍗", quantity: "500g" },
+  { id: "8", name: "Carottes", category: "Légumes", emoji: "🥕", quantity: "1" },
 ];
 
 export default function FridgeScreen() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [newIngredient, setNewIngredient] = useState("");
+  const [newQuantity, setNewQuantity] = useState("1");
 
   const addIngredient = (ingredient: Ingredient) => {
-    if (!ingredients.find((i) => i.id === ingredient.id)) {
+    const existing = ingredients.find(
+      (i) => i.name.toLowerCase() === ingredient.name.toLowerCase()
+    );
+
+    if (existing) {
+      // si c'est un nombre, additionner
+      const a = parseFloat(existing.quantity);
+      const b = parseFloat(ingredient.quantity);
+
+      if (!isNaN(a) && !isNaN(b)) {
+        existing.quantity = String(a + b);
+      } else {
+        existing.quantity = `${existing.quantity} + ${ingredient.quantity}`;
+      }
+
+      setIngredients([...ingredients]);
+    } else {
       setIngredients([...ingredients, ingredient]);
     }
   };
@@ -52,9 +72,11 @@ export default function FridgeScreen() {
       name: newIngredient,
       category: "Autres",
       emoji: "🥘",
+      quantity: newQuantity || "1",
     });
 
     setNewIngredient("");
+    setNewQuantity("1");
     setShowModal(false);
   };
 
@@ -64,8 +86,7 @@ export default function FridgeScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Mon Frigo 🧊</Text>
         <Text style={styles.subText}>
-          {ingredients.length} ingrédient
-          {ingredients.length !== 1 ? "s" : ""}
+          {ingredients.length} ingrédient{ingredients.length !== 1 ? "s" : ""}
         </Text>
       </View>
 
@@ -97,6 +118,7 @@ export default function FridgeScreen() {
                   </TouchableOpacity>
 
                   <Text style={styles.emoji}>{ingredient.emoji}</Text>
+                  <Text style={styles.quantity}>{ingredient.quantity} ×</Text>
                   <Text style={styles.name}>{ingredient.name}</Text>
                   <Text style={styles.category}>{ingredient.category}</Text>
                 </View>
@@ -119,55 +141,78 @@ export default function FridgeScreen() {
 
       {/* MODAL */}
       <Modal visible={showModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modal}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Ajouter un ingrédient</Text>
-              <TouchableOpacity onPress={() => setShowModal(false)}>
-                <Ionicons name="close" size={22} />
-              </TouchableOpacity>
-            </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modal}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Ajouter un ingrédient</Text>
+                <TouchableOpacity onPress={() => setShowModal(false)}>
+                  <Ionicons name="close" size={22} />
+                </TouchableOpacity>
+              </View>
 
-            {/* INPUT */}
-            <View style={styles.inputRow}>
-              <TextInput
-                value={newIngredient}
-                onChangeText={setNewIngredient}
-                placeholder="Nom de l'ingrédient"
-                style={styles.input}
-              />
+              {/* INPUTS */}
+              <View style={styles.inputRow}>
+                <TextInput
+                  value={newIngredient}
+                  onChangeText={setNewIngredient}
+                  placeholder="Nom de l'ingrédient"
+                  style={[styles.input, { flex: 2 }]}
+                  returnKeyType="done"
+                  onSubmitEditing={addCustomIngredient}
+                />
+
+                <TextInput
+                  value={newQuantity}
+                  onChangeText={setNewQuantity}
+                  placeholder="Quantité (ex: 500g)"
+                  style={[styles.input, { flex: 1, marginLeft: 10 }]}
+                />
+              </View>
+
+              {/* BOUTON AJOUTER */}
               <TouchableOpacity
-                style={styles.confirmBtn}
+                style={styles.addModalButton}
                 onPress={addCustomIngredient}
               >
                 <Ionicons name="add" size={20} color="#FFF" />
+                <Text style={styles.addModalText}>Ajouter</Text>
               </TouchableOpacity>
-            </View>
 
-            {/* SUGGESTIONS */}
-            <Text style={styles.suggestionsTitle}>Suggestions</Text>
+              <Text style={styles.suggestionsTitle}>Suggestions</Text>
 
-            <View style={styles.grid}>
-              {suggestedIngredients
-                .filter(
-                  (i) => !ingredients.find((ing) => ing.id === i.id)
-                )
-                .map((ingredient) => (
-                  <TouchableOpacity
-                    key={ingredient.id}
-                    style={styles.suggestionCard}
-                    onPress={() => {
-                      addIngredient(ingredient);
-                      setShowModal(false);
-                    }}
-                  >
-                    <Text style={styles.emoji}>{ingredient.emoji}</Text>
-                    <Text style={styles.name}>{ingredient.name}</Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.grid}>
+                {suggestedIngredients
+                  .filter(
+                    (i) =>
+                      !ingredients.find(
+                        (ing) =>
+                          ing.name.toLowerCase() === i.name.toLowerCase()
+                      )
+                  )
+                  .map((ingredient) => (
+                    <TouchableOpacity
+                      key={ingredient.id}
+                      style={styles.suggestionCard}
+                      onPress={() => {
+                        addIngredient({
+                          ...ingredient,
+                          quantity: newQuantity || ingredient.quantity,
+                        });
+                        setShowModal(false);
+                      }}
+                    >
+                      <Text style={styles.emoji}>{ingredient.emoji}</Text>
+                      <Text style={styles.name}>{ingredient.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+              </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -196,6 +241,12 @@ const styles = StyleSheet.create({
   },
   emptyEmoji: { fontSize: 56, marginBottom: 10 },
   emptyText: { color: "#666", marginBottom: 20 },
+
+  quantity: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#FF9F1C",
+  },
 
   addButton: {
     flexDirection: "row",
@@ -272,7 +323,6 @@ const styles = StyleSheet.create({
 
   inputRow: {
     flexDirection: "row",
-    gap: 10,
     marginBottom: 20,
   },
   input: {
@@ -283,10 +333,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  confirmBtn: {
+
+  addModalButton: {
+    marginBottom: 12,
     backgroundColor: "#FF9F1C",
-    padding: 12,
-    borderRadius: 10,
+    paddingVertical: 14,
+    borderRadius: 20,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
+  addModalText: {
+    color: "#FFF",
+    fontWeight: "700",
   },
 
   suggestionsTitle: {
