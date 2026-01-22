@@ -2,17 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import {
-    ActivityIndicator,
-    Platform,
-    Pressable,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
-} from "react-native";
+import { Platform, Pressable, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 const COLORS = {
   bg: "#FFF7EC",
@@ -57,8 +47,8 @@ function removeAt(list: string[], idx: number) {
 }
 
 export default function ConfigurationProfilScreen() {
-  const TOTAL_STEPS = 7;
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6 | 7 | 8>(1);
+  const TOTAL_STEPS = 7; // nombre de questions
+  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9>(0);
   const [diets, setDiets] = useState<string[]>([]);
   const [location, setLocation] = useState(""); // ville ou code postal
   const [budget, setBudget] = useState<BudgetChoice | null>(null);
@@ -68,9 +58,11 @@ export default function ConfigurationProfilScreen() {
   const [people, setPeople] = useState<PeopleChoice | null>(null);
   const [vegQuery, setVegQuery] = useState("");
   const [allergyQuery, setAllergyQuery] = useState("");
+  
 
   const progress = useMemo(() => {
-    if (step === 8) return 1;
+    if (step <= 0) return 0;
+    if (step >= 8) return 1;
     return step / TOTAL_STEPS;
   }, [step]);
 
@@ -82,6 +74,8 @@ export default function ConfigurationProfilScreen() {
 
   const canContinue = useMemo(() => {
     switch (step) {
+      case 0:
+        return true;
       case 1:
         return diets.length > 0;
       case 2:
@@ -96,21 +90,28 @@ export default function ConfigurationProfilScreen() {
         return true;
       case 7:
         return !!people;
+      case 8:
+        return true; 
       default:
         return false;
     }
   }, [step, diets, location, budget, cuisine, people]);
 
   const next = async () => {
-    if (!canContinue) return;
-
-    if (step < 7) {
-      setStep((s) => (s + 1) as any);
-      return;
-    }
-
+  if (!canContinue) return;
+  if (step === 0) {
+    setStep(1);
+    return;
+  }
+  if (step >= 1 && step <= 6) {
+    setStep((s) => (s + 1) as any);
+    return;
+  }
+  if (step === 7) {
     setStep(8);
-
+    return;
+  }
+  if (step === 8) {
     const payload = {
       diets,
       location: location.trim(),
@@ -120,27 +121,16 @@ export default function ConfigurationProfilScreen() {
       allergies,
       people,
     };
-
     try {
       await AsyncStorage.setItem("profileConfig", JSON.stringify(payload));
-      await new Promise((r) => setTimeout(r, 1200));
-      router.replace("/(tabs)");
     } catch (e) {
-      await new Promise((r) => setTimeout(r, 800));
-      router.replace("/(tabs)");
     }
-  };
-
-  const back = () => {
-    if (step <= 1) {
-      router.back();
-      return;
-    }
-    if (step === 8) return;
-    setStep((s) => (s - 1) as any);
+    router.replace("/(tabs)");
+    };
   };
 
   const vegSuggestions = useMemo(() => {
+    if (step !== 5) return [];
     const q = vegQuery.trim().toLowerCase();
     if (!q) return [];
     return VEGETABLES.filter(
@@ -148,9 +138,10 @@ export default function ConfigurationProfilScreen() {
         v.toLowerCase().includes(q) &&
         !avoidVeg.some((x) => x.toLowerCase() === v.toLowerCase())
     ).slice(0, 6);
-  }, [vegQuery, avoidVeg]);
+  }, [step, vegQuery, avoidVeg]);
 
   const allergySuggestions = useMemo(() => {
+    if (step !== 6) return [];
     const q = allergyQuery.trim().toLowerCase();
     if (!q) return [];
     return ALLERGIES.filter(
@@ -158,13 +149,12 @@ export default function ConfigurationProfilScreen() {
         a.toLowerCase().includes(q) &&
         !allergies.some((x) => x.toLowerCase() === a.toLowerCase())
     ).slice(0, 6);
-  }, [allergyQuery, allergies]);
+  }, [step, allergyQuery, allergies]);
 
   const addVeg = (v: string) => {
     setAvoidVeg((prev) => uniqAdd(prev, v));
     setVegQuery("");
   };
-
   const addAllergy = (a: string) => {
     setAllergies((prev) => uniqAdd(prev, a));
     setAllergyQuery("");
@@ -176,15 +166,28 @@ export default function ConfigurationProfilScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Personnalise ton profil</Text>
           <Text style={styles.headerStep}>
-            {step === 8 ? `${TOTAL_STEPS}/${TOTAL_STEPS}` : `${step}/${TOTAL_STEPS}`}
+            {step === 0 ? `0/${TOTAL_STEPS}` : step >= 8 ? `${TOTAL_STEPS}/${TOTAL_STEPS}` : `${step}/${TOTAL_STEPS}`}
           </Text>
         </View>
-
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
         </View>
-
+        <View style={styles.cardContainer}>
         <View style={styles.card}>
+          {step === 0 && (
+          <View style={styles.welcomeContainer}>
+            <View style={styles.welcomeHero}>
+              <View style={styles.welcomeIcon}>
+                <Ionicons name="sparkles" size={28} color="#fff" />
+              </View>
+              <Text style={styles.welcomeTitle}>Bienvenue sur Ymeal</Text>
+              <Text style={styles.welcomeSubtitle}>
+                On va te poser quelques questions rapides pour adapter les recettes à ton
+                budget, ton régime et tes goûts.
+              </Text>
+            </View>
+          </View>
+          )}
           {step === 1 && (
             <>
               <View style={styles.questionRow}>
@@ -192,14 +195,14 @@ export default function ConfigurationProfilScreen() {
                 <Text style={styles.question}>Quel est ton régime alimentaire ?</Text>
               </View>
               <Text style={styles.helper}>Tu peux en sélectionner plusieurs.</Text>
-
               <View style={styles.grid}>
                 {DIETS.map((d) => {
                   const selected = diets.includes(d.key);
                   return (
-                    <Pressable
+                    <TouchableOpacity
                       key={d.key}
                       onPress={() => toggleDiet(d.key)}
+                      activeOpacity={0.85}
                       style={[
                         styles.tile,
                         selected && styles.tileSelected,
@@ -209,44 +212,39 @@ export default function ConfigurationProfilScreen() {
                       <Text style={[styles.tileText, selected && styles.tileTextSelected]}>
                         {d.label}
                       </Text>
-                    </Pressable>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
             </>
           )}
-
           {step === 2 && (
             <>
               <View style={styles.questionRow}>
                 <Ionicons name="location-outline" size={18} color={COLORS.orange} />
                 <Text style={styles.question}>Où habites-tu ?</Text>
               </View>
-
               <Text style={styles.label}>Ville ou code postal</Text>
               <View style={styles.inputWrap}>
-                <TextInput
-                  value={location}
-                  onChangeText={setLocation}
-                  placeholder="ex: 84300"
-                  keyboardType="default"
-                  style={styles.input}
-                />
-              </View>
-
+              <Ionicons name="location-outline" size={18} color={COLORS.muted} />
+              <TextInput
+                value={location}
+                onChangeText={setLocation}
+                placeholder="ex: 84300"
+                style={styles.input}
+              />
+            </View>
               <Text style={styles.note}>
                 Nous utiliserons cette information pour te proposer des bons plans près de chez toi.
               </Text>
             </>
           )}
-
           {step === 3 && (
             <>
               <View style={styles.questionRow}>
                 <Ionicons name="wallet-outline" size={18} color={COLORS.orange} />
                 <Text style={styles.question}>Quel est ton budget mensuel ?</Text>
               </View>
-
               <View style={{ marginTop: 8 }}>
                 <Pressable
                   onPress={() => setBudget("PETIT")}
@@ -258,7 +256,6 @@ export default function ConfigurationProfilScreen() {
                     <Text style={styles.choiceSub}>&lt; 100€/mois</Text>
                   </View>
                 </Pressable>
-
                 <Pressable
                   onPress={() => setBudget("MOYEN")}
                   style={[styles.choiceRow, budget === "MOYEN" && styles.choiceRowSelected]}
@@ -269,7 +266,6 @@ export default function ConfigurationProfilScreen() {
                     <Text style={styles.choiceSub}>100-200€/mois</Text>
                   </View>
                 </Pressable>
-
                 <Pressable
                   onPress={() => setBudget("LARGE")}
                   style={[styles.choiceRow, budget === "LARGE" && styles.choiceRowSelected]}
@@ -283,7 +279,6 @@ export default function ConfigurationProfilScreen() {
               </View>
             </>
           )}
-
           {step === 4 && (
             <>
               <View style={styles.questionRow}>
@@ -291,7 +286,6 @@ export default function ConfigurationProfilScreen() {
                 <Text style={styles.question}>As-tu une alimentation favorite ?</Text>
               </View>
               <Text style={styles.helper}>Choisis 1 style de cuisine.</Text>
-
               <View style={styles.chipsWrap}>
                 {CUISINES.map((c) => {
                   const selected = cuisine === c;
@@ -310,16 +304,13 @@ export default function ConfigurationProfilScreen() {
               </View>
             </>
           )}
-
           {step === 5 && (
             <>
               <View style={styles.questionRow}>
                 <Ionicons name="alert-circle-outline" size={18} color={COLORS.orange} />
                 <Text style={styles.question}>Y a-t-il des légumes que tu veux éviter ?</Text>
               </View>
-
               <Text style={styles.helper}>Tape quelques lettres et sélectionne. Plusieurs possibles.</Text>
-
               <View style={styles.inputWrap}>
                 <TextInput
                   value={vegQuery}
@@ -328,7 +319,6 @@ export default function ConfigurationProfilScreen() {
                   style={styles.input}
                 />
               </View>
-
               {vegSuggestions.length > 0 && (
                 <View style={styles.suggestions}>
                   {vegSuggestions.map((v) => (
@@ -339,7 +329,6 @@ export default function ConfigurationProfilScreen() {
                   ))}
                 </View>
               )}
-
               {avoidVeg.length > 0 && (
                 <View style={styles.selectedWrap}>
                   {avoidVeg.map((v, idx) => (
@@ -363,10 +352,9 @@ export default function ConfigurationProfilScreen() {
                 <Ionicons name="medkit-outline" size={18} color={COLORS.orange} />
                 <Text style={styles.question}>As-tu des allergies ?</Text>
               </View>
-
               <Text style={styles.helper}>Même système: recherche + multi-sélection.</Text>
-
               <View style={styles.inputWrap}>
+              <Ionicons name="search" size={18} color={COLORS.muted} />
                 <TextInput
                   value={allergyQuery}
                   onChangeText={setAllergyQuery}
@@ -374,7 +362,6 @@ export default function ConfigurationProfilScreen() {
                   style={styles.input}
                 />
               </View>
-
               {allergySuggestions.length > 0 && (
                 <View style={styles.suggestions}>
                   {allergySuggestions.map((a) => (
@@ -385,7 +372,6 @@ export default function ConfigurationProfilScreen() {
                   ))}
                 </View>
               )}
-
               {allergies.length > 0 && (
                 <View style={styles.selectedWrap}>
                   {allergies.map((a, idx) => (
@@ -402,14 +388,12 @@ export default function ConfigurationProfilScreen() {
               )}
             </>
           )}
-
           {step === 7 && (
             <>
               <View style={styles.questionRow}>
                 <Ionicons name="people-outline" size={18} color={COLORS.orange} />
                 <Text style={styles.question}>Pour combien de personnes cuisines-tu ?</Text>
               </View>
-
               <View style={{ marginTop: 10 }}>
                 {[
                   { key: "1", label: "1 personne", icon: "🧍" },
@@ -432,26 +416,29 @@ export default function ConfigurationProfilScreen() {
               </View>
             </>
           )}
-
           {step === 8 && (
-            <View style={{ alignItems: "center", paddingVertical: 28 }}>
-              <View style={styles.thanksIcon}>
+            <View style={{ alignItems: "center", paddingVertical: 18 }}>
+              <View style={styles.bigIcon}>
                 <Ionicons name="checkmark" size={26} color="#fff" />
               </View>
-              <Text style={styles.thanksTitle}>Merci !</Text>
-              <Text style={styles.thanksSub}>On te prépare une expérience aux petits oignons.</Text>
-              <View style={{ marginTop: 18 }}>
-                <ActivityIndicator size="large" color={COLORS.orange} />
-              </View>
+              <Text style={styles.welcomeTitle}>Parfait !</Text>
+              <Text style={styles.welcomeText}>
+                Ton profil est prêt. On va maintenant te proposer des recettes adaptées à
+                tes préférences et à ton budget.
+              </Text>
+              <TouchableOpacity
+                onPress={next}
+                style={[styles.btn, styles.btnPrimary, { marginTop: 18, width: "100%", height: 80 }]}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.btnPrimaryText}>
+                  C'est parti ! <Ionicons name="arrow-forward" size={16} color="#fff" />
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
-
           {step !== 8 && (
             <View style={styles.actions}>
-              <TouchableOpacity onPress={back} style={[styles.btn, styles.btnGhost]} activeOpacity={0.85}>
-                <Text style={styles.btnGhostText}>Retour</Text>
-              </TouchableOpacity>
-
               <TouchableOpacity
                 onPress={next}
                 style={[styles.btn, styles.btnPrimary, !canContinue && styles.btnDisabled]}
@@ -466,201 +453,294 @@ export default function ConfigurationProfilScreen() {
             </View>
           )}
         </View>
-
         {step === 4 && <View style={{ height: 30 }} />}
+      </View>
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
-  screen: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    justifyContent: "center",
-  },
-
-  header: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    paddingHorizontal: 6,
-    marginBottom: 10,
-  },
-  headerTitle: { fontSize: 22, fontWeight: "800", color: COLORS.text },
-  headerStep: { fontSize: 13, fontWeight: "700", color: COLORS.muted },
-
-  progressTrack: {
-    height: 6,
-    backgroundColor: "rgba(15,23,42,0.10)",
-    borderRadius: 999,
-    overflow: "hidden",
-    marginHorizontal: 6,
-    marginBottom: 14,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: COLORS.orange,
-    borderRadius: 999,
-  },
-
-  card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 18,
-    padding: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 10 },
-      },
-      android: { elevation: 6 },
-    }),
-  },
-
-  questionRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  question: { fontSize: 16, fontWeight: "800", color: COLORS.text, flex: 1 },
-
-  helper: { marginTop: 8, color: COLORS.sub, fontSize: 12, lineHeight: 16 },
-
-  label: { marginTop: 14, marginBottom: 8, fontSize: 12, fontWeight: "700", color: COLORS.sub },
-
-  inputWrap: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 44,
-    justifyContent: "center",
-    backgroundColor: "#fff",
-    marginTop: 10,
-  },
-  input: { fontSize: 14, color: COLORS.text },
-
-  note: { marginTop: 10, fontSize: 12, color: COLORS.sub, lineHeight: 16 },
-
-  // Step 1 grid
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginTop: 14,
-    rowGap: 12,
-  },
   tile: {
-    width: "48%",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-    backgroundColor: "#fff",
-  },
-  tileSelected: {
-    borderColor: COLORS.orange,
-    backgroundColor: COLORS.orangeSoft,
-  },
-  tileEmoji: { fontSize: 22, marginBottom: 8 },
-  tileText: { fontSize: 13, fontWeight: "700", color: COLORS.text, textAlign: "center" },
-  tileTextSelected: { color: COLORS.text },
-
-  // Choices rows (budget / people)
-  choiceRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 14,
-    padding: 14,
-    backgroundColor: "#fff",
-    marginBottom: 12,
-  },
-  choiceRowSelected: {
-    borderColor: COLORS.orange,
-    backgroundColor: COLORS.orangeSoft,
-  },
-  choiceIcon: { fontSize: 22 },
-  choiceTitle: { fontSize: 14, fontWeight: "800", color: COLORS.text },
-  choiceSub: { fontSize: 12, color: COLORS.sub, marginTop: 2 },
-
-  // Chips (cuisine)
-  chipsWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 12,
-    gap: 10,
-  },
-  chip: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: "#fff",
-  },
-  chipSelected: {
-    borderColor: COLORS.orange,
-    backgroundColor: COLORS.orangeSoft,
-  },
-  chipText: { fontSize: 12, fontWeight: "700", color: COLORS.text },
-  chipTextSelected: { color: COLORS.text },
-
-  // Suggestions + selected chips
-  suggestions: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#fff",
-  },
-  suggestionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  suggestionText: { fontSize: 13, fontWeight: "600", color: COLORS.text },
-
-  selectedWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
-  selectedChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderWidth: 1,
-    borderColor: COLORS.orange,
-    backgroundColor: COLORS.orangeSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  selectedChipText: { fontSize: 12, fontWeight: "700", color: COLORS.text },
-
-  actions: { flexDirection: "row", justifyContent: "space-between", marginTop: 16, gap: 12 },
-  btn: { flex: 1, height: 46, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  btnGhost: { borderWidth: 1, borderColor: COLORS.border, backgroundColor: "#fff" },
-  btnGhostText: { color: COLORS.sub, fontWeight: "800" },
-  btnPrimary: { backgroundColor: COLORS.orange },
-  btnPrimaryText: { color: "#fff", fontWeight: "900", fontSize: 13 },
-  btnDisabled: { opacity: 0.5 },
-
-  thanksIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: COLORS.orange,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  thanksTitle: { fontSize: 22, fontWeight: "900", color: COLORS.text },
-  thanksSub: { marginTop: 6, fontSize: 12, color: COLORS.sub, textAlign: "center", lineHeight: 16 },
+  width: "48%",
+  borderWidth: 1,
+  borderColor: "rgba(15,23,42,0.08)",
+  borderRadius: 18,
+  paddingVertical: 16,
+  alignItems: "center",
+  backgroundColor: "#fff",
+},
+tileSelected: {
+  borderColor: COLORS.orange,
+  backgroundColor: "rgba(255, 122, 0, 0.10)",
+  transform: [{ scale: 0.98 }],
+},
+tileEmoji: { fontSize: 24, marginBottom: 8 },
+tileText: {
+  fontSize: 13,
+  fontWeight: "800",
+  color: COLORS.text,
+  textAlign: "center",
+},
+  screen: {
+  flex: 1,
+  backgroundColor: COLORS.bg,
+  paddingHorizontal: 18,
+  paddingTop: 10,
+},
+cardContainer: {
+  flex: 1,
+  paddingBottom: 18,
+},
+card: {
+  flex: 1,
+  backgroundColor: COLORS.card,
+  borderRadius: 22,
+  padding: 18,
+  justifyContent: "center",
+  borderWidth: 1,
+  borderColor: "rgba(15,23,42,0.06)",
+  ...Platform.select({
+    ios: {
+      shadowColor: "#000",
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 8 },
+    },
+    android: { elevation: 3 }, // ⬅️ baisse énorme
+  }),
+},
+header: {
+  height: 56,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  paddingHorizontal: 6,
+},
+headerTitle: {
+  fontSize: 22,
+  fontWeight: "900",
+  color: COLORS.text,
+  letterSpacing: 0.2,
+},
+headerStep: {
+  fontSize: 12,
+  fontWeight: "800",
+  color: COLORS.orange,
+  paddingHorizontal: 10,
+  paddingVertical: 6,
+  borderRadius: 999,
+  backgroundColor: COLORS.orangeSoft,
+},
+progressTrack: {
+  height: 8,
+  backgroundColor: "rgba(15,23,42,0.08)",
+  borderRadius: 999,
+  overflow: "hidden",
+  marginHorizontal: 6,
+  marginBottom: 14,
+},
+progressFill: {
+  height: "100%",
+  backgroundColor: COLORS.orange,
+  borderRadius: 999,
+},
+safe: { flex: 1, backgroundColor: COLORS.bg },
+questionRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
+question: {
+  fontSize: 17,
+  fontWeight: "900",
+  color: COLORS.text,
+  flex: 1,
+},
+helper: {
+  marginTop: 6,
+  color: COLORS.sub,
+  fontSize: 13,
+  lineHeight: 18,
+},
+inputWrap: {
+  borderWidth: 1,
+  borderColor: "rgba(15,23,42,0.08)",
+  borderRadius: 14,
+  paddingHorizontal: 12,
+  height: 48,
+  flexDirection: "row",
+  alignItems: "center",
+  backgroundColor: "#FAFAFA",
+  marginTop: 10,
+},
+input: { flex: 1, fontSize: 14, color: COLORS.text, marginLeft: 8 },
+label: { marginTop: 14, marginBottom: 8, fontSize: 12, fontWeight: "700", color: COLORS.sub },
+note: { marginTop: 10, fontSize: 12, color: COLORS.sub, lineHeight: 16 },
+grid: {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  justifyContent: "space-between",
+  marginTop: 14,
+  rowGap: 12,
+},
+actions: { flexDirection: "row", justifyContent: "space-between", marginTop: 18, gap: 12 },
+btn: {
+  flex: 1,
+  height: 48,
+  borderRadius: 14,
+  alignItems: "center",
+  justifyContent: "center",
+},
+btnGhost: {
+  borderWidth: 1,
+  borderColor: "rgba(15,23,42,0.10)",
+  backgroundColor: "#fff",
+},
+btnGhostText: { color: COLORS.sub, fontWeight: "900" },
+btnPrimary: {
+  backgroundColor: COLORS.orange,
+},
+btnPrimaryText: {
+  color: "#fff",
+  fontWeight: "900",
+  fontSize: 14,
+  height: 48,
+  lineHeight: 48,
+},
+tileTextSelected: { color: COLORS.text },
+choiceRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+  borderWidth: 1,
+  borderColor: COLORS.border,
+  borderRadius: 14,
+  padding: 14,
+  backgroundColor: "#fff",
+  marginBottom: 12,
+},
+choiceRowSelected: {
+  borderColor: COLORS.orange,
+  backgroundColor: COLORS.orangeSoft,
+},
+choiceIcon: { fontSize: 22 },
+choiceTitle: { fontSize: 14, fontWeight: "800", color: COLORS.text },
+choiceSub: { fontSize: 12, color: COLORS.sub, marginTop: 2 },
+chipsWrap: {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  marginTop: 12,
+  gap: 10,
+},
+chip: {
+  borderWidth: 1,
+  borderColor: COLORS.border,
+  borderRadius: 999,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  backgroundColor: "#fff",
+},
+chipSelected: {
+  borderColor: COLORS.orange,
+  backgroundColor: COLORS.orangeSoft,
+},
+chipText: { fontSize: 12, fontWeight: "700", color: COLORS.text },
+chipTextSelected: { color: COLORS.text },
+suggestions: {
+  marginTop: 10,
+  borderWidth: 1,
+  borderColor: COLORS.border,
+  borderRadius: 12,
+  overflow: "hidden",
+  backgroundColor: "#fff",
+},
+suggestionItem: {
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "space-between",
+  paddingHorizontal: 12,
+  paddingVertical: 12,
+  borderTopWidth: 1,
+  borderTopColor: COLORS.border,
+},
+suggestionText: { fontSize: 13, fontWeight: "600", color: COLORS.text },
+selectedWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
+selectedChip: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
+  borderWidth: 1,
+  borderColor: COLORS.orange,
+  backgroundColor: COLORS.orangeSoft,
+  paddingHorizontal: 10,
+  paddingVertical: 8,
+  borderRadius: 999,
+},
+selectedChipText: { fontSize: 12, fontWeight: "700", color: COLORS.text },
+btnDisabled: { opacity: 0.5 },
+thanksIcon: {
+  width: 54,
+  height: 54,
+  borderRadius: 27,
+  backgroundColor: COLORS.orange,
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 12,
+},
+thanksTitle: { fontSize: 22, fontWeight: "900", color: COLORS.text },
+thanksSub: { marginTop: 6, fontSize: 12, color: COLORS.sub, textAlign: "center", lineHeight: 16 },
+bigIcon: {
+  width: 54,
+  height: 54,
+  borderRadius: 27,
+  backgroundColor: COLORS.orange,
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 12,
+},
+welcomeTitle: {
+  fontSize: 22,
+  fontWeight: "900",
+  color: COLORS.text,
+  marginBottom: 8,
+},
+welcomeText: {
+  fontSize: 13,
+  color: COLORS.sub,
+  textAlign: "center",
+  lineHeight: 18,
+},
+welcomeContainer: {
+  paddingVertical: 24,
+  minHeight: 250,
+  justifyContent: "space-between",
+},
+welcomeHero: {
+  alignItems: "center",
+  paddingTop: 10,
+},
+welcomeIcon: {
+  width: 64,
+  height: 64,
+  borderRadius: 32,
+  backgroundColor: COLORS.orange,
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 18,
+},
+welcomeSubtitle: {
+  fontSize: 14,
+  color: COLORS.sub,
+  textAlign: "center",
+  lineHeight: 20,
+  paddingHorizontal: 10,
+},
+welcomeContent: {
+  paddingHorizontal: 8,
+  marginTop: 10,
+},
+welcomeHighlight: {
+  fontWeight: "800",
+  color: COLORS.text,
+},
+welcomeActions: {
+  paddingTop: 10,
+},
 });

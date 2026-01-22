@@ -1,12 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator } from "react-native-paper";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function InscriptionScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const canSubmit = useMemo(() => {
     return (
@@ -17,14 +20,30 @@ export default function InscriptionScreen() {
     );
   }, [email, password, confirm]);
 
-  const onContinue = () => {
+  const onContinue = async () => {
     if (!email.trim()) return Alert.alert("Erreur", "Renseigne ton email.");
     if (password.length < 6)
       return Alert.alert("Erreur", "Mot de passe trop court (min 6).");
     if (password !== confirm)
       return Alert.alert("Erreur", "Les mots de passe ne correspondent pas.");
-    Alert.alert("OK", "Compte en cours de création (bientôt).");
+
+    setLoading(true);
+
+    setTimeout(() => {
+      router.replace("/configuration-profil");
+    }, 450);
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FFF7EC" }}>
+        <ActivityIndicator size="large" />
+        <Text style={{ marginTop: 12, color: "#475569", fontWeight: "600" }}>
+          Préparation…
+        </Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <View style={styles.container}>
