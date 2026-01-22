@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Link } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View, KeyboardAvoidingView } from "react-native";
 
 export default function InscriptionScreen() {
   const [email, setEmail] = useState("");
@@ -27,6 +27,10 @@ export default function InscriptionScreen() {
   };
 
   return (
+    <KeyboardAvoidingView
+    style={{ flex: 1 }}
+    behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.logoCircle}>
@@ -98,6 +102,7 @@ export default function InscriptionScreen() {
         </Text>
       </View>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

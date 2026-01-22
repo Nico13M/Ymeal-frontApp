@@ -9,6 +9,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
 } from "react-native";
 
 export default function ConnexionScreen() {
@@ -30,6 +31,10 @@ export default function ConnexionScreen() {
   };
 
   return (
+    <KeyboardAvoidingView
+     style={{ flex: 1 }}
+     behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
     <View style={styles.container}>
       {/* Header logo */}
       <View style={styles.header}>
@@ -89,6 +94,7 @@ export default function ConnexionScreen() {
         </View>
       </View>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router'; // <--- IMPORT IMPORTANT
 import React, { useEffect, useState } from 'react';
 import {
+  Dimensions,
   Image,
   ScrollView,
   StatusBar,
