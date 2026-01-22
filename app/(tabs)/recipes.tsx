@@ -1,6 +1,73 @@
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Link } from 'expo-router';
+import React, { useRef, useState } from 'react';
+import {
+    FlatList, Image,
+    Keyboard,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import { RECIPES } from '../../constants/recipesData';
 
 export default function RecipesScreen() {
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const inputRef = useRef(null);
+
+  const filteredRecipes = RECIPES.filter(recipe =>
+    recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    recipe.ingredients.some(ing => ing.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const toggleSearch = () => {
+    if (isSearchActive) {
+      setIsSearchActive(false);
+      setSearchQuery('');
+      Keyboard.dismiss();
+    } else {
+      setIsSearchActive(true);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  };
+
+  const renderRecipeItem = ({ item }) => (
+    <Link href={`/recipe/${item.id}`} asChild>
+      <TouchableOpacity style={styles.card}>
+        <Image source={{ uri: item.image }} style={styles.cardImage} />
+        <View style={styles.cardContent}>
+          <View style={styles.rowBetween}>
+             <Text style={styles.cardTitle}>{item.title}</Text>
+             <View style={styles.ratingBadge}>
+               <Ionicons name="star" size={12} color="#FFF" />
+               <Text style={styles.ratingText}>{item.rating}</Text>
+             </View>
+          </View>
+          <View style={styles.metaContainer}>
+            <View style={styles.metaItem}>
+              <Ionicons name="time-outline" size={14} color="#666" />
+              <Text style={styles.metaText}>{item.time}</Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Ionicons name="people-outline" size={14} color="#666" />
+              <Text style={styles.metaText}>{item.reviews} avis</Text>
+            </View>
+          </View>
+          <View style={styles.rowBetween}>
+            <View style={styles.tag}>
+              <Text style={styles.tagText}>{item.difficulty}</Text>
+            </View>
+            <Text style={styles.linkText}>Voir la recette ➔</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Link>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
