@@ -6,19 +6,24 @@ import { ActivityIndicator } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function InscriptionScreen() {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const canSubmit = useMemo(() => {
-    return (
-      email.trim().length > 3 &&
-      password.length >= 6 &&
-      confirm.length >= 6 &&
-      password === confirm
-    );
-  }, [email, password, confirm]);
+const canSubmit = useMemo(() => {
+  return (
+    firstName.trim().length > 1 &&
+    lastName.trim().length > 1 &&
+    email.trim().length > 3 &&
+    password.length >= 6 &&
+    confirm.length >= 6 &&
+    password === confirm
+  );
+}, [firstName, lastName, email, password, confirm]);
 
   const onContinue = async () => {
     if (!email.trim()) return Alert.alert("Erreur", "Renseigne ton email.");
@@ -57,13 +62,54 @@ export default function InscriptionScreen() {
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Créer un compte</Text>
+        <Text style={styles.label}>Nom</Text>
+        <View style={styles.row}>
+          <View style={styles.halfInput}>
+            <View style={styles.inputWrap}>
+              <Ionicons name="person-outline" size={18} color="#9AA3AF" />
+              <TextInput
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder="Prénom"
+                autoCapitalize="words"
+                style={styles.input}
+              />
+            </View>
+          </View>
+
+          <View style={styles.halfInput}>
+            <View style={styles.inputWrap}>
+              <Ionicons name="person-outline" size={18} color="#9AA3AF" />
+              <TextInput
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder="Nom"
+                autoCapitalize="words"
+                style={styles.input}
+              />
+            </View>
+          </View>
+        </View>
+        <Text style={styles.label}>Surnom</Text>
+        <View style={styles.inputWrap}>
+          <Ionicons name="person-outline" size={18} color="#9AA3AF" />
+          <TextInput
+            value={nickname}
+            onChangeText={setNickname}
+            placeholder="surnom"
+            keyboardType="default"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.input}
+          />
+        </View>
         <Text style={styles.label}>Adresse email</Text>
         <View style={styles.inputWrap}>
           <Ionicons name="mail-outline" size={18} color="#9AA3AF" />
           <TextInput
             value={email}
             onChangeText={setEmail}
-            placeholder="ton.email@etudiant.fr"
+            placeholder="tonemail@etudiant.fr"
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -242,5 +288,9 @@ loginLink: {
   fontWeight: "700",
   color: "#FF7A00",
 },
+
+row: { flexDirection: "row", gap: 10 },
+
+halfInput: { flex: 1 },
 
 });

@@ -1,39 +1,12 @@
+import { ALLERGIES, COLORS, CUISINES, DIETS, VEGETABLES } from "@/constants/profileConfig";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Platform, Pressable, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-
-const COLORS = {
-  bg: "#FFF7EC",
-  card: "#FFFFFF",
-  text: "#0F172A",
-  sub: "#475569",
-  border: "#E2E8F0",
-  orange: "#FF7A00",
-  orangeSoft: "rgba(255, 122, 0, 0.12)",
-  muted: "#94A3B8",
-};
+import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 type BudgetChoice = "PETIT" | "MOYEN" | "LARGE";
 type PeopleChoice = "1" | "2" | "3-4" | "5+";
-
-const DIETS = [
-  { key: "omnivore", label: "Omnivore", icon: "🍗" },
-  { key: "flexitarien", label: "Flexitarien", icon: "🥗" },
-  { key: "vegetarien", label: "Végétarien", icon: "🥬" },
-  { key: "vegan", label: "Végan", icon: "🌱" },
-  { key: "pesco", label: "Pesco-végétarien", icon: "🐟" },
-  { key: "halal", label: "Halal", icon: "☪️" },
-  { key: "casher", label: "Casher", icon: "✡️" },
-  { key: "lactose", label: "Sans lactose", icon: "🥛" },
-  { key: "gluten", label: "Sans gluten", icon: "🌾" },
-  { key: "hypo", label: "Hypocalorique", icon: "⚖️" },
-] as const;
-
-const CUISINES = ["Cuisine française","Italienne","Espagnole","Grecque","Indienne","Japonaise","Chinoise","Américaine","Street food","Marocaine"];
-const VEGETABLES = ["Aubergine","Avocat","Betterave","Brocoli","Carotte","Chou-fleur","Choux de Bruxelles","Concombre","Courgette","Épinards","Haricots verts","Maïs","Oignon","Poireau","Poivron","Pomme de terre","Potiron","Salade","Tomate","Radis","Navet","Céleri","Asperge","Artichaut","Fenouil","Chou","Groseille","Laitue","Roquette"];
-const ALLERGIES = ["Arachides","Fruits à coque","Lait","Œufs","Poisson","Crustacés","Soja","Gluten","Sésame","Moutarde","Sulfites","Céleri","Lupin","Mollusques","Graines de pavot", "Fruits de mer", "Blé", "Orge", "Riz", "Maïs", "Sulfites", "Tomate", "Kiwi", "Banane", "Ananas", "Fraise", "Chocolat", "Café", "Levure", "Algues", "Noix de coco"];
 
 function uniqAdd(list: string[], value: string) {
   const v = value.trim();
@@ -47,55 +20,44 @@ function removeAt(list: string[], idx: number) {
 }
 
 export default function ConfigurationProfilScreen() {
-  const TOTAL_STEPS = 7; // nombre de questions
+  const TOTAL_STEPS = 7;
   const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9>(0);
   const [diets, setDiets] = useState<string[]>([]);
-  const [location, setLocation] = useState(""); // ville ou code postal
+  const [location, setLocation] = useState("");
   const [budget, setBudget] = useState<BudgetChoice | null>(null);
-  const [cuisine, setCuisine] = useState<string | null>(null);
+  const [cuisines, setCuisines] = useState<string[]>([]);
   const [avoidVeg, setAvoidVeg] = useState<string[]>([]);
   const [allergies, setAllergies] = useState<string[]>([]);
   const [people, setPeople] = useState<PeopleChoice | null>(null);
   const [vegQuery, setVegQuery] = useState("");
   const [allergyQuery, setAllergyQuery] = useState("");
-  
 
-  const progress = useMemo(() => {
-    if (step <= 0) return 0;
-    if (step >= 8) return 1;
-    return step / TOTAL_STEPS;
-  }, [step]);
+  const progress = useMemo(() => (step <= 0 ? 0 : step >= 8 ? 1 : step / TOTAL_STEPS), [step]);
+
+  const canContinue = useMemo(() => {
+    if (step === 1) return diets.length > 0;
+    if (step === 2) return location.trim().length >= 3;
+    if (step === 3) return !!budget;
+    if (step === 4) return cuisines.length > 0;
+    if (step === 7) return !!people;
+    return true;
+  }, [step, diets, location, budget, cuisines, people]);
+
+  const toggleCuisine = (c: string) => {
+    setCuisines((prev) => {
+      const exists = prev.includes(c);
+      if (exists) return prev.filter((x) => x !== c);
+
+      if (prev.length >= 3) return prev; 
+      return [...prev, c];
+    });
+  };
 
   const toggleDiet = (key: string) => {
     setDiets((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
   };
-
-  const canContinue = useMemo(() => {
-    switch (step) {
-      case 0:
-        return true;
-      case 1:
-        return diets.length > 0;
-      case 2:
-        return location.trim().length >= 3;
-      case 3:
-        return !!budget;
-      case 4:
-        return !!cuisine;
-      case 5:
-        return true;
-      case 6:
-        return true;
-      case 7:
-        return !!people;
-      case 8:
-        return true; 
-      default:
-        return false;
-    }
-  }, [step, diets, location, budget, cuisine, people]);
 
   const next = async () => {
   if (!canContinue) return;
@@ -116,7 +78,7 @@ export default function ConfigurationProfilScreen() {
       diets,
       location: location.trim(),
       budget,
-      cuisine,
+      cuisines,
       avoidVeg,
       allergies,
       people,
@@ -162,6 +124,15 @@ export default function ConfigurationProfilScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+    >
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+      >
       <View style={styles.screen}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Personnalise ton profil</Text>
@@ -232,6 +203,8 @@ export default function ConfigurationProfilScreen() {
                 onChangeText={setLocation}
                 placeholder="ex: 84300"
                 style={styles.input}
+                returnKeyType="next"
+                blurOnSubmit={false}
               />
             </View>
               <Text style={styles.note}>
@@ -285,30 +258,45 @@ export default function ConfigurationProfilScreen() {
                 <Ionicons name="restaurant-outline" size={18} color={COLORS.orange} />
                 <Text style={styles.question}>As-tu une alimentation favorite ?</Text>
               </View>
-              <Text style={styles.helper}>Choisis 1 style de cuisine.</Text>
+              <Text style={styles.helper}>Choisis jusqu’à 3 styles de cuisine.</Text>
               <View style={styles.chipsWrap}>
                 {CUISINES.map((c) => {
-                  const selected = cuisine === c;
+                  const selected = cuisines.includes(c);
+                  const atLimit = !selected && cuisines.length >= 3;
                   return (
                     <Pressable
                       key={c}
-                      onPress={() => setCuisine(c)}
-                      style={[styles.chip, selected && styles.chipSelected]}
+                      onPress={() => toggleCuisine(c)}
+                      style={[
+                        styles.chip,
+                        selected && styles.chipSelected,
+                        atLimit && styles.chipDisabled,
+                      ]}
                     >
-                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          selected && styles.chipTextSelected,
+                          atLimit && styles.chipTextDisabled,
+                        ]}
+                      >
                         {c}
                       </Text>
                     </Pressable>
                   );
                 })}
               </View>
+
+              <Text style={styles.helper}>
+                Sélectionné: {cuisines.length}/3
+              </Text>
             </>
           )}
           {step === 5 && (
             <>
               <View style={styles.questionRow}>
                 <Ionicons name="alert-circle-outline" size={18} color={COLORS.orange} />
-                <Text style={styles.question}>Y a-t-il des légumes que tu veux éviter ?</Text>
+                <Text style={styles.question}>Y a-t-il des ingrédients que tu veux éviter ?</Text>
               </View>
               <Text style={styles.helper}>Tape quelques lettres et sélectionne. Plusieurs possibles.</Text>
               <View style={styles.inputWrap}>
@@ -317,6 +305,8 @@ export default function ConfigurationProfilScreen() {
                   onChangeText={setVegQuery}
                   placeholder="ex: bro..."
                   style={styles.input}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
                 />
               </View>
               {vegSuggestions.length > 0 && (
@@ -360,6 +350,8 @@ export default function ConfigurationProfilScreen() {
                   onChangeText={setAllergyQuery}
                   placeholder="ex: gluten..."
                   style={styles.input}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
                 />
               </View>
               {allergySuggestions.length > 0 && (
@@ -417,26 +409,39 @@ export default function ConfigurationProfilScreen() {
             </>
           )}
           {step === 8 && (
-            <View style={{ alignItems: "center", paddingVertical: 18 }}>
-              <View style={styles.bigIcon}>
-                <Ionicons name="checkmark" size={26} color="#fff" />
-              </View>
-              <Text style={styles.welcomeTitle}>Parfait !</Text>
-              <Text style={styles.welcomeText}>
-                Ton profil est prêt. On va maintenant te proposer des recettes adaptées à
-                tes préférences et à ton budget.
-              </Text>
-              <TouchableOpacity
-                onPress={next}
-                style={[styles.btn, styles.btnPrimary, { marginTop: 18, width: "100%", height: 80 }]}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.btnPrimaryText}>
-                  C'est parti ! <Ionicons name="arrow-forward" size={16} color="#fff" />
-                </Text>
-              </TouchableOpacity>
+          <View style={{ alignItems: "center", paddingVertical: 18, width: "100%" }}>
+            <View style={styles.bigIcon}>
+              <Ionicons name="checkmark" size={26} color="#fff" />
             </View>
-          )}
+
+            <Text style={styles.welcomeTitle}>Parfait !</Text>
+            <Text style={[styles.welcomeText, { marginTop: 12 }]}>
+              Ton profil est prêt. On va maintenant te proposer des recettes adaptées à
+              tes préférences et à ton budget.
+            </Text>
+            <TouchableOpacity
+              onPress={next}
+              activeOpacity={0.85}
+              style={[
+                styles.btnPrimary,
+                {
+                  height: 64,
+                  borderRadius: 14,
+                  justifyContent: "center",
+                  alignItems: "center",
+                  marginTop: 18,
+                  alignSelf: "stretch",
+                  flex: 0,
+                },
+              ]}
+            >
+              <Text style={{ color: "#fff", fontWeight: "900", fontSize: 14 }}>
+                C'est parti !{" "}
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
           {step !== 8 && (
             <View style={styles.actions}>
               <TouchableOpacity
@@ -456,291 +461,77 @@ export default function ConfigurationProfilScreen() {
         {step === 4 && <View style={{ height: 30 }} />}
       </View>
       </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  tile: {
-  width: "48%",
-  borderWidth: 1,
-  borderColor: "rgba(15,23,42,0.08)",
-  borderRadius: 18,
-  paddingVertical: 16,
-  alignItems: "center",
-  backgroundColor: "#fff",
-},
-tileSelected: {
-  borderColor: COLORS.orange,
-  backgroundColor: "rgba(255, 122, 0, 0.10)",
-  transform: [{ scale: 0.98 }],
-},
-tileEmoji: { fontSize: 24, marginBottom: 8 },
-tileText: {
-  fontSize: 13,
-  fontWeight: "800",
-  color: COLORS.text,
-  textAlign: "center",
-},
-  screen: {
-  flex: 1,
-  backgroundColor: COLORS.bg,
-  paddingHorizontal: 18,
-  paddingTop: 10,
-},
-cardContainer: {
-  flex: 1,
-  paddingBottom: 18,
-},
-card: {
-  flex: 1,
-  backgroundColor: COLORS.card,
-  borderRadius: 22,
-  padding: 18,
-  justifyContent: "center",
-  borderWidth: 1,
-  borderColor: "rgba(15,23,42,0.06)",
-  ...Platform.select({
-    ios: {
-      shadowColor: "#000",
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 8 },
-    },
-    android: { elevation: 3 }, // ⬅️ baisse énorme
-  }),
-},
-header: {
-  height: 56,
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  paddingHorizontal: 6,
-},
-headerTitle: {
-  fontSize: 22,
-  fontWeight: "900",
-  color: COLORS.text,
-  letterSpacing: 0.2,
-},
-headerStep: {
-  fontSize: 12,
-  fontWeight: "800",
-  color: COLORS.orange,
-  paddingHorizontal: 10,
-  paddingVertical: 6,
-  borderRadius: 999,
-  backgroundColor: COLORS.orangeSoft,
-},
-progressTrack: {
-  height: 8,
-  backgroundColor: "rgba(15,23,42,0.08)",
-  borderRadius: 999,
-  overflow: "hidden",
-  marginHorizontal: 6,
-  marginBottom: 14,
-},
-progressFill: {
-  height: "100%",
-  backgroundColor: COLORS.orange,
-  borderRadius: 999,
-},
-safe: { flex: 1, backgroundColor: COLORS.bg },
-questionRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
-question: {
-  fontSize: 17,
-  fontWeight: "900",
-  color: COLORS.text,
-  flex: 1,
-},
-helper: {
-  marginTop: 6,
-  color: COLORS.sub,
-  fontSize: 13,
-  lineHeight: 18,
-},
-inputWrap: {
-  borderWidth: 1,
-  borderColor: "rgba(15,23,42,0.08)",
-  borderRadius: 14,
-  paddingHorizontal: 12,
-  height: 48,
-  flexDirection: "row",
-  alignItems: "center",
-  backgroundColor: "#FAFAFA",
-  marginTop: 10,
-},
-input: { flex: 1, fontSize: 14, color: COLORS.text, marginLeft: 8 },
-label: { marginTop: 14, marginBottom: 8, fontSize: 12, fontWeight: "700", color: COLORS.sub },
-note: { marginTop: 10, fontSize: 12, color: COLORS.sub, lineHeight: 16 },
-grid: {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  justifyContent: "space-between",
-  marginTop: 14,
-  rowGap: 12,
-},
-actions: { flexDirection: "row", justifyContent: "space-between", marginTop: 18, gap: 12 },
-btn: {
-  flex: 1,
-  height: 48,
-  borderRadius: 14,
-  alignItems: "center",
-  justifyContent: "center",
-},
-btnGhost: {
-  borderWidth: 1,
-  borderColor: "rgba(15,23,42,0.10)",
-  backgroundColor: "#fff",
-},
-btnGhostText: { color: COLORS.sub, fontWeight: "900" },
-btnPrimary: {
-  backgroundColor: COLORS.orange,
-},
-btnPrimaryText: {
-  color: "#fff",
-  fontWeight: "900",
-  fontSize: 14,
-  height: 48,
-  lineHeight: 48,
-},
-tileTextSelected: { color: COLORS.text },
-choiceRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 12,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: 14,
-  padding: 14,
-  backgroundColor: "#fff",
-  marginBottom: 12,
-},
-choiceRowSelected: {
-  borderColor: COLORS.orange,
-  backgroundColor: COLORS.orangeSoft,
-},
-choiceIcon: { fontSize: 22 },
-choiceTitle: { fontSize: 14, fontWeight: "800", color: COLORS.text },
-choiceSub: { fontSize: 12, color: COLORS.sub, marginTop: 2 },
-chipsWrap: {
-  flexDirection: "row",
-  flexWrap: "wrap",
-  marginTop: 12,
-  gap: 10,
-},
-chip: {
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: 999,
-  paddingHorizontal: 12,
-  paddingVertical: 10,
-  backgroundColor: "#fff",
-},
-chipSelected: {
-  borderColor: COLORS.orange,
-  backgroundColor: COLORS.orangeSoft,
-},
-chipText: { fontSize: 12, fontWeight: "700", color: COLORS.text },
-chipTextSelected: { color: COLORS.text },
-suggestions: {
-  marginTop: 10,
-  borderWidth: 1,
-  borderColor: COLORS.border,
-  borderRadius: 12,
-  overflow: "hidden",
-  backgroundColor: "#fff",
-},
-suggestionItem: {
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "space-between",
-  paddingHorizontal: 12,
-  paddingVertical: 12,
-  borderTopWidth: 1,
-  borderTopColor: COLORS.border,
-},
-suggestionText: { fontSize: 13, fontWeight: "600", color: COLORS.text },
-selectedWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
-selectedChip: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 6,
-  borderWidth: 1,
-  borderColor: COLORS.orange,
-  backgroundColor: COLORS.orangeSoft,
-  paddingHorizontal: 10,
-  paddingVertical: 8,
-  borderRadius: 999,
-},
-selectedChipText: { fontSize: 12, fontWeight: "700", color: COLORS.text },
-btnDisabled: { opacity: 0.5 },
-thanksIcon: {
-  width: 54,
-  height: 54,
-  borderRadius: 27,
-  backgroundColor: COLORS.orange,
-  alignItems: "center",
-  justifyContent: "center",
-  marginBottom: 12,
-},
-thanksTitle: { fontSize: 22, fontWeight: "900", color: COLORS.text },
-thanksSub: { marginTop: 6, fontSize: 12, color: COLORS.sub, textAlign: "center", lineHeight: 16 },
-bigIcon: {
-  width: 54,
-  height: 54,
-  borderRadius: 27,
-  backgroundColor: COLORS.orange,
-  alignItems: "center",
-  justifyContent: "center",
-  marginBottom: 12,
-},
-welcomeTitle: {
-  fontSize: 22,
-  fontWeight: "900",
-  color: COLORS.text,
-  marginBottom: 8,
-},
-welcomeText: {
-  fontSize: 13,
-  color: COLORS.sub,
-  textAlign: "center",
-  lineHeight: 18,
-},
-welcomeContainer: {
-  paddingVertical: 24,
-  minHeight: 250,
-  justifyContent: "space-between",
-},
-welcomeHero: {
-  alignItems: "center",
-  paddingTop: 10,
-},
-welcomeIcon: {
-  width: 64,
-  height: 64,
-  borderRadius: 32,
-  backgroundColor: COLORS.orange,
-  alignItems: "center",
-  justifyContent: "center",
-  marginBottom: 18,
-},
-welcomeSubtitle: {
-  fontSize: 14,
-  color: COLORS.sub,
-  textAlign: "center",
-  lineHeight: 20,
-  paddingHorizontal: 10,
-},
-welcomeContent: {
-  paddingHorizontal: 8,
-  marginTop: 10,
-},
-welcomeHighlight: {
-  fontWeight: "800",
-  color: COLORS.text,
-},
-welcomeActions: {
-  paddingTop: 10,
-},
+  tile: { width: "48%", borderWidth: 1, borderColor: "rgba(79, 98, 145, 0.08)", borderRadius: 18, paddingVertical: 16, alignItems: "center", backgroundColor: "#fff" },
+  tileSelected: { borderColor: COLORS.orange, backgroundColor: "rgba(255, 122, 0, 0.10)", transform: [{ scale: 0.98 }] },
+  tileEmoji: { fontSize: 24, marginBottom: 8 },
+  tileText: { fontSize: 13, fontWeight: "800", color: COLORS.text, textAlign: "center" },
+
+  screen: { flex: 1, backgroundColor: COLORS.bg, paddingHorizontal: 18, paddingTop: 10 },
+  cardContainer: { flex: 1, paddingBottom: 18 },
+  card: { flex: 1, backgroundColor: COLORS.card, borderRadius: 22, padding: 18, justifyContent: "center", borderWidth: 1, borderColor: "rgba(15,23,42,0.06)", ...Platform.select({ ios: { shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 10, shadowOffset: { width: 0, height: 8 } }, android: { elevation: 3 } }) },
+
+  header: { height: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 6 },
+  headerTitle: { fontSize: 22, fontWeight: "900", color: COLORS.text, letterSpacing: 0.2 },
+  headerStep: { fontSize: 12, fontWeight: "800", color: COLORS.orange, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: COLORS.orangeSoft },
+
+  progressTrack: { height: 8, backgroundColor: "rgba(15,23,42,0.08)", borderRadius: 999, overflow: "hidden", marginHorizontal: 6, marginBottom: 14 },
+  progressFill: { height: "100%", backgroundColor: COLORS.orange, borderRadius: 999 },
+
+  safe: { flex: 1, backgroundColor: COLORS.bg },
+
+  questionRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
+  question: { fontSize: 17, fontWeight: "900", color: COLORS.text, flex: 1 },
+  helper: { marginTop: 6, color: COLORS.sub, fontSize: 13, lineHeight: 18 },
+
+  inputWrap: { borderWidth: 1, borderColor: "rgba(15,23,42,0.08)", borderRadius: 14, paddingHorizontal: 12, height: 48, flexDirection: "row", alignItems: "center", backgroundColor: "#FAFAFA", marginTop: 10 },
+  input: { flex: 1, fontSize: 14, color: COLORS.text, marginLeft: 8 },
+  label: { marginTop: 14, marginBottom: 8, fontSize: 12, fontWeight: "700", color: COLORS.sub },
+  note: { marginTop: 10, fontSize: 12, color: COLORS.sub, lineHeight: 16 },
+
+  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginTop: 14, rowGap: 12 },
+
+  actions: { flexDirection: "row", justifyContent: "space-between", marginTop: 18, gap: 12 },
+  btn: { flex: 1, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  btnPrimary: { backgroundColor: COLORS.orange },
+  btnPrimaryText: { color: "#fff", fontWeight: "900", fontSize: 14 },
+  btnDisabled: { opacity: 0.5 },
+  btnBig: { height: 64, width: "100%", marginTop: 18 },
+
+  choiceRow: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, padding: 14, backgroundColor: "#fff", marginBottom: 12 },
+  choiceRowSelected: { borderColor: COLORS.orange, backgroundColor: COLORS.orangeSoft },
+  choiceIcon: { fontSize: 22 },
+  choiceTitle: { fontSize: 14, fontWeight: "800", color: COLORS.text },
+  choiceSub: { fontSize: 12, color: COLORS.sub, marginTop: 2 },
+
+  chipsWrap: { flexDirection: "row", flexWrap: "wrap", marginTop: 12, gap: 10 },
+  chip: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: "#fff" },
+  chipSelected: { borderColor: COLORS.orange, backgroundColor: COLORS.orangeSoft },
+  chipText: { fontSize: 12, fontWeight: "700", color: COLORS.text },
+  chipTextSelected: { color: COLORS.text },
+  chipDisabled: { opacity: 0.45 },
+  chipTextDisabled: { color: COLORS.muted },
+
+  suggestions: { marginTop: 10, borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, overflow: "hidden", backgroundColor: "#fff" },
+  suggestionItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: COLORS.border },
+  suggestionText: { fontSize: 13, fontWeight: "600", color: COLORS.text },
+
+  selectedWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
+  selectedChip: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderColor: COLORS.orange, backgroundColor: COLORS.orangeSoft, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 999 },
+  selectedChipText: { fontSize: 12, fontWeight: "700", color: COLORS.text },
+
+  bigIcon: { width: 54, height: 54, borderRadius: 27, backgroundColor: COLORS.orange, alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  welcomeTitle: { fontSize: 22, fontWeight: "900", color: COLORS.text, marginBottom: 8 },
+  welcomeText: { fontSize: 13, color: COLORS.sub, textAlign: "center", lineHeight: 18 },
+  welcomeContainer: { paddingVertical: 24, minHeight: 250, justifyContent: "space-between" },
+  welcomeHero: { alignItems: "center", paddingTop: 10 },
+  welcomeIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.orange, alignItems: "center", justifyContent: "center", marginBottom: 18 },
+  welcomeSubtitle: { fontSize: 14, color: COLORS.sub, textAlign: "center", lineHeight: 20, paddingHorizontal: 10 },
+  tileTextSelected: { color: COLORS.text },
 });
