@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import {
-  Dimensions,
   Image,
   ScrollView,
   StatusBar,
@@ -11,8 +10,6 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-
-const { width } = Dimensions.get('window');
 
 // --- DONNÉES FICTIVES ---
 const TRENDING_RECIPES = [
@@ -123,7 +120,7 @@ export default function DashboardScreen() {
             <Text style={styles.tipTitle}>Astuce du jour</Text>
           </View>
           <Text style={styles.tipText}>
-            Achète tes légumes au marché le samedi après-midi : les prix baissent jusqu'à 50% !
+            Achète tes légumes au marché le samedi après-midi : les prix baissent jusqu&apos;a 50% !
           </Text>
         </LinearGradient>
 

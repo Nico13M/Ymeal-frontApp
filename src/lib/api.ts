@@ -24,13 +24,22 @@ type ApiRequestOptions = {
   body?: unknown;
   token?: string;
   headers?: Record<string, string>;
+  credentials?: RequestCredentials;
 };
 
 function getErrorMessageFromPayload(payload: unknown): string | null {
+  if (typeof payload === 'string') {
+    const sanitized = payload.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (sanitized.length > 0) {
+      return sanitized.slice(0, 240);
+    }
+    return null;
+  }
+
   if (!payload || typeof payload !== 'object') return null;
 
   const maybePayload = payload as Record<string, unknown>;
-  const directKeys = ['message', 'error', 'detail', 'title'];
+  const directKeys = ['message', 'error', 'detail', 'description', 'hydra:description', 'title'];
 
   for (const key of directKeys) {
     const value = maybePayload[key];
@@ -85,7 +94,7 @@ export async function apiRequest<T = unknown>(
   options: ApiRequestOptions = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
-  const { method = 'GET', body, token, headers = {} } = options;
+  const { method = 'GET', body, token, headers = {}, credentials = 'omit' } = options;
 
   const requestHeaders: Record<string, string> = {
     Accept: 'application/json',
@@ -103,6 +112,7 @@ export async function apiRequest<T = unknown>(
   const response = await fetch(url, {
     method,
     headers: requestHeaders,
+    credentials,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 

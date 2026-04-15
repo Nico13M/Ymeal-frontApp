@@ -1,4 +1,4 @@
-﻿import { Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -42,7 +42,7 @@ export default function ConnexionScreen() {
         password,
       });
 
-      await saveSession(session);
+      await saveSession(session).catch(() => undefined);
       router.replace("/(tabs)");
     } catch (error) {
       Alert.alert("Connexion impossible", getHumanErrorMessage(error));

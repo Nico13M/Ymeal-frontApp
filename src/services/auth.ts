@@ -9,6 +9,11 @@ export type AuthCredentials = {
   password: string;
 };
 
+export type RegisterPayload = AuthCredentials & {
+  firstname: string;
+  lastname: string;
+};
+
 export type UserProfile = {
   id?: number | string;
   email?: string;
@@ -19,6 +24,8 @@ export type AuthSession = {
   token: string;
   user?: UserProfile | null;
 };
+
+const COOKIE_SESSION_TOKEN = '__cookie_session__';
 
 function getTokenFromPayload(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object') return null;
@@ -89,17 +96,30 @@ export async function loginRequest(credentials: AuthCredentials): Promise<AuthSe
   });
 
   const session = extractSession(payload);
-  if (!session) {
-    throw new Error('Connexion impossible: token manquant dans la reponse backend.');
+  if (session) {
+    return session;
   }
 
-  return session;
+  // Some backends authenticate with session cookies and do not return a JWT token.
+  return {
+    token: COOKIE_SESSION_TOKEN,
+    user: getUserFromPayload(payload),
+  };
 }
 
-export async function registerRequest(credentials: AuthCredentials): Promise<AuthSession | null> {
+export async function registerRequest(credentials: RegisterPayload): Promise<AuthSession | null> {
+  const registerBody = {
+    firstname: credentials.firstname,
+    lastname: credentials.lastname,
+    firstName: credentials.firstname,
+    lastName: credentials.lastname,
+    email: credentials.email,
+    password: credentials.password,
+  };
+
   const payload = await apiRequest<unknown>('/admin/auth/register', {
     method: 'POST',
-    body: credentials,
+    body: registerBody,
   });
 
   return extractSession(payload);

@@ -1,29 +1,88 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+import { getHumanErrorMessage } from "@/src/lib/api";
+import { loginRequest, registerRequest, saveSession } from "@/src/services/auth";
 
 export default function InscriptionScreen() {
+  const [firstname, setFirstname] = useState("");
+  const [lastname, setLastname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canSubmit = useMemo(() => {
     return (
+      !isSubmitting &&
+      firstname.trim().length > 0 &&
+      lastname.trim().length > 0 &&
       email.trim().length > 3 &&
       password.length >= 6 &&
       confirm.length >= 6 &&
       password === confirm
     );
-  }, [email, password, confirm]);
+  }, [confirm, email, firstname, isSubmitting, lastname, password]);
 
-  const onContinue = () => {
-    if (!email.trim()) return Alert.alert("Erreur", "Renseigne ton email.");
-    if (password.length < 6)
+  const onContinue = async () => {
+    const trimmedFirstname = firstname.trim();
+    const trimmedLastname = lastname.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedFirstname) {
+      return Alert.alert("Erreur", "Renseigne ton prenom.");
+    }
+
+    if (!trimmedLastname) {
+      return Alert.alert("Erreur", "Renseigne ton nom.");
+    }
+
+    if (!trimmedEmail) {
+      return Alert.alert("Erreur", "Renseigne ton email.");
+    }
+
+    if (password.length < 6) {
       return Alert.alert("Erreur", "Mot de passe trop court (min 6).");
-    if (password !== confirm)
+    }
+
+    if (password !== confirm) {
       return Alert.alert("Erreur", "Les mots de passe ne correspondent pas.");
-    Alert.alert("OK", "Compte en cours de création (bientôt).");
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const maybeSession = await registerRequest({
+        firstname: trimmedFirstname,
+        lastname: trimmedLastname,
+        email: trimmedEmail,
+        password,
+      });
+
+      const session =
+        maybeSession ??
+        (await loginRequest({
+          email: trimmedEmail,
+          password,
+        }));
+
+      await saveSession(session).catch(() => undefined);
+      router.replace("/(tabs)");
+    } catch (error) {
+      Alert.alert("Inscription impossible", getHumanErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -33,11 +92,44 @@ export default function InscriptionScreen() {
           <Ionicons name="restaurant" size={22} color="#fff" />
         </View>
         <Text style={styles.brand}>Ymeal</Text>
-        <Text style={styles.tagline}>Des recettes adaptées à ton budget étudiant</Text>
+        <Text style={styles.tagline}>Des recettes adaptees a ton budget etudiant</Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Créer un compte</Text>
+        <Text style={styles.cardTitle}>Creer un compte</Text>
+
+        <View style={styles.nameRow}>
+          <View style={styles.nameField}>
+            <Text style={styles.label}>Prenom</Text>
+            <View style={styles.inputWrap}>
+              <Ionicons name="person-outline" size={18} color="#9AA3AF" />
+              <TextInput
+                value={firstname}
+                onChangeText={setFirstname}
+                placeholder="Jean"
+                autoCapitalize="words"
+                autoCorrect={false}
+                style={styles.input}
+              />
+            </View>
+          </View>
+
+          <View style={styles.nameField}>
+            <Text style={styles.label}>Nom</Text>
+            <View style={styles.inputWrap}>
+              <Ionicons name="person-outline" size={18} color="#9AA3AF" />
+              <TextInput
+                value={lastname}
+                onChangeText={setLastname}
+                placeholder="Dupont"
+                autoCapitalize="words"
+                autoCorrect={false}
+                style={styles.input}
+              />
+            </View>
+          </View>
+        </View>
+
         <Text style={styles.label}>Adresse email</Text>
         <View style={styles.inputWrap}>
           <Ionicons name="mail-outline" size={18} color="#9AA3AF" />
@@ -57,7 +149,7 @@ export default function InscriptionScreen() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="••••••••"
+            placeholder="********"
             secureTextEntry
             autoCapitalize="none"
             style={styles.input}
@@ -69,7 +161,7 @@ export default function InscriptionScreen() {
           <TextInput
             value={confirm}
             onChangeText={setConfirm}
-            placeholder="••••••••"
+            placeholder="********"
             secureTextEntry
             autoCapitalize="none"
             style={styles.input}
@@ -82,20 +174,17 @@ export default function InscriptionScreen() {
           activeOpacity={0.85}
           disabled={!canSubmit}
         >
-          <Text style={styles.buttonText}>Continuer</Text>
+          <Text style={styles.buttonText}>{isSubmitting ? "Creation..." : "Continuer"}</Text>
         </TouchableOpacity>
+
         <View style={styles.loginRow}>
-          <Text style={styles.loginText}>Déjà un compte ? </Text>
+          <Text style={styles.loginText}>Deja un compte ? </Text>
           <Link href="/connexion" style={styles.loginLink}>
             Se connecter
           </Link>
         </View>
-        
 
-
-        <Text style={styles.legal}>
-          En continuant, tu acceptes nos conditions d&apos;utilisation
-        </Text>
+        <Text style={styles.legal}>En continuant, tu acceptes nos conditions d&apos;utilisation</Text>
       </View>
     </View>
   );
@@ -165,6 +254,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 6,
   },
+  nameRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  nameField: {
+    flex: 1,
+  },
 
   inputWrap: {
     flexDirection: "row",
@@ -208,20 +304,17 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   loginRow: {
-  flexDirection: "row",
-  justifyContent: "center",
-  marginTop: 14,
-},
-
-loginText: {
-  fontSize: 13,
-  color: "#475569",
-},
-
-loginLink: {
-  fontSize: 13,
-  fontWeight: "700",
-  color: "#FF7A00",
-},
-
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 14,
+  },
+  loginText: {
+    fontSize: 13,
+    color: "#475569",
+  },
+  loginLink: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FF7A00",
+  },
 });
