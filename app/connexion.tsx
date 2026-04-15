@@ -1,4 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { STORAGE_KEYS } from "@/constants/storage";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -19,13 +21,26 @@ export default function ConnexionScreen() {
     return email.trim().length > 3 && password.length >= 6;
   }, [email, password]);
 
-  const onLogin = () => {
+  const onLogin = async () => {
     if (!email.trim()) return Alert.alert("Erreur", "Renseigne ton email.");
     if (password.length < 6)
       return Alert.alert("Erreur", "Mot de passe trop court (min 6).");
 
     // TODO: appel API / firebase / whatever
     // Pour l’instant on simule un login OK et on envoie vers les tabs
+    try {
+      const existingRaw = await AsyncStorage.getItem(STORAGE_KEYS.accountProfile);
+      const existing = existingRaw ? JSON.parse(existingRaw) : {};
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.accountProfile,
+        JSON.stringify({
+          ...existing,
+          email: email.trim().toLowerCase(),
+        })
+      );
+    } catch {
+    }
+
     router.replace("/(tabs)");
   };
 
@@ -216,3 +231,4 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
 });
+

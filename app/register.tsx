@@ -1,4 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { STORAGE_KEYS } from "@/constants/storage";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Alert, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -18,19 +20,41 @@ const canSubmit = useMemo(() => {
   return (
     firstName.trim().length > 1 &&
     lastName.trim().length > 1 &&
+    nickname.trim().length > 1 &&
     email.trim().length > 3 &&
     password.length >= 6 &&
     confirm.length >= 6 &&
     password === confirm
   );
-}, [firstName, lastName, email, password, confirm]);
+}, [firstName, lastName, nickname, email, password, confirm]);
 
   const onContinue = async () => {
+    if (nickname.trim().length < 2)
+      return Alert.alert("Erreur", "Renseigne un surnom (min 2 caracteres).");
     if (!email.trim()) return Alert.alert("Erreur", "Renseigne ton email.");
     if (password.length < 6)
       return Alert.alert("Erreur", "Mot de passe trop court (min 6).");
     if (password !== confirm)
       return Alert.alert("Erreur", "Les mots de passe ne correspondent pas.");
+
+    const accountPayload = {
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      nickname: nickname.trim(),
+      email: email.trim().toLowerCase(),
+    };
+
+    try {
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.accountProfile,
+        JSON.stringify(accountPayload)
+      );
+    } catch {
+      return Alert.alert(
+        "Erreur",
+        "Impossible de sauvegarder ton profil pour le moment."
+      );
+    }
 
     setLoading(true);
 

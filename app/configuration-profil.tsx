@@ -1,4 +1,5 @@
 import { ALLERGIES, COLORS, CUISINES, DIETS, VEGETABLES } from "@/constants/profileConfig";
+import { STORAGE_KEYS } from "@/constants/storage";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
@@ -84,8 +85,8 @@ export default function ConfigurationProfilScreen() {
       people,
     };
     try {
-      await AsyncStorage.setItem("profileConfig", JSON.stringify(payload));
-    } catch (e) {
+      await AsyncStorage.setItem(STORAGE_KEYS.profileConfig, JSON.stringify(payload));
+    } catch {
     }
     router.replace("/(tabs)");
     };
@@ -436,7 +437,7 @@ export default function ConfigurationProfilScreen() {
               ]}
             >
               <Text style={{ color: "#fff", fontWeight: "900", fontSize: 14 }}>
-                C'est parti !{" "}
+                {"C'est parti ! "}
                 <Ionicons name="arrow-forward" size={16} color="#fff" />
               </Text>
             </TouchableOpacity>
