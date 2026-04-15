@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+﻿import { Ionicons } from "@expo/vector-icons";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -11,37 +11,57 @@ import {
   View,
 } from "react-native";
 
+import { getHumanErrorMessage } from "@/src/lib/api";
+import { loginRequest, saveSession } from "@/src/services/auth";
+
 export default function ConnexionScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const canSubmit = useMemo(() => {
-    return email.trim().length > 3 && password.length >= 6;
-  }, [email, password]);
+    return !isSubmitting && email.trim().length > 3 && password.length >= 6;
+  }, [email, isSubmitting, password]);
 
-  const onLogin = () => {
-    if (!email.trim()) return Alert.alert("Erreur", "Renseigne ton email.");
-    if (password.length < 6)
+  const onLogin = async () => {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      return Alert.alert("Erreur", "Renseigne ton email.");
+    }
+
+    if (password.length < 6) {
       return Alert.alert("Erreur", "Mot de passe trop court (min 6).");
+    }
 
-    // TODO: appel API / firebase / whatever
-    // Pour l’instant on simule un login OK et on envoie vers les tabs
-    router.replace("/(tabs)");
+    try {
+      setIsSubmitting(true);
+
+      const session = await loginRequest({
+        email: trimmedEmail,
+        password,
+      });
+
+      await saveSession(session);
+      router.replace("/(tabs)");
+    } catch (error) {
+      Alert.alert("Connexion impossible", getHumanErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* Header logo */}
       <View style={styles.header}>
         <View style={styles.logoCircle}>
           <Ionicons name="restaurant" size={22} color="#fff" />
         </View>
 
         <Text style={styles.brand}>Ymeal</Text>
-        <Text style={styles.tagline}>Des recettes adaptées à ton budget étudiant</Text>
+        <Text style={styles.tagline}>Des recettes adaptees a ton budget etudiant</Text>
       </View>
 
-      {/* Card */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Se connecter</Text>
 
@@ -65,7 +85,7 @@ export default function ConnexionScreen() {
           <TextInput
             value={password}
             onChangeText={setPassword}
-            placeholder="••••••••"
+            placeholder="********"
             secureTextEntry
             autoCapitalize="none"
             style={styles.input}
@@ -78,13 +98,13 @@ export default function ConnexionScreen() {
           activeOpacity={0.85}
           disabled={!canSubmit}
         >
-          <Text style={styles.buttonText}>Continuer</Text>
+          <Text style={styles.buttonText}>{isSubmitting ? "Connexion..." : "Continuer"}</Text>
         </TouchableOpacity>
 
         <View style={styles.linksRow}>
           <Text style={styles.linkText}>Pas de compte ? </Text>
           <Link href="/register" style={styles.linkAccent}>
-            Créer un compte
+            Creer un compte
           </Link>
         </View>
       </View>
@@ -204,15 +224,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#FF7A00",
-  },
-
-  forgotWrap: {
-    alignItems: "center",
-    marginTop: 10,
-  },
-  forgot: {
-    fontSize: 12,
-    color: "#64748B",
-    textDecorationLine: "underline",
   },
 });
