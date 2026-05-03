@@ -3,11 +3,34 @@ import { STORAGE_KEYS } from "@/constants/storage";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+
+import { getHumanErrorMessage } from "@/src/lib/api";
+import { sendProfileConfiguration } from "@/src/services/profile-config";
 
 type BudgetChoice = "PETIT" | "MOYEN" | "LARGE";
 type PeopleChoice = "1" | "2" | "3-4" | "5+";
+type StoredProfileConfig = {
+  diets?: string[];
+  location?: string;
+  budget?: BudgetChoice | null;
+  cuisines?: string[];
+  avoidVeg?: string[];
+  avoid_ingredients?: string[];
+  allergies?: string[];
+  people?: PeopleChoice | null;
+  people_count?: PeopleChoice | null;
+};
+type CitySuggestion = {
+  id: string;
+  label: string;
+  value: string;
+};
+
+const CITY_LOOKUP_LIMIT = 6;
+const CITY_LOOKUP_MIN_CHARS = 2;
+const CITY_LOOKUP_DEBOUNCE_MS = 280;
 
 function uniqAdd(list: string[], value: string) {
   const v = value.trim();
@@ -20,9 +43,57 @@ function removeAt(list: string[], idx: number) {
   return list.filter((_, i) => i !== idx);
 }
 
+function sanitizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function buildCitySuggestions(payload: unknown): CitySuggestion[] {
+  if (!Array.isArray(payload)) return [];
+
+  const seen = new Set<string>();
+  const suggestions: CitySuggestion[] = [];
+
+  for (const item of payload) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+
+    const name = typeof record.nom === "string" ? record.nom.trim() : "";
+    if (!name) continue;
+
+    const codes = Array.isArray(record.codesPostaux)
+      ? record.codesPostaux.filter(
+          (value): value is string =>
+            typeof value === "string" && value.trim().length > 0
+        )
+      : [];
+
+    const postalCode = codes.length > 0 ? codes[0].trim() : "";
+    const label = postalCode ? `${name} (${postalCode})` : name;
+    const value = postalCode ? `${name} ${postalCode}` : name;
+
+    const code =
+      typeof record.code === "string" && record.code.trim().length > 0
+        ? record.code.trim()
+        : label.toLowerCase();
+
+    const key = `${code}-${label.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    suggestions.push({ id: key, label, value });
+    if (suggestions.length >= CITY_LOOKUP_LIMIT) break;
+  }
+
+  return suggestions;
+}
+
 export default function ConfigurationProfilScreen() {
   const TOTAL_STEPS = 7;
-  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9>(0);
+  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8>(0);
   const [diets, setDiets] = useState<string[]>([]);
   const [location, setLocation] = useState("");
   const [budget, setBudget] = useState<BudgetChoice | null>(null);
@@ -32,6 +103,70 @@ export default function ConfigurationProfilScreen() {
   const [people, setPeople] = useState<PeopleChoice | null>(null);
   const [vegQuery, setVegQuery] = useState("");
   const [allergyQuery, setAllergyQuery] = useState("");
+  const [citySuggestions, setCitySuggestions] = useState<CitySuggestion[]>([]);
+  const [isCityLookupLoading, setIsCityLookupLoading] = useState(false);
+  const [cityLookupError, setCityLookupError] = useState<string | null>(null);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadExistingConfig = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEYS.profileConfig);
+        if (!raw || cancelled) return;
+
+        const parsed = JSON.parse(raw) as StoredProfileConfig;
+        if (!parsed || typeof parsed !== "object") return;
+
+        const parsedDiets = sanitizeStringList(parsed.diets);
+        const parsedLocation =
+          typeof parsed.location === "string" ? parsed.location.trim() : "";
+        const parsedBudget =
+          parsed.budget === "PETIT" ||
+          parsed.budget === "MOYEN" ||
+          parsed.budget === "LARGE"
+            ? parsed.budget
+            : null;
+        const parsedCuisines = sanitizeStringList(parsed.cuisines);
+        const parsedAvoidVeg = sanitizeStringList(parsed.avoidVeg);
+        const parsedAvoid =
+          parsedAvoidVeg.length > 0
+            ? parsedAvoidVeg
+            : sanitizeStringList(parsed.avoid_ingredients);
+        const parsedAllergies = sanitizeStringList(parsed.allergies);
+        const parsedPeople =
+          parsed.people === "1" ||
+          parsed.people === "2" ||
+          parsed.people === "3-4" ||
+          parsed.people === "5+"
+            ? parsed.people
+            : parsed.people_count === "1" ||
+                parsed.people_count === "2" ||
+                parsed.people_count === "3-4" ||
+                parsed.people_count === "5+"
+              ? parsed.people_count
+              : null;
+
+        if (parsedDiets.length > 0) setDiets(parsedDiets);
+        if (parsedLocation) setLocation(parsedLocation);
+        if (parsedBudget) setBudget(parsedBudget);
+        if (parsedCuisines.length > 0) setCuisines(parsedCuisines);
+        if (parsedAvoid.length > 0) setAvoidVeg(parsedAvoid);
+        if (parsedAllergies.length > 0) setAllergies(parsedAllergies);
+        if (parsedPeople) setPeople(parsedPeople);
+      } catch {
+        // Ignore broken local cache and let user continue manually.
+      }
+    };
+
+    loadExistingConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const progress = useMemo(() => (step <= 0 ? 0 : step >= 8 ? 1 : step / TOTAL_STEPS), [step]);
 
@@ -61,6 +196,7 @@ export default function ConfigurationProfilScreen() {
   };
 
   const next = async () => {
+  setSaveError(null);
   if (!canContinue) return;
   if (step === 0) {
     setStep(1);
@@ -75,6 +211,9 @@ export default function ConfigurationProfilScreen() {
     return;
   }
   if (step === 8) {
+    if (isSavingConfig) return;
+    if (!budget || !people) return;
+
     const payload = {
       diets,
       location: location.trim(),
@@ -84,12 +223,26 @@ export default function ConfigurationProfilScreen() {
       allergies,
       people,
     };
+
     try {
+      setIsSavingConfig(true);
       await AsyncStorage.setItem(STORAGE_KEYS.profileConfig, JSON.stringify(payload));
-    } catch {
+      try {
+        await sendProfileConfiguration(payload);
+      } catch (error) {
+        // Do not block the UX if backend sync fails: local profile is already saved.
+        const message = getHumanErrorMessage(error, "");
+        console.warn("Profile sync warning:", message);
+      }
+      router.replace("/(tabs)");
+    } catch (error) {
+      setSaveError(
+        getHumanErrorMessage(error, "Impossible d'enregistrer ton profil pour le moment.")
+      );
+    } finally {
+      setIsSavingConfig(false);
     }
-    router.replace("/(tabs)");
-    };
+  }
   };
 
   const vegSuggestions = useMemo(() => {
@@ -113,6 +266,72 @@ export default function ConfigurationProfilScreen() {
         !allergies.some((x) => x.toLowerCase() === a.toLowerCase())
     ).slice(0, 6);
   }, [step, allergyQuery, allergies]);
+
+  useEffect(() => {
+    if (step !== 2) {
+      setCitySuggestions([]);
+      setIsCityLookupLoading(false);
+      setCityLookupError(null);
+      return;
+    }
+
+    const query = location.trim();
+    if (query.length < CITY_LOOKUP_MIN_CHARS) {
+      setCitySuggestions([]);
+      setIsCityLookupLoading(false);
+      setCityLookupError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = setTimeout(async () => {
+      try {
+        setIsCityLookupLoading(true);
+        setCityLookupError(null);
+
+        const searchByPostal = /^\d{2,5}$/.test(query);
+        const url = searchByPostal
+          ? `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(
+              query
+            )}&fields=nom,code,codesPostaux&limit=${CITY_LOOKUP_LIMIT}`
+          : `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(
+              query
+            )}&fields=nom,code,codesPostaux&boost=population&limit=${CITY_LOOKUP_LIMIT}`;
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+        });
+
+        if (!response.ok) {
+          throw new Error(`City lookup failed (${response.status})`);
+        }
+
+        const payload = (await response.json()) as unknown;
+        if (cancelled) return;
+        setCitySuggestions(buildCitySuggestions(payload));
+      } catch {
+        if (cancelled) return;
+        setCitySuggestions([]);
+        setCityLookupError("Impossible de proposer des villes pour le moment.");
+      } finally {
+        if (!cancelled) {
+          setIsCityLookupLoading(false);
+        }
+      }
+    }, CITY_LOOKUP_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [location, step]);
+
+  const onSelectCity = (city: CitySuggestion) => {
+    setLocation(city.value);
+    setCitySuggestions([]);
+    setCityLookupError(null);
+  };
 
   const addVeg = (v: string) => {
     setAvoidVeg((prev) => uniqAdd(prev, v));
@@ -201,13 +420,36 @@ export default function ConfigurationProfilScreen() {
               <Ionicons name="location-outline" size={18} color={COLORS.muted} />
               <TextInput
                 value={location}
-                onChangeText={setLocation}
-                placeholder="ex: 84300"
+                onChangeText={(value) => {
+                  setLocation(value);
+                  if (cityLookupError) setCityLookupError(null);
+                }}
+                placeholder="ex: Paris ou 84300"
                 style={styles.input}
                 returnKeyType="next"
                 blurOnSubmit={false}
               />
             </View>
+              {isCityLookupLoading ? (
+                <Text style={styles.lookupStateText}>Recherche de villes...</Text>
+              ) : null}
+              {citySuggestions.length > 0 && (
+                <View style={styles.suggestions}>
+                  {citySuggestions.map((city) => (
+                    <Pressable
+                      key={city.id}
+                      onPress={() => onSelectCity(city)}
+                      style={styles.suggestionItem}
+                    >
+                      <Text style={styles.suggestionText}>{city.label}</Text>
+                      <Ionicons name="arrow-up-circle-outline" size={18} color={COLORS.orange} />
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+              {cityLookupError ? (
+                <Text style={styles.lookupErrorText}>{cityLookupError}</Text>
+              ) : null}
               <Text style={styles.note}>
                 Nous utiliserons cette information pour te proposer des bons plans près de chez toi.
               </Text>
@@ -410,54 +652,49 @@ export default function ConfigurationProfilScreen() {
             </>
           )}
           {step === 8 && (
-          <View style={{ alignItems: "center", paddingVertical: 18, width: "100%" }}>
-            <View style={styles.bigIcon}>
-              <Ionicons name="checkmark" size={26} color="#fff" />
-            </View>
-
-            <Text style={styles.welcomeTitle}>Parfait !</Text>
-            <Text style={[styles.welcomeText, { marginTop: 12 }]}>
-              Ton profil est prêt. On va maintenant te proposer des recettes adaptées à
-              tes préférences et à ton budget.
-            </Text>
-            <TouchableOpacity
-              onPress={next}
-              activeOpacity={0.85}
-              style={[
-                styles.btnPrimary,
-                {
-                  height: 64,
-                  borderRadius: 14,
-                  justifyContent: "center",
-                  alignItems: "center",
-                  marginTop: 18,
-                  alignSelf: "stretch",
-                  flex: 0,
-                },
-              ]}
-            >
-              <Text style={{ color: "#fff", fontWeight: "900", fontSize: 14 }}>
-                {"C'est parti ! "}
-                <Ionicons name="arrow-forward" size={16} color="#fff" />
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-          {step !== 8 && (
-            <View style={styles.actions}>
+            <View style={styles.welcomeContainer}>
+              <View style={styles.welcomeHero}>
+                <View style={styles.bigIcon}>
+                  <Ionicons name="checkmark" size={28} color="#fff" />
+                </View>
+                <Text style={styles.welcomeTitle}>Parfait !</Text>
+                <Text style={styles.welcomeText}>
+                  Ton profil est pret. Clique sur le bouton pour entrer dans l&apos;app.
+                </Text>
+              </View>
               <TouchableOpacity
                 onPress={next}
-                style={[styles.btn, styles.btnPrimary, !canContinue && styles.btnDisabled]}
+                style={[styles.btn, styles.btnPrimary, styles.btnBig, isSavingConfig && styles.btnDisabled]}
                 activeOpacity={0.85}
-                disabled={!canContinue}
+                disabled={isSavingConfig}
               >
                 <Text style={styles.btnPrimaryText}>
-                  {step === 7 ? "Terminer" : "Continuer"}{" "}
+                  {isSavingConfig ? "Enregistrement..." : "C'est parti !"}{" "}
                   <Ionicons name="arrow-forward" size={16} color="#fff" />
                 </Text>
               </TouchableOpacity>
             </View>
           )}
+          {step <= 7 && (
+            <View style={styles.actions}>
+              <TouchableOpacity
+                onPress={next}
+                style={[
+                  styles.btn,
+                  styles.btnPrimary,
+                  (!canContinue || isSavingConfig) && styles.btnDisabled,
+                ]}
+                activeOpacity={0.85}
+                disabled={!canContinue || isSavingConfig}
+              >
+                <Text style={styles.btnPrimaryText}>
+                  {step === 7 ? (isSavingConfig ? "Enregistrement..." : "Terminer") : "Continuer"}{" "}
+                  <Ionicons name="arrow-forward" size={16} color="#fff" />
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {saveError ? <Text style={styles.saveErrorText}>{saveError}</Text> : null}
         </View>
         {step === 4 && <View style={{ height: 30 }} />}
       </View>
@@ -522,6 +759,8 @@ const styles = StyleSheet.create({
   suggestions: { marginTop: 10, borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, overflow: "hidden", backgroundColor: "#fff" },
   suggestionItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 12, borderTopWidth: 1, borderTopColor: COLORS.border },
   suggestionText: { fontSize: 13, fontWeight: "600", color: COLORS.text },
+  lookupStateText: { marginTop: 8, fontSize: 12, color: COLORS.sub, fontWeight: "600" },
+  lookupErrorText: { marginTop: 8, fontSize: 12, color: "#DC2626", fontWeight: "700" },
 
   selectedWrap: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
   selectedChip: { flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderColor: COLORS.orange, backgroundColor: COLORS.orangeSoft, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 999 },
@@ -530,6 +769,7 @@ const styles = StyleSheet.create({
   bigIcon: { width: 54, height: 54, borderRadius: 27, backgroundColor: COLORS.orange, alignItems: "center", justifyContent: "center", marginBottom: 12 },
   welcomeTitle: { fontSize: 22, fontWeight: "900", color: COLORS.text, marginBottom: 8 },
   welcomeText: { fontSize: 13, color: COLORS.sub, textAlign: "center", lineHeight: 18 },
+  saveErrorText: { marginTop: 12, fontSize: 12, color: "#DC2626", textAlign: "center", fontWeight: "700" },
   welcomeContainer: { paddingVertical: 24, minHeight: 250, justifyContent: "space-between" },
   welcomeHero: { alignItems: "center", paddingTop: 10 },
   welcomeIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.orange, alignItems: "center", justifyContent: "center", marginBottom: 18 },
