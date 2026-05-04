@@ -71,10 +71,6 @@ export default function RecipesScreen() {
                 <Ionicons name="time-outline" size={14} color="#666" />
                 <Text style={styles.metaText}>{item.time}</Text>
               </View>
-              <View style={styles.metaItem}>
-                <Ionicons name="people-outline" size={14} color="#666" />
-                <Text style={styles.metaText}>{item.reviews} avis</Text>
-              </View>
             </View>
 
             <View style={styles.rowBetween}>
@@ -138,12 +134,10 @@ export default function RecipesScreen() {
                     style={styles.actionBtn}
                     onPress={generateFromFridge}
                 >
-                  <Ionicons name="sparkles" size={20} color="#FFF" />
                   <Text style={styles.actionText}>Générer depuis le frigo</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.actionBtn} onPress={randomRecipe}>
-                  <Ionicons name="shuffle" size={20} color="#FFF" />
                   <Text style={styles.actionText}>Recette aléatoire</Text>
                 </TouchableOpacity>
               </View>
