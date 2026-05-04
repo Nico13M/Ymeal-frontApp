@@ -33,7 +33,7 @@ export const RECIPES = [
       image: "https://www.themealdb.com/images/media/meals/1529446137.jpg", // Image illustrative
       time: "25 min",
       calories: "200 kcal",
-      difficulty: "Facile",
+      difficulty: "Débutant",
       rating: 4.5,
       price: "3.50€",
       people: 2,
@@ -73,7 +73,7 @@ export const RECIPES = [
       image: "https://www.themealdb.com/images/media/meals/1529445434.jpg",
       time: "18 min",
       calories: "300 kcal",
-      difficulty: "Facile",
+      difficulty: "Débutant",
       rating: 4.9,
       price: "2.90€",
       people: 2,
