@@ -120,11 +120,11 @@ export default function RecipeDetailScreen() {
            </View>
         </View>
 
-        {/* PARTAGE */}
+        {/* PARTAGE
         <TouchableOpacity style={styles.shareBtn}>
            <Ionicons name="share-social-outline" size={20} color="#FFF" />
            <Text style={styles.shareBtnText}>Partager avec la communauté</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         {/* ASTUCE BOX (Maintenant Aléatoire) */}
         <View style={styles.tipBox}>
