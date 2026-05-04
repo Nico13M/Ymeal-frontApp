@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react'; // Ajout de useEffect
-import { ActivityIndicator, Alert, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { RECIPES } from '../../constants/recipesData';
 import { ApiError, apiRequest } from '../../src/lib/api';
 
@@ -30,6 +30,17 @@ const RANDOM_TIPS = [
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+  const contentContainerStyle = isDesktop
+    ? { ...styles.contentContainerInner, ...styles.contentContainerInnerDesktop }
+    : styles.contentContainerInner;
+  const sectionStyle = isDesktop
+    ? { ...styles.section, ...styles.sectionDesktop }
+    : styles.section;
+  const tipBoxStyle = isDesktop
+    ? { ...styles.tipBox, ...styles.sectionDesktop }
+    : styles.tipBox;
   
   const recipe = RECIPES.find(r => r.id === id) || RECIPES[0];
 
@@ -177,10 +188,14 @@ export default function RecipeDetailScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.contentContainer}
+        contentContainerStyle={contentContainerStyle}
+        showsVerticalScrollIndicator={false}
+      >
         
         {/* INGRÉDIENTS */}
-        <View style={styles.section}>
+        <View style={sectionStyle}>
           <Text style={styles.sectionTitle}>Ingrédients</Text>
           <View style={styles.card}>
             {recipe.ingredients.map((ing, index) => (
@@ -193,7 +208,7 @@ export default function RecipeDetailScreen() {
         </View>
 
         {/* PRÉPARATION */}
-        <View style={styles.section}>
+        <View style={sectionStyle}>
           <Text style={styles.sectionTitle}>Préparation</Text>
           {recipe.steps.map((step, index) => {
             const isChecked = checkedSteps[index];
@@ -211,7 +226,7 @@ export default function RecipeDetailScreen() {
         </View>
 
         {/* NOTATION */}
-        <View style={styles.section}>
+        <View style={sectionStyle}>
            <Text style={styles.sectionTitle}>Note cette recette</Text>
            <View style={styles.ratingCard}>
              <View style={{flexDirection: 'row', gap: 10, marginBottom: 10}}>
@@ -271,7 +286,7 @@ export default function RecipeDetailScreen() {
         </TouchableOpacity> */}
 
         {/* ASTUCE BOX (Maintenant Aléatoire) */}
-        <View style={styles.tipBox}>
+        <View style={tipBoxStyle}>
           <Ionicons name="bulb" size={20} color="#FFC107" style={{marginRight: 10}} />
           <View style={{flex: 1}}>
             <Text style={styles.tipTitle}>Le savais-tu ?</Text>
@@ -300,7 +315,19 @@ const styles = StyleSheet.create({
   priceTag: { position: 'absolute', right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.2)', padding: 5, borderRadius: 10 },
   priceText: { color: '#FFF', fontWeight: 'bold' },
   contentContainer: { flex: 1, marginTop: -20, backgroundColor: '#FFF9F2', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingTop: 30, paddingHorizontal: 20 },
+  contentContainerInner: {
+    paddingBottom: 20,
+  },
+  contentContainerInnerDesktop: {
+    paddingHorizontal: 48,
+    alignItems: 'center',
+  },
   section: { marginBottom: 25 },
+  sectionDesktop: {
+    width: '100%',
+    maxWidth: 860,
+    alignSelf: 'center',
+  },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1A1A2E', marginBottom: 15 },
   card: { backgroundColor: '#FFF', padding: 20, borderRadius: 15, elevation: 2 },
   ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },

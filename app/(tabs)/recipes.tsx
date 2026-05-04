@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { Link } from "expo-router";
+import { useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
   FlatList,
@@ -11,14 +11,18 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { RECIPES } from "../../constants/recipesData";
 
 export default function RecipesScreen() {
+  const router = useRouter();
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   const inputRef = useRef<any>(null);
 
@@ -79,41 +83,42 @@ export default function RecipesScreen() {
     const difficultyColors = getDifficultyColors(item.difficulty);
 
     return (
-      <Link href={`/recipe/${item.id}`} asChild>
-        <TouchableOpacity style={styles.card}>
-          <Image source={{ uri: item.image }} style={styles.cardImage} />
-          <View style={styles.cardContent}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <View style={styles.ratingBadge}>
-                <Ionicons name="star" size={12} color="#FFF" />
-                <Text style={styles.ratingText}>{item.rating}</Text>
-              </View>
-            </View>
-
-            <View style={styles.metaContainer}>
-              <View style={styles.metaItem}>
-                <Ionicons name="time-outline" size={14} color="#666" />
-                <Text style={styles.metaText}>{item.time}</Text>
-              </View>
-            </View>
-
-            <View style={styles.rowBetween}>
-              <View
-                style={[
-                  styles.tag,
-                  { backgroundColor: difficultyColors.backgroundColor },
-                ]}
-              >
-                <Text style={[styles.tagText, { color: difficultyColors.textColor }]}>
-                  {item.difficulty}
-                </Text>
-              </View>
-              <Text style={styles.linkText}>Voir la recette ➔</Text>
+      <TouchableOpacity
+        style={[styles.card, isDesktop && styles.cardDesktop]}
+        onPress={() => router.push(`/recipe/${item.id}`)}
+      >
+        <Image source={{ uri: item.image }} style={styles.cardImage} />
+        <View style={styles.cardContent}>
+          <View style={styles.rowBetween}>
+            <Text style={styles.cardTitle}>{item.title}</Text>
+            <View style={styles.ratingBadge}>
+              <Ionicons name="star" size={12} color="#FFF" />
+              <Text style={styles.ratingText}>{item.rating}</Text>
             </View>
           </View>
-        </TouchableOpacity>
-      </Link>
+
+          <View style={styles.metaContainer}>
+            <View style={styles.metaItem}>
+              <Ionicons name="time-outline" size={14} color="#666" />
+              <Text style={styles.metaText}>{item.time}</Text>
+            </View>
+          </View>
+
+          <View style={styles.rowBetween}>
+            <View
+              style={[
+                styles.tag,
+                { backgroundColor: difficultyColors.backgroundColor },
+              ]}
+            >
+              <Text style={[styles.tagText, { color: difficultyColors.textColor }]}>
+                {item.difficulty}
+              </Text>
+            </View>
+            <Text style={styles.linkText}>Voir la recette ➔</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -121,7 +126,7 @@ export default function RecipesScreen() {
       <View style={styles.container}>
         <StatusBar backgroundColor="#00C853" barStyle="light-content" />
 
-        <View style={styles.header}>
+        <View style={[styles.header, isDesktop && styles.headerDesktop]}>
           {isSearchActive ? (
               <View style={styles.searchBarContainer}>
                 <Ionicons
@@ -162,15 +167,18 @@ export default function RecipesScreen() {
 
           {/* ====== BOUTONS ====== */}
           {!isSearchActive && (
-              <View style={styles.btnRow}>
+              <View style={[styles.btnRow, isDesktop && styles.btnRowDesktop]}>
                 <TouchableOpacity
-                    style={styles.actionBtn}
+                    style={[styles.actionBtn, isDesktop && styles.actionBtnDesktop]}
                     onPress={generateFromFridge}
                 >
                   <Text style={styles.actionText}>Générer depuis le frigo</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.actionBtn} onPress={randomRecipe}>
+                <TouchableOpacity
+                    style={[styles.actionBtn, isDesktop && styles.actionBtnDesktop]}
+                    onPress={randomRecipe}
+                >
                   <Text style={styles.actionText}>Recette aléatoire</Text>
                 </TouchableOpacity>
               </View>
@@ -180,7 +188,12 @@ export default function RecipesScreen() {
         <FlatList
             data={selectedRecipe ? [selectedRecipe] : filteredRecipes}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
+            numColumns={isDesktop ? 3 : 1}
+            columnWrapperStyle={isDesktop ? styles.columnWrapperDesktop : undefined}
+            contentContainerStyle={[
+              styles.listContent,
+              isDesktop && styles.listContentDesktop,
+            ]}
             renderItem={renderRecipeItem}
             ListEmptyComponent={
               <View style={{ alignItems: "center", marginTop: 50 }}>
@@ -228,6 +241,10 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     minHeight: 170,
   },
+  headerDesktop: {
+    paddingTop: 20,
+    minHeight: 60,
+  },
 
   headerTop: {
     flexDirection: "row",
@@ -257,6 +274,13 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 16, color: "#333" },
 
   listContent: { padding: 20, paddingBottom: 100 },
+  listContentDesktop: {
+    paddingHorizontal: 48,
+    alignItems: "stretch",
+  },
+  columnWrapperDesktop: {
+    justifyContent: "flex-start",
+  },
 
   promoCard: { borderRadius: 15, padding: 20, marginBottom: 20 },
   promoTitle: { color: "#FFF", fontWeight: "bold", fontSize: 16, marginLeft: 10 },
@@ -271,6 +295,16 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 5,
+  },
+  cardDesktopWrapper: {
+    width: "100%",
+    alignItems: "center",
+  },
+  cardDesktop: {
+    width: "31%",
+    flexGrow: 0,
+    flexShrink: 0,
+    marginHorizontal: 8,
   },
 
   cardImage: { width: "100%", height: 180 },
@@ -315,6 +349,10 @@ const styles = StyleSheet.create({
     marginTop: 15,
     gap: 10,
   },
+  btnRowDesktop: {
+    justifyContent: "center",
+    alignSelf: "center",
+  },
 
   actionBtn: {
     flex: 1,
@@ -325,6 +363,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
+  },
+  actionBtnDesktop: {
+    flex: 0,
+    width: 240,
+    minWidth: 220,
   },
 
   actionText: {
