@@ -330,5 +330,7 @@ const styles = StyleSheet.create({
   actionText: {
     fontWeight: "700",
     color: "#00C853",
+    margin: "auto",
+    textAlign: "center",
   },
 });
