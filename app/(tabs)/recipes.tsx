@@ -92,6 +92,46 @@ export default function RecipesScreen() {
     </View>
   );
 
+  const handleGenerate = () => {
+    let candidates = RECIPES.slice();
+
+    if (addedIngredients.length > 0) {
+      const names = addedIngredients.map((i) => i.name.toLowerCase());
+      const filtered = candidates.filter((r) =>
+        r.ingredients.some((ing: string) =>
+          names.some((n) => ing.toLowerCase().includes(n))
+        )
+      );
+      if (filtered.length > 0) candidates = filtered;
+    }
+
+    if (difficulty) {
+      const diff = difficulty.toLowerCase();
+      const diffFiltered = candidates.filter((r) =>
+        r.difficulty && r.difficulty.toLowerCase().includes(diff)
+      );
+      if (diffFiltered.length > 0) candidates = diffFiltered;
+    }
+
+    if (candidates.length === 0) candidates = RECIPES.slice();
+
+    const scored = candidates.map((r) => {
+      let score = 0;
+      score += addedIngredients.reduce((s, ing) => {
+        return s + (r.ingredients.some((ri: string) => ri.toLowerCase().includes(ing.name.toLowerCase())) ? 2 : 0);
+      }, 0);
+      if (r.difficulty && r.difficulty.toLowerCase().includes(difficulty.toLowerCase())) score += 1;
+      score += Math.random();
+      return { recipe: r, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    const chosen = scored[0]?.recipe || RECIPES[Math.floor(Math.random() * RECIPES.length)];
+
+    setSelectedRecipe(chosen);
+    setShowGenerator(false);
+  };
+
   const getDifficultyColors = (difficulty: string) => {
     const normalizedDifficulty = difficulty.toLowerCase().trim();
     if (
@@ -308,7 +348,7 @@ export default function RecipesScreen() {
                     />
                 </View>
 
-                <TouchableOpacity style={styles.generateBtn}>
+                <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate}>
                     <LinearGradient colors={['#FF9F1C', '#FF7E05']} style={styles.gradientBtn}>
                         <Text style={styles.generateBtnText}>Générer la recette</Text>
                         <Ionicons name="color-wand" size={20} color="#FFF" />
