@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -39,6 +39,7 @@ export default function RecipesScreen() {
   const [useFrigo, setUseFrigo] = useState(false);
   const [ingredientInput, setIngredientInput] = useState('');
   const [addedIngredients, setAddedIngredients] = useState<{name: string, emoji: string}[]>([]);
+  const [fridgeItems, setFridgeItems] = useState<{name: string, emoji: string, selected?: boolean}[]>([]);
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
@@ -73,6 +74,46 @@ export default function RecipesScreen() {
 
   const removeIngredient = (index: number) => {
     setAddedIngredients(addedIngredients.filter((_, i) => i !== index));
+  };
+
+  useEffect(() => {
+    // Mock fetching fridge items when fridge mode is enabled
+    if (!useFrigo) return;
+
+    const loadMockFridge = async () => {
+      // Simulate network delay
+      await new Promise((res) => setTimeout(res, 200));
+      const mockNames = [
+        "tomate",
+        "oeuf",
+        "lait",
+        "fromage",
+        "pates",
+        "riz",
+        "carotte",
+      ];
+      const items = mockNames.map((n) => ({ name: n, emoji: EMOJI_MAP[n] || "🍽️", selected: false }));
+      setFridgeItems(items);
+    };
+
+    loadMockFridge();
+  }, [useFrigo]);
+
+  const toggleFridgeSelection = (index: number) => {
+    setFridgeItems((prev) => {
+      const copy = [...prev];
+      copy[index].selected = !copy[index].selected;
+
+      // reflect in addedIngredients
+      if (copy[index].selected) {
+        const exists = addedIngredients.some((a) => a.name.toLowerCase() === copy[index].name.toLowerCase());
+        if (!exists) setAddedIngredients((s) => [...s, { name: copy[index].name, emoji: copy[index].emoji }]);
+      } else {
+        setAddedIngredients((s) => s.filter((a) => a.name.toLowerCase() !== copy[index].name.toLowerCase()));
+      }
+
+      return copy;
+    });
   };
 
   const Selector = ({ label, options, current, setter }: any) => (
@@ -305,18 +346,39 @@ export default function RecipesScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    {!useFrigo && addedIngredients.length > 0 && (
-                        <View style={[styles.chipRow, { flexWrap: 'wrap', marginTop: 10 }]}>
-                            {addedIngredients.map((ing, index) => (
-                                <View key={index} style={[styles.chip, { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9' }]}>
-                                    <Text>{ing.emoji} {ing.name}</Text>
-                                    <TouchableOpacity onPress={() => removeIngredient(index)} style={{ marginLeft: 8 }}>
-                                        <Ionicons name="close-circle" size={16} color="#666" />
-                                    </TouchableOpacity>
-                                </View>
+                      {useFrigo ? (
+                        <View style={{ marginTop: 10 }}>
+                          <Text style={styles.selectorLabel}>Ingrédients du frigo</Text>
+                          <View style={[styles.chipRow, { flexWrap: 'wrap', marginTop: 10 }]}>
+                            {fridgeItems.map((fi, i) => (
+                              <TouchableOpacity
+                                key={fi.name + i}
+                                onPress={() => toggleFridgeSelection(i)}
+                                style={[
+                                  styles.chip,
+                                  { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+                                  fi.selected && { backgroundColor: '#C8E6C9' },
+                                ]}
+                              >
+                                <Text>{fi.emoji} {fi.name}</Text>
+                              </TouchableOpacity>
                             ))}
+                          </View>
                         </View>
-                    )}
+                      ) : (
+                        addedIngredients.length > 0 && (
+                          <View style={[styles.chipRow, { flexWrap: 'wrap', marginTop: 10 }]}>
+                            {addedIngredients.map((ing, index) => (
+                              <View key={index} style={[styles.chip, { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9' }]}>
+                                <Text>{ing.emoji} {ing.name}</Text>
+                                <TouchableOpacity onPress={() => removeIngredient(index)} style={{ marginLeft: 8 }}>
+                                  <Ionicons name="close-circle" size={16} color="#666" />
+                                </TouchableOpacity>
+                              </View>
+                            ))}
+                          </View>
+                        )
+                      )}
                 </View>
 
                 <View style={styles.counterGroup}>
