@@ -23,11 +23,11 @@ export default function RecipesScreen() {
   const inputRef = useRef<any>(null);
 
   const filteredRecipes = RECIPES.filter(
-    (recipe) =>
-      recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      recipe.ingredients.some((ing) =>
-        ing.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      (recipe) =>
+          recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          recipe.ingredients.some((ing) =>
+              ing.toLowerCase().includes(searchQuery.toLowerCase())
+          )
   );
 
   const toggleSearch = () => {
@@ -54,137 +54,137 @@ export default function RecipesScreen() {
   };
 
   const renderRecipeItem = ({ item }: any) => (
-    <Link href={`/recipe/${item.id}`} asChild>
-      <TouchableOpacity style={styles.card}>
-        <Image source={{ uri: item.image }} style={styles.cardImage} />
-        <View style={styles.cardContent}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={12} color="#FFF" />
-              <Text style={styles.ratingText}>{item.rating}</Text>
+      <Link href={`/recipe/${item.id}`} asChild>
+        <TouchableOpacity style={styles.card}>
+          <Image source={{ uri: item.image }} style={styles.cardImage} />
+          <View style={styles.cardContent}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <View style={styles.ratingBadge}>
+                <Ionicons name="star" size={12} color="#FFF" />
+                <Text style={styles.ratingText}>{item.rating}</Text>
+              </View>
             </View>
-          </View>
 
-          <View style={styles.metaContainer}>
-            <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={14} color="#666" />
-              <Text style={styles.metaText}>{item.time}</Text>
+            <View style={styles.metaContainer}>
+              <View style={styles.metaItem}>
+                <Ionicons name="time-outline" size={14} color="#666" />
+                <Text style={styles.metaText}>{item.time}</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Ionicons name="people-outline" size={14} color="#666" />
+                <Text style={styles.metaText}>{item.reviews} avis</Text>
+              </View>
             </View>
-            <View style={styles.metaItem}>
-              <Ionicons name="people-outline" size={14} color="#666" />
-              <Text style={styles.metaText}>{item.reviews} avis</Text>
-            </View>
-          </View>
 
-          <View style={styles.rowBetween}>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>{item.difficulty}</Text>
+            <View style={styles.rowBetween}>
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>{item.difficulty}</Text>
+              </View>
+              <Text style={styles.linkText}>Voir la recette ➔</Text>
             </View>
-            <Text style={styles.linkText}>Voir la recette ➔</Text>
           </View>
-        </View>
-      </TouchableOpacity>
-    </Link>
+        </TouchableOpacity>
+      </Link>
   );
 
   return (
-    <View style={styles.container}>
-      <StatusBar backgroundColor="#00C853" barStyle="light-content" />
+      <View style={styles.container}>
+        <StatusBar backgroundColor="#00C853" barStyle="light-content" />
 
-      <View style={styles.header}>
-        {isSearchActive ? (
-          <View style={styles.searchBarContainer}>
-            <Ionicons
-              name="search"
-              size={20}
-              color="#00C853"
-              style={{ marginRight: 10 }}
-            />
-            <TextInput
-              ref={inputRef}
-              style={styles.searchInput}
-              placeholder="Chercher une recette..."
-              placeholderTextColor="#888"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-              onSubmitEditing={toggleSearch}
-            />
-            <TouchableOpacity onPress={toggleSearch}>
-              <Ionicons name="close-circle" size={24} color="#888" />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.headerTop}>
-            <View style={{ width: 24 }} />
-            <Text style={styles.headerTitle}>Recettes pour vous</Text>
-            <TouchableOpacity onPress={toggleSearch}>
-              <Ionicons name="search" size={28} color="#FFF" />
-            </TouchableOpacity>
-          </View>
-        )}
+        <View style={styles.header}>
+          {isSearchActive ? (
+              <View style={styles.searchBarContainer}>
+                <Ionicons
+                    name="search"
+                    size={20}
+                    color="#00C853"
+                    style={{ marginRight: 10 }}
+                />
+                <TextInput
+                    ref={inputRef}
+                    style={styles.searchInput}
+                    placeholder="Chercher une recette..."
+                    placeholderTextColor="#888"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    returnKeyType="search"
+                    onSubmitEditing={toggleSearch}
+                />
+                <TouchableOpacity onPress={toggleSearch}>
+                  <Ionicons name="close-circle" size={24} color="#888" />
+                </TouchableOpacity>
+              </View>
+          ) : (
+              <View style={styles.headerTop}>
+                <View style={{ width: 24 }} />
+                <Text style={styles.headerTitle}>Recettes pour vous</Text>
+                <TouchableOpacity onPress={toggleSearch}>
+                  <Ionicons name="search" size={28} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+          )}
 
-        {!isSearchActive && (
-          <Text style={styles.headerSub}>
-            Basées sur tes ingrédients disponibles
-          </Text>
-        )}
+          {!isSearchActive && (
+              <Text style={styles.headerSub}>
+                Basées sur tes ingrédients disponibles
+              </Text>
+          )}
 
-        {/* ====== BOUTONS ====== */}
-        {!isSearchActive && (
-          <View style={styles.btnRow}>
-            <TouchableOpacity
-              style={styles.actionBtn}
-              onPress={generateFromFridge}
-            >
-              <Ionicons name="sparkles" size={20} color="#FFF" />
-              <Text style={styles.actionText}>Générer depuis le frigo</Text>
-            </TouchableOpacity>
+          {/* ====== BOUTONS ====== */}
+          {!isSearchActive && (
+              <View style={styles.btnRow}>
+                <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={generateFromFridge}
+                >
+                  <Ionicons name="sparkles" size={20} color="#FFF" />
+                  <Text style={styles.actionText}>Générer depuis le frigo</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionBtn} onPress={randomRecipe}>
-              <Ionicons name="shuffle" size={20} color="#FFF" />
-              <Text style={styles.actionText}>Recette aléatoire</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+                <TouchableOpacity style={styles.actionBtn} onPress={randomRecipe}>
+                  <Ionicons name="shuffle" size={20} color="#FFF" />
+                  <Text style={styles.actionText}>Recette aléatoire</Text>
+                </TouchableOpacity>
+              </View>
+          )}
+        </View>
 
-      <FlatList
-        data={selectedRecipe ? [selectedRecipe] : filteredRecipes}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        renderItem={renderRecipeItem}
-        ListEmptyComponent={
-          <View style={{ alignItems: "center", marginTop: 50 }}>
-            <Text style={{ color: "#888" }}>
-              Aucune recette trouvée pour "{searchQuery}" 😕
-            </Text>
-          </View>
-        }
-        ListHeaderComponent={() =>
-          !isSearchActive && searchQuery === "" ? (
-            <LinearGradient
-              colors={["#FF9F1C", "#FFC107"]}
-              style={styles.promoCard}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={{ flexDirection: "row", marginBottom: 10 }}>
-                <Ionicons name="trending-up" size={24} color="#FFF" />
-                <Text style={styles.promoTitle}>
-                  Recommandations personnalisées
+        <FlatList
+            data={selectedRecipe ? [selectedRecipe] : filteredRecipes}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            renderItem={renderRecipeItem}
+            ListEmptyComponent={
+              <View style={{ alignItems: "center", marginTop: 50 }}>
+                <Text style={{ color: "#888" }}>
+                  Aucune recette trouvée pour "{searchQuery}" 😕
                 </Text>
               </View>
-              <Text style={styles.promoDesc}>
-                Ces recettes utilisent au maximum les ingrédients de ton frigo
-                pour éviter le gaspillage !
-              </Text>
-            </LinearGradient>
-          ) : null
-        }
-      />
-    </View>
+            }
+            ListHeaderComponent={() =>
+                !isSearchActive && searchQuery === "" ? (
+                    <LinearGradient
+                        colors={["#FF9F1C", "#FFC107"]}
+                        style={styles.promoCard}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                    >
+                      <View style={{ flexDirection: "row", marginBottom: 10 }}>
+                        <Ionicons name="trending-up" size={24} color="#FFF" />
+                        <Text style={styles.promoTitle}>
+                          Recommandations personnalisées
+                        </Text>
+                      </View>
+                      <Text style={styles.promoDesc}>
+                        Ces recettes utilisent au maximum les ingrédients de ton frigo
+                        pour éviter le gaspillage !
+                      </Text>
+                    </LinearGradient>
+                ) : null
+            }
+        />
+      </View>
   );
 }
 

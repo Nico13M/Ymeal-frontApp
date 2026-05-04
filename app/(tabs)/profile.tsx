@@ -17,42 +17,42 @@ export default function ProfileScreen() {
   const favoriteRecipes = RECIPES.filter(r => favorites.includes(r.id));
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={40} color="#FFF" />
-        </View>
-        <Text style={styles.name}>Étudiant Ymeal</Text>
-        <Text style={styles.email}>etudiant@ymeal.com</Text>
-      </View>
-
-      <View style={styles.menu}>
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuText}>⚙️ Paramètres</Text>
-          <Ionicons name="chevron-forward" size={20} color="#CCC" />
-        </TouchableOpacity>
-
-        <View style={styles.menuItem}>
-          <Text style={styles.menuText}>❤️ Mes favoris ({favoriteRecipes.length})</Text>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <View style={styles.avatar}>
+            <Ionicons name="person" size={40} color="#FFF" />
+          </View>
+          <Text style={styles.name}>Étudiant Ymeal</Text>
+          <Text style={styles.email}>etudiant@ymeal.com</Text>
         </View>
 
-        <FlatList
-          data={favoriteRecipes}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.favCard}>
-              <Text style={styles.favTitle}>{item.title}</Text>
-              <Text style={styles.favSub}>{item.time} • {item.difficulty}</Text>
-            </View>
-          )}
-          ListEmptyComponent={() => (
-            <Text style={{ color: '#888', marginTop: 20 }}>
-              Aucun favori pour le moment.
-            </Text>
-          )}
-        />
-      </View>
-    </SafeAreaView>
+        <View style={styles.menu}>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuText}>⚙️ Paramètres</Text>
+            <Ionicons name="chevron-forward" size={20} color="#CCC" />
+          </TouchableOpacity>
+
+          <View style={styles.menuItem}>
+            <Text style={styles.menuText}>❤️ Mes favoris ({favoriteRecipes.length})</Text>
+          </View>
+
+          <FlatList
+              data={favoriteRecipes}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                  <View style={styles.favCard}>
+                    <Text style={styles.favTitle}>{item.title}</Text>
+                    <Text style={styles.favSub}>{item.time} • {item.difficulty}</Text>
+                  </View>
+              )}
+              ListEmptyComponent={() => (
+                  <Text style={{ color: '#888', marginTop: 20 }}>
+                    Aucun favori pour le moment.
+                  </Text>
+              )}
+          />
+        </View>
+      </SafeAreaView>
   );
 }
 
