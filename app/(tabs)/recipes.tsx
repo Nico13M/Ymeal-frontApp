@@ -46,6 +46,28 @@ export default function RecipesScreen() {
     setSelectedRecipe(random);
   };
 
+  const getDifficultyColors = (difficulty: string) => {
+    const normalizedDifficulty = difficulty.toLowerCase().trim();
+
+    if (
+      normalizedDifficulty.includes("très facile") ||
+      normalizedDifficulty.includes("tres facile") ||
+      normalizedDifficulty.includes("facile")
+    ) {
+      return { backgroundColor: "#1B5E20", textColor: "#FFFFFF" };
+    }
+
+    if (normalizedDifficulty.includes("moyen")) {
+      return { backgroundColor: "#F9A825", textColor: "#1F1F1F" };
+    }
+
+    if (normalizedDifficulty.includes("difficile")) {
+      return { backgroundColor: "#C62828", textColor: "#FFFFFF" };
+    }
+
+    return { backgroundColor: "#E8F5E9", textColor: "#2E7D32" };
+  };
+
   const generateFromFridge = () => {
     // 👉 À connecter plus tard avec le frigo (AsyncStorage)
     // Pour l'instant on prend une recette "top" par défaut
@@ -53,7 +75,10 @@ export default function RecipesScreen() {
     setSelectedRecipe(best);
   };
 
-  const renderRecipeItem = ({ item }: any) => (
+  const renderRecipeItem = ({ item }: any) => {
+    const difficultyColors = getDifficultyColors(item.difficulty);
+
+    return (
       <Link href={`/recipe/${item.id}`} asChild>
         <TouchableOpacity style={styles.card}>
           <Image source={{ uri: item.image }} style={styles.cardImage} />
@@ -74,15 +99,23 @@ export default function RecipesScreen() {
             </View>
 
             <View style={styles.rowBetween}>
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>{item.difficulty}</Text>
+              <View
+                style={[
+                  styles.tag,
+                  { backgroundColor: difficultyColors.backgroundColor },
+                ]}
+              >
+                <Text style={[styles.tagText, { color: difficultyColors.textColor }]}>
+                  {item.difficulty}
+                </Text>
               </View>
               <Text style={styles.linkText}>Voir la recette ➔</Text>
             </View>
           </View>
         </TouchableOpacity>
       </Link>
-  );
+    );
+  };
 
   return (
       <View style={styles.container}>
