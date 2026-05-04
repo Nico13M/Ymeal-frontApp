@@ -279,10 +279,10 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
   },
   columnWrapperDesktop: {
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
   },
 
-  promoCard: { borderRadius: 15, padding: 20, marginBottom: 20 },
+  promoCard: { borderRadius: 15, padding: 20, marginBottom: 20 , marginTop:15,},
   promoTitle: { color: "#FFF", fontWeight: "bold", fontSize: 16, marginLeft: 10 },
   promoDesc: { color: "#FFF", marginTop: 5, lineHeight: 20 },
 
@@ -304,7 +304,8 @@ const styles = StyleSheet.create({
     width: "31%",
     flexGrow: 0,
     flexShrink: 0,
-    marginHorizontal: 8,
+    marginHorizontal: 0,
+    marginTop: 15,
   },
 
   cardImage: { width: "100%", height: 180 },
