@@ -1,5 +1,6 @@
 import { DIETS } from "@/constants/profileConfig";
 import { STORAGE_KEYS } from "@/constants/storage";
+import useRequireAuth from "@/src/hooks/useRequireAuth";
 import { clearSession, getSession, resolveUserId, updateUserRequest } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -107,6 +108,8 @@ function InfoRow({
 }
 
 export default function ProfileScreen() {
+  const { checking } = useRequireAuth();
+
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<StoredAccount | null>(null);
   const [config, setConfig] = useState<StoredProfileConfig | null>(null);
@@ -148,6 +151,8 @@ export default function ProfileScreen() {
       loadProfile();
     }, [loadProfile])
   );
+
+ 
 
   const displayName = useMemo(() => {
     const nickname = account?.nickname?.trim();
@@ -279,7 +284,14 @@ export default function ProfileScreen() {
       </SafeAreaView>
     );
   }
-
+ if (checking) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF7A00" />
+        <Text style={styles.loadingText}>Vérification de la session...</Text>
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.container}>
       <ScrollView
