@@ -49,14 +49,6 @@ export default function RecipesScreen() {
 
   const inputRef = useRef<any>(null);
 
-  if (checking) {
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#00C853" />
-      </View>
-    );
-  }
-
   const filteredRecipes = RECIPES.filter(
       (recipe) =>
           recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -111,6 +103,14 @@ export default function RecipesScreen() {
     loadMockFridge();
   }, [useFrigo]);
 
+  if (checking) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#00C853" />
+      </View>
+    );
+  }
+
   const toggleFridgeSelection = (index: number) => {
     setFridgeItems((prev) => {
       const copy = [...prev];
@@ -132,7 +132,7 @@ export default function RecipesScreen() {
     <View style={styles.selectorContainer}>
         <Text style={styles.selectorLabel}>{label}</Text>
         <View style={styles.chipRow}>
-            {options.map(opt => (
+        {options.map((opt: string) => (
                 <TouchableOpacity
                     key={opt}
                     onPress={() => setter(opt)}
