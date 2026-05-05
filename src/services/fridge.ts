@@ -112,6 +112,27 @@ export async function addIngredientToFrigo(
   }
 }
 
+export async function updateIngredientQuantity(
+  ingredientId: number,
+  quantity: number,
+  unitId?: number
+): Promise<BackendFrigoIngredient> {
+  try {
+    const { token, userId } = await getToken();
+    const data = await apiRequest<BackendFrigoIngredient>(`/admin/frigo/${ingredientId}`, {
+      method: "POST",
+      token,
+      credentials: "include",
+      headers: buildHeaders(userId),
+      body: { quantity, unit_id: unitId ?? null },
+    });
+    return data!;
+  } catch (error) {
+    console.error("[FRIGO] ❌ updateIngredientQuantity:", error instanceof ApiError ? error.message : error);
+    throw error;
+  }
+}
+
 export async function removeIngredientFromFrigo(ingredientId: number): Promise<void> {
   try {
     const { token, userId } = await getToken();

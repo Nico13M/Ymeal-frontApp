@@ -6,6 +6,7 @@ import {
   getFrigoIngredients,
   getUnits,
   removeIngredientFromFrigo,
+  updateIngredientQuantity,
   type BackendIngredient,
 } from "@/src/services/fridge";
 import { Ionicons } from "@expo/vector-icons";
@@ -46,15 +47,15 @@ type SuggestedIngredient = {
 const CATEGORY_CONFIG: Record<string, { emoji: string; unit: string; step: number; defaultQty: number }> = {
   "Légumes":            { emoji: "🥬", unit: "pièce(s)", step: 1,   defaultQty: 1   },
   "Fruits":             { emoji: "🍎", unit: "pièce(s)", step: 1,   defaultQty: 1   },
-  "Produits laitiers":  { emoji: "🧀", unit: "g",        step: 50,  defaultQty: 200 },
-  "Viandes":            { emoji: "🥩", unit: "g",        step: 100, defaultQty: 250 },
-  "Céréales & Féculents": { emoji: "🍞", unit: "g",      step: 100, defaultQty: 500 },
-  "Liquides":           { emoji: "💧", unit: "cl",       step: 10,  defaultQty: 100 },
-  "Matières grasses":   { emoji: "🧴", unit: "ml",       step: 5,   defaultQty: 50  },
-  "Produits sucrés":    { emoji: "🍦", unit: "g",        step: 50,  defaultQty: 100 },
+  "Produits laitiers":  { emoji: "🧀", unit: "g",        step: 1,  defaultQty: 200 },
+  "Viandes":            { emoji: "🥩", unit: "g",        step: 1, defaultQty: 250 },
+  "Céréales & Féculents": { emoji: "🍞", unit: "g",      step: 1, defaultQty: 500 },
+  "Liquides":           { emoji: "💧", unit: "cl",       step: 1,  defaultQty: 100 },
+  "Matières grasses":   { emoji: "🧴", unit: "ml",       step: 1,   defaultQty: 50  },
+  "Produits sucrés":    { emoji: "🍦", unit: "g",        step: 1,  defaultQty: 100 },
 };
 
-const DEFAULT_CONFIG = { emoji: "🥗", unit: "g", step: 50, defaultQty: 100 };
+const DEFAULT_CONFIG = { emoji: "🥗", unit: "g", step: 1, defaultQty: 20 };
 
 function getConfig(name: string) {
   return CATEGORY_CONFIG[name] ?? DEFAULT_CONFIG;
@@ -82,22 +83,25 @@ export default function FridgeScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [units, setUnits] = useState<BackendUnit[]>([]);
-  
+
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<SuggestedIngredient | null>(null);
   const [editQuantity, setEditQuantity] = useState("1");
   const [editUnitId, setEditUnitId] = useState<number | null>(null);
-  
+  // null = mode ajout, number = mode édition (id de l'ingrédient existant)
+  const [editingExistingId, setEditingExistingId] = useState<number | null>(null);
+
   // 1.5 PERSISTER LES QUANTITÉS ET UNITÉS
   const persistQuantities = useCallback(async (ings: Ingredient[]) => {
     const qtys: Record<string, { quantity: number; unitId: number | null; step: number }> = {};
     ings.forEach((ing) => {
-      qtys[String(ing.id)] = { 
-        quantity: ing.quantity, 
-        unitId: ing.unit?.id ?? null, 
-        step: ing.step 
+      qtys[String(ing.id)] = {
+        quantity: ing.quantity,
+        unitId: ing.unit?.id ?? null,
+        step: ing.step,
       };
     });
     await AsyncStorage.setItem(STORAGE_KEYS.frigoIngredients, JSON.stringify(qtys));
@@ -110,7 +114,6 @@ export default function FridgeScreen() {
       const [backendIngredients, available, allUnits] = await Promise.all([
         getFrigoIngredients(),
         getAvailableIngredients(),
-        
         getUnits(),
       ]);
 
@@ -149,18 +152,41 @@ export default function FridgeScreen() {
     useCallback(() => { loadFrigo(); }, [loadFrigo])
   );
 
-  // 2. AJUSTER LA QUANTITÉ
+  // 2. AJUSTER LA QUANTITÉ (avec synchro BDD)
   const updateQuantity = useCallback(
-    (id: number, delta: number) => {
-      setIngredients((prev) => {
-        const updated = prev
-          .map((i) => (i.id === id ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i))
-          .filter((i) => i.quantity > 0);
-        persistQuantities(updated);
-        return updated;
-      });
+    async (id: number, delta: number) => {
+      setUpdatingId(id);
+      try {
+        setError(null);
+
+        const ingredient = ingredients.find((i) => i.id === id);
+        if (!ingredient) return;
+
+        const newQuantity = ingredient.quantity + delta;
+        if (newQuantity <= 0) {
+          await removeIngredientFromFrigo(id);
+          const updated = ingredients.filter((i) => i.id !== id);
+          setIngredients(updated);
+          persistQuantities(updated);
+          return;
+        }
+
+        await updateIngredientQuantity(id, newQuantity, ingredient.unit?.id);
+
+        setIngredients((prev) => {
+          const updated = prev.map((i) =>
+            i.id === id ? { ...i, quantity: newQuantity } : i
+          );
+          persistQuantities(updated);
+          return updated;
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erreur lors de la mise à jour");
+      } finally {
+        setUpdatingId(null);
+      }
     },
-    [persistQuantities]
+    [ingredients, persistQuantities]
   );
 
   // ✅ GUARD — après tous les hooks
@@ -172,6 +198,15 @@ export default function FridgeScreen() {
     );
   }
 
+  // OUVRIR LE MODAL EN MODE ÉDITION (ingrédient déjà dans le frigo)
+  const handleEditIngredient = (ing: Ingredient) => {
+    setEditingExistingId(ing.id);
+    setEditingIngredient({ id: ing.id, name: ing.name, category: ing.category, emoji: ing.emoji });
+    setEditQuantity(ing.quantity.toString());
+    setEditUnitId(ing.unit?.id ?? null);
+    setModalVisible(true);
+  };
+
   // 1. OUVRIR LE MODAL POUR AJOUTER UN INGRÉDIENT
   const handleAddIngredient = (item: SuggestedIngredient) => {
     const existing = ingredients.find((i) => i.name.toLowerCase() === item.name.toLowerCase());
@@ -179,13 +214,14 @@ export default function FridgeScreen() {
       setError("Cet ingrédient est déjà dans votre frigo");
       return;
     }
+    setEditingExistingId(null);
     setEditingIngredient(item);
     setEditQuantity("1");
     setEditUnitId(null);
     setModalVisible(true);
   };
 
-  // 1.1 CONFIRMER L'AJOUT DEPUIS LE MODAL
+  // 1.1 CONFIRMER DEPUIS LE MODAL (ajout OU modification)
   const handleConfirmAdd = async () => {
     if (!editingIngredient) return;
 
@@ -198,27 +234,46 @@ export default function FridgeScreen() {
     try {
       setSyncing(true);
       setError(null);
-      
-      await addIngredientToFrigo(editingIngredient.id, qty, editUnitId ?? undefined);
 
-      const config = getConfig(editingIngredient.category);
-      const selectedUnit = editUnitId ? units.find((u) => u.id === editUnitId) || null : null;
+      if (editingExistingId !== null) {
+        // MODE ÉDITION — mettre à jour la quantité et l'unité
+        const selectedUnit = editUnitId ? units.find((u) => u.id === editUnitId) || null : null;
+        await updateIngredientQuantity(editingExistingId, qty, editUnitId ?? undefined);
 
-      const newIng: Ingredient = {
-        id: editingIngredient.id,
-        name: editingIngredient.name,
-        category: editingIngredient.category,
-        emoji: editingIngredient.emoji,
-        quantity: qty,
-        unit: selectedUnit,
-        step: config.step,
-      };
+        setIngredients((prev) => {
+          const updated = prev.map((i) =>
+            i.id === editingExistingId
+              ? { ...i, quantity: qty, unit: selectedUnit }
+              : i
+          );
+          persistQuantities(updated);
+          return updated;
+        });
+      } else {
+        // MODE AJOUT
+        await addIngredientToFrigo(editingIngredient.id, qty, editUnitId ?? undefined);
 
-      const updated = [...ingredients, newIng];
-      setIngredients(updated);
-      persistQuantities(updated);
+        const config = getConfig(editingIngredient.category);
+        const selectedUnit = editUnitId ? units.find((u) => u.id === editUnitId) || null : null;
+
+        const newIng: Ingredient = {
+          id: editingIngredient.id,
+          name: editingIngredient.name,
+          category: editingIngredient.category,
+          emoji: editingIngredient.emoji,
+          quantity: qty,
+          unit: selectedUnit,
+          step: config.step,
+        };
+
+        const updated = [...ingredients, newIng];
+        setIngredients(updated);
+        persistQuantities(updated);
+      }
+
       setModalVisible(false);
       setSearch("");
+      setEditingExistingId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'ajout");
     } finally {
@@ -228,8 +283,9 @@ export default function FridgeScreen() {
 
   // 2.5 SUPPRIMER UN INGRÉDIENT
   const handleRemoveIngredient = async (id: number) => {
+    setUpdatingId(id);
     try {
-      setSyncing(true);
+      setError(null);
       await removeIngredientFromFrigo(id);
       const updated = ingredients.filter((i) => i.id !== id);
       setIngredients(updated);
@@ -237,7 +293,7 @@ export default function FridgeScreen() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur lors de la suppression");
     } finally {
-      setSyncing(false);
+      setUpdatingId(null);
     }
   };
 
@@ -358,25 +414,46 @@ export default function FridgeScreen() {
                     <TouchableOpacity
                       style={styles.btnMinus}
                       onPress={() => updateQuantity(i.id, -i.step)}
-                      disabled={syncing}
+                      disabled={updatingId !== null}
                     >
-                      <Ionicons name="remove" size={20} color="#666" />
+                      {updatingId === i.id ? (
+                        <ActivityIndicator size="small" color="#666" />
+                      ) : (
+                        <Ionicons name="remove" size={20} color="#666" />
+                      )}
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.btnPlus}
                       onPress={() => updateQuantity(i.id, i.step)}
-                      disabled={syncing}
+                      disabled={updatingId !== null}
                     >
-                      <Ionicons name="add" size={20} color="#FFF" />
+                      {updatingId === i.id ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                      ) : (
+                        <Ionicons name="add" size={20} color="#FFF" />
+                      )}
+                    </TouchableOpacity>
+
+                    {/* ✏️ BOUTON MODIFIER */}
+                    <TouchableOpacity
+                      style={styles.btnEdit}
+                      onPress={() => handleEditIngredient(i)}
+                      disabled={updatingId !== null}
+                    >
+                      <Ionicons name="pencil-outline" size={18} color="#FF9F1C" />
                     </TouchableOpacity>
 
                     <TouchableOpacity
                       style={styles.btnDelete}
                       onPress={() => handleRemoveIngredient(i.id)}
-                      disabled={syncing}
+                      disabled={updatingId !== null}
                     >
-                      <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                      {updatingId === i.id ? (
+                        <ActivityIndicator size="small" color="#DC2626" />
+                      ) : (
+                        <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                      )}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -484,7 +561,9 @@ export default function FridgeScreen() {
                 {syncing ? (
                   <ActivityIndicator size="small" color="#FFF" />
                 ) : (
-                  <Text style={styles.btnConfirmText}>Ajouter</Text>
+                  <Text style={styles.btnConfirmText}>
+                    {editingExistingId !== null ? "Modifier" : "Ajouter"}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -516,9 +595,10 @@ const styles = StyleSheet.create({
   controls: { flexDirection: "row", alignItems: "center", gap: 8 },
   btnMinus: { backgroundColor: "#F1F3F5", width: 35, height: 35, borderRadius: 10, justifyContent: "center", alignItems: "center" },
   btnPlus: { backgroundColor: "#FF9F1C", width: 35, height: 35, borderRadius: 10, justifyContent: "center", alignItems: "center" },
+  btnEdit: { backgroundColor: "#FFF3E0", width: 35, height: 35, borderRadius: 10, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "#FFD580" },
   btnDelete: { width: 35, height: 35, borderRadius: 10, justifyContent: "center", alignItems: "center" },
   emptyText: { textAlign: "center", color: "#ADB5BD", marginTop: 50, fontSize: 16 },
-  
+
   // Modal styles
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
   modalContent: { backgroundColor: "#FFF", borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 20 },
