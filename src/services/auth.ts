@@ -176,8 +176,6 @@ export async function registerRequest(credentials: RegisterPayload): Promise<Aut
   const registerBody = {
     firstname: credentials.firstname,
     lastname: credentials.lastname,
-    firstName: credentials.firstname,
-    lastName: credentials.lastname,
     email: credentials.email,
     password: credentials.password,
   };
@@ -258,8 +256,6 @@ export async function updateUserRequest(
       body: {
         firstname: payload.firstname,
         lastname: payload.lastname,
-        firstName: payload.firstname,
-        lastName: payload.lastname,
         email: payload.email,
         pseudo: (payload as any).pseudo,
       },
