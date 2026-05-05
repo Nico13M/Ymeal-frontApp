@@ -1,8 +1,10 @@
+import useRequireAuth from "@/src/hooks/useRequireAuth";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Keyboard,
@@ -26,6 +28,8 @@ const EMOJI_MAP: Record<string, string> = {
 
 export default function RecipesScreen() {
   const router = useRouter();
+
+  const { checking } = useRequireAuth();
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
@@ -44,6 +48,14 @@ export default function RecipesScreen() {
   const isDesktop = width >= 768;
 
   const inputRef = useRef<any>(null);
+
+  if (checking) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#00C853" />
+      </View>
+    );
+  }
 
   const filteredRecipes = RECIPES.filter(
       (recipe) =>
