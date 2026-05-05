@@ -1,8 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react'; // Ajout de useEffect
-import { Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
 import { RECIPES } from '../../constants/recipesData';
+import { ApiError, apiRequest } from '../../src/lib/api';
+
+// --- TYPES ---
+interface RatingPayload {
+  rating: number;
+  comment: string | null;
+}
+
+interface RatingResponse {
+  id: string;
+  rating: number;
+  comment?: string;
+  createdAt: string;
+}
 
 // --- LISTE DES ASTUCES ALÉATOIRES AUSSI ICI ---
 const RANDOM_TIPS = [
@@ -10,20 +24,34 @@ const RANDOM_TIPS = [
   "Cette recette peut se conserver 3 jours au frigo : idéale pour tes lunchbox.",
   "Tu peux remplacer la crème fraîche par du yaourt nature pour une version plus légère et moins chère.",
   "Astuce chef : Ajoute un filet de jus de citron à la fin pour rehausser tous les goûts.",
-  "Pas de balance ? Une tasse à mug équivaut environ à 120g de farine ou 200g de sucre."
+  "Pas de balance ? Une tasse à mug équivaut environ à 120g de farinex ou 200g de sucre."
 ];
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+  const contentContainerStyle = isDesktop
+    ? { ...styles.contentContainerInner, ...styles.contentContainerInnerDesktop }
+    : styles.contentContainerInner;
+  const sectionStyle = isDesktop
+    ? { ...styles.section, ...styles.sectionDesktop }
+    : styles.section;
+  const tipBoxStyle = isDesktop
+    ? { ...styles.tipBox, ...styles.sectionDesktop }
+    : styles.tipBox;
   
   const recipe = RECIPES.find(r => r.id === id) || RECIPES[0];
 
-  const [checkedSteps, setCheckedSteps] = useState({});
-  const [userRating, setUserRating] = useState(0);
+  const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
+  const [userRating, setUserRating] = useState<number>(0);
+  const [comment, setComment] = useState<string>('');
+  const [isLoadingRating, setIsLoadingRating] = useState<boolean>(false);
+  const [showCommentForm, setShowCommentForm] = useState<boolean>(false);
   
   // État pour l'astuce aléatoire
-  const [randomTip, setRandomTip] = useState(RANDOM_TIPS[0]);
+  const [randomTip, setRandomTip] = useState<string>(RANDOM_TIPS[0]);
 
   useEffect(() => {
     // Changement aléatoire à chaque chargement de recette
@@ -31,12 +59,106 @@ export default function RecipeDetailScreen() {
     setRandomTip(RANDOM_TIPS[index]);
   }, []);
 
-  const toggleStep = (index) => {
+  const toggleStep = (index: number): void => {
     setCheckedSteps(prev => ({ ...prev, [index]: !prev[index] }));
   };
 
-  const handleRating = (score) => {
+  const handleRating = (score: number): void => {
     setUserRating(score);
+    setShowCommentForm(true);
+  };
+
+  const getErrorMessage = (error: unknown): string => {
+    // Vérification d'erreur API
+    if (error instanceof ApiError) {
+      // Extraction du texte des réponses HTML
+      const message = error.message.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      
+      // Extraction du code d'erreur spécifique
+      if (message.includes('Not Found')) {
+        return 'La notation ne peut pas être enregistrée. Vérifiez votre connexion.';
+      }
+      if (message.includes('Forbidden') || error.status === 403) {
+        return 'Vous n\'avez pas la permission d\'ajouter une notation.';
+      }
+      if (message.includes('Unauthorized') || error.status === 401) {
+        return 'Veuillez vous connecter pour noter cette recette.';
+      }
+      if (error.status === 500) {
+        return 'Erreur serveur. Veuillez réessayer plus tard.';
+      }
+      
+      // Retourner le message nettoyé si c'est du texte
+      return message.slice(0, 150) || 'Erreur lors de l\'enregistrement';
+    }
+    
+    // Vérification d'erreur standard
+    if (error instanceof Error) {
+      return error.message;
+    }
+    
+    return 'Une erreur est survenue. Veuillez réessayer.';
+  };
+
+  const submitRating = async (): Promise<void> => {
+    // Validation
+    if (userRating === 0) {
+      Alert.alert('Erreur', 'Veuillez sélectionner une note');
+      return;
+    }
+
+    if (!id || typeof id !== 'string') {
+      Alert.alert('Erreur', 'ID de recette invalide');
+      return;
+    }
+
+    setIsLoadingRating(true);
+    try {
+      const payload: RatingPayload = {
+        rating: userRating,
+        comment: comment.trim() || null,
+      };
+
+      const response = await apiRequest<RatingResponse>(
+        `/Admin/recipes/${id}/ratings`,
+        {
+          method: 'POST',
+          body: payload,
+        }
+      );
+
+      // Vérification de la réponse
+      if (!response || !response.id) {
+        throw new Error('Réponse serveur invalide');
+      }
+
+      Alert.alert('Succès ✓', 'Votre notation a été enregistrée avec succès !');
+      
+      // Réinitialisation des états
+      setComment('');
+      setUserRating(0);
+      setShowCommentForm(false);
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error);
+      
+      Alert.alert('Erreur de l\'enregistrement', errorMsg, [
+        {
+          text: 'Réessayer',
+          onPress: () => submitRating(),
+        },
+        {
+          text: 'Annuler',
+          onPress: () => {
+            setComment('');
+            setUserRating(0);
+            setShowCommentForm(false);
+          },
+          style: 'cancel',
+        },
+      ]);
+    } finally {
+      setIsLoadingRating(false);
+    }
   };
 
   return (
@@ -66,10 +188,14 @@ export default function RecipeDetailScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.contentContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.contentContainer}
+        contentContainerStyle={contentContainerStyle}
+        showsVerticalScrollIndicator={false}
+      >
         
         {/* INGRÉDIENTS */}
-        <View style={styles.section}>
+        <View style={sectionStyle}>
           <Text style={styles.sectionTitle}>Ingrédients</Text>
           <View style={styles.card}>
             {recipe.ingredients.map((ing, index) => (
@@ -82,7 +208,7 @@ export default function RecipeDetailScreen() {
         </View>
 
         {/* PRÉPARATION */}
-        <View style={styles.section}>
+        <View style={sectionStyle}>
           <Text style={styles.sectionTitle}>Préparation</Text>
           {recipe.steps.map((step, index) => {
             const isChecked = checkedSteps[index];
@@ -100,7 +226,7 @@ export default function RecipeDetailScreen() {
         </View>
 
         {/* NOTATION */}
-        <View style={styles.section}>
+        <View style={sectionStyle}>
            <Text style={styles.sectionTitle}>Note cette recette</Text>
            <View style={styles.ratingCard}>
              <View style={{flexDirection: 'row', gap: 10, marginBottom: 10}}>
@@ -117,17 +243,50 @@ export default function RecipeDetailScreen() {
              <Text style={{color: '#666', fontSize: 16}}>
                {userRating > 0 ? `Tu as noté ${userRating}/5 ⭐` : "Touche une étoile pour noter"}
              </Text>
+
+             {/* Formulaire de commentaire - visible après avoir cliqué sur une étoile */}
+             {showCommentForm && userRating > 0 && (
+               <View style={styles.commentForm}>
+                 <TextInput
+                   style={styles.commentInput}
+                   placeholder="Ajoute un commentaire (optionnel)..."
+                   placeholderTextColor="#999"
+                   value={comment}
+                   onChangeText={setComment}
+                   multiline
+                   maxLength={500}
+                   editable={!isLoadingRating}
+                 />
+                 <Text style={styles.characterCount}>
+                   {comment.length}/500
+                 </Text>
+                 <TouchableOpacity
+                   style={[styles.submitBtn, isLoadingRating && styles.submitBtnDisabled]}
+                   onPress={submitRating}
+                   disabled={isLoadingRating}
+                 >
+                   {isLoadingRating ? (
+                     <ActivityIndicator color="#FFF" size="small" />
+                   ) : (
+                     <>
+                       <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                       <Text style={styles.submitBtnText}>Valider</Text>
+                     </>
+                   )}
+                 </TouchableOpacity>
+               </View>
+             )}
            </View>
         </View>
 
-        {/* PARTAGE */}
+        {/* PARTAGE
         <TouchableOpacity style={styles.shareBtn}>
            <Ionicons name="share-social-outline" size={20} color="#FFF" />
            <Text style={styles.shareBtnText}>Partager avec la communauté</Text>
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         {/* ASTUCE BOX (Maintenant Aléatoire) */}
-        <View style={styles.tipBox}>
+        <View style={tipBoxStyle}>
           <Ionicons name="bulb" size={20} color="#FFC107" style={{marginRight: 10}} />
           <View style={{flex: 1}}>
             <Text style={styles.tipTitle}>Le savais-tu ?</Text>
@@ -156,7 +315,19 @@ const styles = StyleSheet.create({
   priceTag: { position: 'absolute', right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.2)', padding: 5, borderRadius: 10 },
   priceText: { color: '#FFF', fontWeight: 'bold' },
   contentContainer: { flex: 1, marginTop: -20, backgroundColor: '#FFF9F2', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingTop: 30, paddingHorizontal: 20 },
+  contentContainerInner: {
+    paddingBottom: 20,
+  },
+  contentContainerInnerDesktop: {
+    paddingHorizontal: 48,
+    alignItems: 'center',
+  },
   section: { marginBottom: 25 },
+  sectionDesktop: {
+    width: '100%',
+    maxWidth: 860,
+    alignSelf: 'center',
+  },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1A1A2E', marginBottom: 15 },
   card: { backgroundColor: '#FFF', padding: 20, borderRadius: 15, elevation: 2 },
   ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
@@ -172,6 +343,44 @@ const styles = StyleSheet.create({
   ratingCard: { alignItems: 'center', backgroundColor: '#FFF', padding: 20, borderRadius: 15 },
   shareBtn: { backgroundColor: '#FF9F1C', flexDirection: 'row', justifyContent: 'center', padding: 18, borderRadius: 15, alignItems: 'center', gap: 10, marginBottom: 20 },
   shareBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  
+  // Style formulaire de commentaire
+  commentForm: { marginTop: 20, width: '100%' },
+  commentInput: {
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#DDD',
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 8,
+  },
+  characterCount: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 12,
+    textAlign: 'right',
+  },
+  submitBtn: {
+    backgroundColor: '#FF9F1C',
+    paddingVertical: 12,
+    borderRadius: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+  },
+  submitBtnDisabled: {
+    opacity: 0.6,
+  },
+  submitBtnText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
   
   // Style Astuce Detail
   tipBox: { backgroundColor: '#E3F2FD', padding: 20, borderRadius: 15, flexDirection: 'row', borderLeftWidth: 4, borderLeftColor: '#2196F3' },
