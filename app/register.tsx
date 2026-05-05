@@ -1,19 +1,19 @@
 import { STORAGE_KEYS } from "@/constants/storage";
 import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
-import { loginRequest, registerRequest, saveSession } from "@/src/services/auth";
+import { loginRequest, registerRequest, resolveUserId, saveSession } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -125,6 +125,7 @@ export default function InscriptionScreen() {
       await saveSession(session).catch(() => undefined);
 
       const accountPayload = {
+        id: resolveUserId(session.user),
         firstName: trimmedFirstname,
         lastName: trimmedLastname,
         nickname: trimmedNickname || undefined,

@@ -1,8 +1,10 @@
+import useRequireAuth from "@/src/hooks/useRequireAuth";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link } from "expo-router";
 import React, { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Keyboard,
@@ -16,11 +18,21 @@ import {
 import { RECIPES } from "../../constants/recipesData";
 
 export default function RecipesScreen() {
+  const { checking } = useRequireAuth();
+
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
 
   const inputRef = useRef<any>(null);
+
+  if (checking) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#00C853" />
+      </View>
+    );
+  }
 
   const filteredRecipes = RECIPES.filter(
       (recipe) =>

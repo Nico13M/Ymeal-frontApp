@@ -1,14 +1,16 @@
+import useRequireAuth from "@/src/hooks/useRequireAuth";
+import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import {
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
+    ActivityIndicator,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 
 /* ===================== TYPES ===================== */
 type Ingredient = {
@@ -46,8 +48,18 @@ const suggestedIngredients = [
 
 /* ===================== SCREEN ===================== */
 export default function FridgeScreen() {
+  const { checking } = useRequireAuth();
+
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [search, setSearch] = useState("");
+
+  if (checking) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#FF9F1C" />
+      </SafeAreaView>
+    );
+  }
 
   // 1. AJOUTER UN INGRÉDIENT
   const handleAddIngredient = (item: any) => {

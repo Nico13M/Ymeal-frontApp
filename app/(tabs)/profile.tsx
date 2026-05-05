@@ -1,6 +1,7 @@
 import { DIETS } from "@/constants/profileConfig";
 import { STORAGE_KEYS } from "@/constants/storage";
-import { clearSession } from "@/src/services/auth";
+import useRequireAuth from "@/src/hooks/useRequireAuth";
+import { clearSession, getSession, resolveUserId, updateUserRequest } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
@@ -15,6 +16,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -25,10 +27,17 @@ type PeopleChoice = "1" | "2" | "3-4" | "5+";
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
 type StoredAccount = {
+  id?: string | number;
   firstName?: string;
   lastName?: string;
   nickname?: string;
   email?: string;
+};
+
+type AccountDraft = {
+  firstName: string;
+  lastName: string;
+  email: string;
 };
 
 type StoredProfileConfig = {
@@ -99,21 +108,35 @@ function InfoRow({
 }
 
 export default function ProfileScreen() {
+  const { checking } = useRequireAuth();
+
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<StoredAccount | null>(null);
   const [config, setConfig] = useState<StoredProfileConfig | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [editUserOpen, setEditUserOpen] = useState(false);
+  const [editUserSaving, setEditUserSaving] = useState(false);
+  const [editUserError, setEditUserError] = useState<string | null>(null);
+  const [editUserDebug, setEditUserDebug] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<AccountDraft>({
+    firstName: "",
+    lastName: "",
+    email: "",
+  });
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const [accountRaw, configRaw] = await Promise.all([
+      const [accountRaw, configRaw, session] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.accountProfile),
         AsyncStorage.getItem(STORAGE_KEYS.profileConfig),
+        getSession(),
       ]);
 
-      setAccount(accountRaw ? (JSON.parse(accountRaw) as StoredAccount) : null);
+      const parsedAccount = accountRaw ? (JSON.parse(accountRaw) as StoredAccount) : null;
+      const sessionUserId = resolveUserId(session?.user);
+      setAccount(parsedAccount ? { ...parsedAccount, id: parsedAccount.id ?? sessionUserId ?? undefined } : null);
       setConfig(configRaw ? (JSON.parse(configRaw) as StoredProfileConfig) : null);
     } catch {
       setAccount(null);
@@ -128,6 +151,8 @@ export default function ProfileScreen() {
       loadProfile();
     }, [loadProfile])
   );
+
+ 
 
   const displayName = useMemo(() => {
     const nickname = account?.nickname?.trim();
@@ -166,6 +191,75 @@ export default function ProfileScreen() {
     router.push("/configuration-profil");
   };
 
+  const onOpenEditUser = () => {
+    setEditDraft({
+      firstName: account?.firstName?.trim() || "",
+      lastName: account?.lastName?.trim() || "",
+      email: account?.email?.trim() || "",
+    });
+    setEditUserError(null);
+    setEditUserDebug(null);
+    setSettingsOpen(false);
+    setEditUserOpen(true);
+  };
+
+  const onCloseEditUser = () => {
+    if (!editUserSaving) {
+      setEditUserOpen(false);
+      setEditUserError(null);
+      setEditUserDebug(null);
+    }
+  };
+
+  const onSaveUser = async () => {
+    if (editUserSaving) return;
+
+    const session = await getSession();
+    const nextAccount: StoredAccount = {
+      firstName: editDraft.firstName.trim(),
+      lastName: editDraft.lastName.trim(),
+      email: editDraft.email.trim().toLowerCase(),
+    };
+
+    if (!nextAccount.firstName || !nextAccount.lastName || !nextAccount.email) {
+      setEditUserError("Le prenom, le nom et l'email sont obligatoires.");
+      return;
+    }
+
+    const userId = account?.id ?? resolveUserId(session?.user);
+    setEditUserDebug(
+      `userId: ${userId ?? "null"} | account.id: ${account?.id ?? "null"} | session.user: ${JSON.stringify(session?.user)}`
+    );
+    
+    if (!userId) {
+      setEditUserError(
+        "Identifiant utilisateur introuvable. Deconnecte-toi puis reconnecte-toi pour regenerer ton profil."
+      );
+      return;
+    }
+
+    try {
+      setEditUserSaving(true);
+      setEditUserError(null);
+      await updateUserRequest(userId, {
+        firstname: nextAccount.firstName,
+        lastname: nextAccount.lastName,
+        email: nextAccount.email,
+      }, {
+        onDebug: (message) => setEditUserDebug(message),
+      });
+      await AsyncStorage.setItem(STORAGE_KEYS.accountProfile, JSON.stringify(nextAccount));
+      setAccount(nextAccount);
+      setEditUserOpen(false);
+      setSettingsOpen(false);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setEditUserError(errorMsg);
+    } finally {
+      setEditUserSaving(false);
+    }
+  };
+
   const onLogout = async () => {
     if (isLoggingOut) return;
     try {
@@ -190,7 +284,14 @@ export default function ProfileScreen() {
       </SafeAreaView>
     );
   }
-
+ if (checking) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF7A00" />
+        <Text style={styles.loadingText}>Vérification de la session...</Text>
+      </SafeAreaView>
+    );
+  }
   return (
     <SafeAreaView edges={["left", "right", "bottom"]} style={styles.container}>
       <ScrollView
@@ -267,7 +368,20 @@ export default function ProfileScreen() {
             onPress={(event) => event.stopPropagation()}
           >
             <Text style={styles.settingsTitle}>Parametres du profil</Text>
-            
+
+            <TouchableOpacity
+              style={styles.settingsAction}
+              onPress={onOpenEditUser}
+              activeOpacity={0.85}
+            >
+              <View style={styles.settingsActionIcon}>
+                <Ionicons name="person-circle-outline" size={18} color="#FF7A00" />
+              </View>
+              <View style={styles.settingsActionTextWrap}>
+                <Text style={styles.settingsActionTitle}>Modifier mes infos</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.settingsAction}
@@ -296,9 +410,85 @@ export default function ProfileScreen() {
                 <Text style={styles.settingsDangerTitle}>
                   {isLoggingOut ? "Deconnexion..." : "Se deconnecter"}
                 </Text>
-                
+
               </View>
             </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={editUserOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={onCloseEditUser}
+      >
+        <Pressable style={styles.settingsBackdrop} onPress={onCloseEditUser}>
+          <Pressable style={styles.settingsSheet} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.settingsTitle}>Modifier mes infos</Text>
+            <Text style={styles.settingsSubtitle}>
+              Mets à jour ton prénom, ton nom et ton email.
+            </Text>
+
+            <View style={styles.editField}>
+              <Text style={styles.editLabel}>Prénom</Text>
+              <TextInput
+                value={editDraft.firstName}
+                onChangeText={(value) => setEditDraft((prev) => ({ ...prev, firstName: value }))}
+                placeholder="Prénom"
+                style={styles.editInput}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.editField}>
+              <Text style={styles.editLabel}>Nom</Text>
+              <TextInput
+                value={editDraft.lastName}
+                onChangeText={(value) => setEditDraft((prev) => ({ ...prev, lastName: value }))}
+                placeholder="Nom"
+                style={styles.editInput}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.editField}>
+              <Text style={styles.editLabel}>Email</Text>
+              <TextInput
+                value={editDraft.email}
+                onChangeText={(value) => setEditDraft((prev) => ({ ...prev, email: value }))}
+                placeholder="email@exemple.fr"
+                style={styles.editInput}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
+            {editUserDebug ? <Text style={styles.editDebug}>{editUserDebug}</Text> : null}
+            {editUserError ? <Text style={styles.editError}>{editUserError}</Text> : null}
+
+            <View style={styles.editActionsRow}>
+              <TouchableOpacity
+                style={[styles.editAction, styles.editCancelAction]}
+                onPress={onCloseEditUser}
+                activeOpacity={0.85}
+                disabled={editUserSaving}
+              >
+                <Text style={styles.editCancelText}>Annuler</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.editAction, styles.editSaveAction]}
+                onPress={onSaveUser}
+                activeOpacity={0.85}
+                disabled={editUserSaving}
+              >
+                <Text style={styles.editSaveText}>
+                  {editUserSaving ? "Enregistrement..." : "Enregistrer"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -531,5 +721,68 @@ const styles = StyleSheet.create({
   settingsActionSub: {
     fontSize: 12,
     color: "#64748B",
+  },
+  editField: {
+    gap: 6,
+  },
+  editLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#334155",
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: "#0F172A",
+    backgroundColor: "#FFF",
+  },
+  editError: {
+    color: "#B91C1C",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  editDebug: {
+    color: "#0F172A",
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 18,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  editActionsRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 6,
+  },
+  editAction: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  editCancelAction: {
+    backgroundColor: "#E2E8F0",
+  },
+  editSaveAction: {
+    backgroundColor: "#FF7A00",
+  },
+  editCancelText: {
+    color: "#334155",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  editSaveText: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "800",
   },
 });
