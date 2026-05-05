@@ -11,14 +11,13 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -30,13 +29,14 @@ type StoredAccount = {
   id?: string | number;
   firstName?: string;
   lastName?: string;
-  nickname?: string;
+  pseudo?: string;
   email?: string;
 };
 
 type AccountDraft = {
   firstName: string;
   lastName: string;
+  pseudo: string;
   email: string;
 };
 
@@ -121,6 +121,7 @@ export default function ProfileScreen() {
   const [editDraft, setEditDraft] = useState<AccountDraft>({
     firstName: "",
     lastName: "",
+    pseudo: "",
     email: "",
   });
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -154,19 +155,28 @@ export default function ProfileScreen() {
 
  
 
-  const displayName = useMemo(() => {
-    const nickname = account?.nickname?.trim();
-    if (nickname) return nickname;
-    const fullName = [account?.firstName?.trim(), account?.lastName?.trim()]
-      .filter(Boolean)
-      .join(" ");
-    if (fullName) return fullName;
-    return "Etudiant Ymeal";
+  const fullName = useMemo(() => {
+    return [account?.firstName?.trim(), account?.lastName?.trim()].filter(Boolean).join(" ");
   }, [account]);
 
   const email = useMemo(() => {
     return account?.email?.trim() || "Email non renseigne";
   }, [account]);
+
+  const topName = useMemo(() => {
+    const pseudo = account?.pseudo?.trim();
+    if (pseudo) return pseudo;
+    if (fullName) return fullName;
+    return "Etudiant Ymeal";
+  }, [account, fullName]);
+
+  const subLine = useMemo(() => {
+    const pseudo = account?.pseudo?.trim();
+    if (pseudo) {
+      return fullName || email;
+    }
+    return email;
+  }, [account, fullName, email]);
 
   const location = config?.location?.trim() || "Localisation non renseignee";
 
@@ -195,6 +205,7 @@ export default function ProfileScreen() {
     setEditDraft({
       firstName: account?.firstName?.trim() || "",
       lastName: account?.lastName?.trim() || "",
+      pseudo: account?.pseudo?.trim() || "",
       email: account?.email?.trim() || "",
     });
     setEditUserError(null);
@@ -218,6 +229,7 @@ export default function ProfileScreen() {
     const nextAccount: StoredAccount = {
       firstName: editDraft.firstName.trim(),
       lastName: editDraft.lastName.trim(),
+      pseudo: editDraft.pseudo.trim(),
       email: editDraft.email.trim().toLowerCase(),
     };
 
@@ -244,6 +256,7 @@ export default function ProfileScreen() {
       await updateUserRequest(userId, {
         firstname: nextAccount.firstName,
         lastname: nextAccount.lastName,
+        pseudo: nextAccount.pseudo,
         email: nextAccount.email,
       }, {
         onDebug: (message) => setEditUserDebug(message),
@@ -312,8 +325,8 @@ export default function ProfileScreen() {
               </View>
             </View>
             <View style={styles.identityTextWrap}>
-              <Text style={styles.name}>{displayName}</Text>
-              <Text style={styles.subText}>{email}</Text>
+              <Text style={styles.name}>{topName}</Text>
+              <Text style={styles.subText}>{subLine}</Text>
             </View>
             <TouchableOpacity
               onPress={onOpenSettings}
@@ -453,6 +466,17 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.editField}>
+              <Text style={styles.editLabel}>Pseudo</Text>
+              <TextInput
+                value={editDraft.pseudo}
+                onChangeText={(value) => setEditDraft((prev) => ({ ...prev, pseudo: value }))}
+                placeholder="Pseudo"
+                style={styles.editInput}
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.editField}>
               <Text style={styles.editLabel}>Email</Text>
               <TextInput
                 value={editDraft.email}
@@ -501,14 +525,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFF7EC",
   },
-  scroll: {
-    flex: 1,
-    backgroundColor: "#FFF7EC",
-  },
-  content: {
-    flexGrow: 1,
-    paddingBottom: 24,
-  },
+  scroll: { flex: 1, backgroundColor: "#FFF7EC" },
+  content: { flexGrow: 1, paddingBottom: 24 },
   loadingContainer: {
     flex: 1,
     backgroundColor: "#FFF7EC",
@@ -516,11 +534,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  loadingText: {
-    color: "#475569",
-    fontSize: 14,
-    fontWeight: "600",
-  },
+  loadingText: { color: "#475569", fontSize: 14, fontWeight: "600" },
   hero: {
     paddingHorizontal: 16,
     paddingTop: 70,
@@ -540,11 +554,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.25)",
   },
-  identityRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
+  identityRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   avatarRing: {
     width: 88,
     height: 88,
@@ -553,28 +563,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  avatar: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: "#FFF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  identityTextWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  name: {
-    fontSize: 26,
-    fontWeight: "900",
-    color: "#FFF",
-  },
-  subText: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.9)",
-    fontWeight: "600",
-  },
+  avatar: { width: 76, height: 76, borderRadius: 38, backgroundColor: "#FFF", justifyContent: "center", alignItems: "center" },
+  identityTextWrap: { flex: 1, gap: 2 },
+  name: { fontSize: 26, fontWeight: "900", color: "#FFF" },
+  subText: { fontSize: 13, color: "rgba(255,255,255,0.9)", fontWeight: "600" },
   locationRow: {
     marginTop: 12,
     alignSelf: "flex-start",
@@ -587,11 +579,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     maxWidth: "100%",
   },
-  locationText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "700",
-  },
+  locationText: { color: "#FFF", fontSize: 12, fontWeight: "700" },
   sheet: {
     marginTop: -48,
     marginHorizontal: 14,
@@ -601,188 +589,36 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderWidth: 1,
     borderColor: "#F1E5D5",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
   },
-  sheetTitle: {
-    fontSize: 19,
-    fontWeight: "900",
-    color: "#0F172A",
-    paddingHorizontal: 6,
-    paddingVertical: 10,
-  },
-  infoRow: {
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F6ECDC",
-  },
-  infoIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(255,122,0,0.14)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-  },
-  infoTextWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  infoLabel: {
-    color: "#FF7A00",
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.35,
-  },
-  infoValue: {
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 20,
-  },
-  settingsBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(15,23,42,0.45)",
-    justifyContent: "flex-end",
-  },
-  settingsSheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 28,
-    gap: 12,
-  },
-  settingsTitle: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#0F172A",
-  },
-  settingsSubtitle: {
-    fontSize: 13,
-    color: "#475569",
-    lineHeight: 18,
-  },
-  settingsAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#EAE4DA",
-    backgroundColor: "#FFFDF8",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  settingsDangerAction: {
-    borderColor: "#F4D2D2",
-    backgroundColor: "#FFF9F9",
-  },
-  settingsActionIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,122,0,0.14)",
-  },
-  settingsDangerIcon: {
-    backgroundColor: "rgba(220,38,38,0.12)",
-  },
-  settingsActionTextWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  settingsActionTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-  settingsDangerTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#B91C1C",
-  },
-  settingsActionSub: {
-    fontSize: 12,
-    color: "#64748B",
-  },
-  editField: {
-    gap: 6,
-  },
-  editLabel: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#334155",
-  },
-  editInput: {
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: "#0F172A",
-    backgroundColor: "#FFF",
-  },
-  editError: {
-    color: "#B91C1C",
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  editDebug: {
-    color: "#0F172A",
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 18,
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  editActionsRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginTop: 6,
-  },
-  editAction: {
-    flex: 1,
-    minHeight: 46,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  editCancelAction: {
-    backgroundColor: "#E2E8F0",
-  },
-  editSaveAction: {
-    backgroundColor: "#FF7A00",
-  },
-  editCancelText: {
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  editSaveText: {
-    color: "#FFF",
-    fontSize: 14,
-    fontWeight: "800",
-  },
+  sheetTitle: { fontSize: 19, fontWeight: "900", color: "#0F172A", paddingHorizontal: 6, paddingVertical: 10 },
+  infoRow: { flexDirection: "row", gap: 10, paddingHorizontal: 6, paddingVertical: 12, borderTopWidth: 1, borderTopColor: "#F6ECDC" },
+  infoIconWrap: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(255,122,0,0.14)", alignItems: "center", justifyContent: "center", marginTop: 2 },
+  infoTextWrap: { flex: 1, gap: 2 },
+  infoLabel: { color: "#FF7A00", fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.35 },
+  infoValue: { color: "#334155", fontSize: 14, fontWeight: "600", lineHeight: 20 },
+  settingsBackdrop: { flex: 1, backgroundColor: "rgba(15,23,42,0.45)", justifyContent: "flex-end" },
+  settingsSheet: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28, gap: 12 },
+  settingsTitle: { fontSize: 20, fontWeight: "900", color: "#0F172A" },
+  settingsAction: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 14, borderWidth: 1, borderColor: "#EAE4DA", backgroundColor: "#FFFDF8", paddingHorizontal: 12, paddingVertical: 12 },
+  settingsDangerAction: { borderColor: "#F4D2D2", backgroundColor: "#FFF9F9" },
+  settingsActionIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,122,0,0.14)" },
+  settingsDangerIcon: { backgroundColor: "rgba(220,38,38,0.12)" },
+  settingsActionTextWrap: { flex: 1, gap: 2 },
+  settingsActionTitle: { fontSize: 14, fontWeight: "800", color: "#0F172A" },
+  settingsDangerTitle: { fontSize: 14, fontWeight: "800", color: "#B91C1C" },
+  settingsActionSub: { fontSize: 12, color: "#64748B" },
+  editField: { gap: 6 },
+  editLabel: { fontSize: 12, fontWeight: "800", color: "#334155" },
+  editInput: { borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, fontSize: 14, color: "#0F172A", backgroundColor: "#FFF" },
+  editError: { color: "#B91C1C", fontSize: 13, fontWeight: "700" },
+  editDebug: { color: "#0F172A", fontSize: 12, fontWeight: "600", lineHeight: 18, backgroundColor: "#F8FAFC", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
+  editActionsRow: { flexDirection: "row", gap: 10, marginTop: 6 },
+  editAction: { flex: 1, minHeight: 46, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  editCancelAction: { backgroundColor: "#E2E8F0" },
+  editSaveAction: { backgroundColor: "#FF7A00" },
+  editCancelText: { color: "#334155", fontSize: 14, fontWeight: "800" },
+  editSaveText: { color: "#FFF", fontSize: 14, fontWeight: "800" },
 });
+
+
+

@@ -13,7 +13,7 @@ export type AuthCredentials = {
 export type RegisterPayload = AuthCredentials & {
   firstname: string;
   lastname: string;
-  nickname?: string;
+  pseudo?: string;
 };
 
 export type UserProfile = {
@@ -32,6 +32,7 @@ export type UpdateUserPayload = {
   firstname: string;
   lastname: string;
   email: string;
+  pseudo?: string;
 };
 
 function getTokenFromPayload(payload: unknown): string | null {
@@ -141,20 +142,17 @@ function extractCsrfToken(payload: unknown): string | null {
 }
 
 async function getCsrfToken(): Promise<string> {
-  console.log("[CSRF] Fetching fresh CSRF token from /admin/security/csrf-token");
   const payload = await apiRequest<unknown>("/admin/security/csrf-token", {
     method: "GET",
     credentials: "include",
   });
 
-  console.log("[CSRF] Response payload:", payload);
   const token = extractCsrfToken(payload);
   if (!token) {
     console.error("[CSRF] Token extraction failed from payload:", payload);
     throw new Error("Jeton CSRF introuvable. Reessaye dans quelques instants.");
   }
 
-  console.log("[CSRF] Token extracted successfully:", token.slice(0, 50) + "...");
   return token;
 }
 
@@ -226,7 +224,6 @@ export async function updateUserRequest(
     onDebug?: (message: string) => void;
   }
 ): Promise<void> {
-  console.log("[UPDATE_USER] Starting user update for ID:", userId);
   
   const session = await getSession();
   if (!session?.token) {
@@ -234,7 +231,6 @@ export async function updateUserRequest(
     throw new Error("Session utilisateur introuvable. Reconnecte-toi puis reessaie.");
   }
 
-  console.log("[UPDATE_USER] Session token found:", session.token.slice(0, 20) + "...");
 
   const normalizedUserId = String(userId).trim();
   if (!normalizedUserId) {
@@ -242,28 +238,15 @@ export async function updateUserRequest(
     throw new Error("Identifiant utilisateur manquant.");
   }
 
-  console.log("[UPDATE_USER] Step 1: Fetching fresh CSRF token");
 
   let csrfToken: string;
   try {
     csrfToken = await getCsrfToken();
-    console.log("[UPDATE_USER] Step 2: CSRF token received");
   } catch (csrfError) {
     const csrfErrorMsg = csrfError instanceof Error ? csrfError.message : String(csrfError);
     console.error("[UPDATE_USER] CSRF fetch error:", csrfErrorMsg);
     throw csrfError;
   }
-
-  console.log(`[UPDATE_USER] Step 3: Sending PATCH request to /admin/user/${normalizedUserId}/edit`);
-  console.log("[UPDATE_USER] Request headers:", {
-    "X-CSRF-TOKEN": csrfToken.slice(0, 50) + "...",
-    "Content-Type": "application/json",
-  });
-  console.log("[UPDATE_USER] Request body:", {
-    firstname: payload.firstname,
-    lastname: payload.lastname,
-    email: payload.email,
-  });
 
   try {
     const response = await apiRequest(`/admin/user/${normalizedUserId}/edit`, {
@@ -278,10 +261,10 @@ export async function updateUserRequest(
         firstName: payload.firstname,
         lastName: payload.lastname,
         email: payload.email,
+        pseudo: (payload as any).pseudo,
       },
     });
 
-    console.log("[UPDATE_USER] Step 4: PATCH successful, response:", response);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("[UPDATE_USER] PATCH error:", errorMessage);
