@@ -68,6 +68,7 @@ function getLoginErrorMessage(error: unknown): string {
 export default function ConnexionScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -189,10 +190,13 @@ export default function ConnexionScreen() {
               if (formError) setFormError(null);
             }}
             placeholder="********"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             autoCapitalize="none"
             style={styles.input}
           />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <Ionicons name={showPassword ? "eye-off" : "eye"} size={18} color="#9AA3AF" />
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity

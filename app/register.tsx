@@ -21,13 +21,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 function getRegisterErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 409) {
-      return "Cette adresse email est deja utilisee.";
+      return "Cette adresse email est déjà utilisée.";
     }
     if (error.status === 422) {
-      return "Certains champs sont invalides. Verifie tes informations.";
+      return "Certains champs sont invalides. Vérifie tes informations.";
     }
     if (error.status === 429) {
-      return "Trop de tentatives. Reessaie dans quelques minutes.";
+      return "Trop de tentatives. éessaie dans quelques minutes.";
     }
   }
 
@@ -39,7 +39,7 @@ function getRegisterErrorMessage(error: unknown): string {
     normalized.includes("utilise") ||
     normalized.includes("email")
   ) {
-    return "Cette adresse email est deja utilisee.";
+    return "Cette adresse email est déjà utilisée.";
   }
 
   return fallback;
@@ -55,14 +55,19 @@ export default function InscriptionScreen() {
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+    const passwordRules = {
+    minLength: password.length >= 6,
+    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>_\-./]/.test(password),
+  };
+
   const canSubmit = useMemo(() => {
     return (
       !loading &&
       firstName.trim().length > 1 &&
       lastName.trim().length > 1 &&
       email.trim().length > 3 &&
-      password.length >= 6 &&
-      confirm.length >= 6 &&
+      passwordRules.minLength &&
+    passwordRules.hasSpecialChar &&
       password === confirm
     );
   }, [confirm, email, firstName, lastName, loading, password]);
@@ -74,35 +79,33 @@ export default function InscriptionScreen() {
     const trimmedNickname = nickname.trim();
     setFormError(null);
 
-    if (!trimmedFirstname) {
-      setFormError("Renseigne ton prenom.");
-      return;
-    }
+const errors: string[] = [];
 
-    if (!trimmedLastname) {
-      setFormError("Renseigne ton nom.");
-      return;
-    }
+if (!trimmedFirstname) errors.push("Prénom manquant");
+if (!trimmedLastname) errors.push("Nom manquant");
 
-    if (trimmedNickname.length > 0 && trimmedNickname.length < 2) {
-      setFormError("Le surnom doit faire au moins 2 caracteres.");
-      return;
-    }
+if (trimmedNickname.length > 0 && trimmedNickname.length < 2) {
+  errors.push("Le pseudo doit faire au moins 2 caractères");
+}
 
-    if (!trimmedEmail) {
-      setFormError("Renseigne ton email.");
-      return;
-    }
+if (!trimmedEmail) errors.push("Email manquant");
 
-    if (password.length < 6) {
-      setFormError("Mot de passe trop court (min 6).");
-      return;
-    }
+if (!passwordRules.minLength) {
+  errors.push("Mot de passe trop court (min 6)");
+}
 
-    if (password !== confirm) {
-      setFormError("Les mots de passe ne correspondent pas.");
-      return;
-    }
+if (!passwordRules.hasSpecialChar) {
+  errors.push("Ajoute un caractère spécial dans ton mot de passe");
+}
+
+if (password !== confirm) {
+  errors.push("Les mots de passe ne correspondent pas");
+}
+
+if (errors.length > 0) {
+  setFormError(errors.join("\n"));
+  return;
+}
 
     try {
       setLoading(true);
@@ -175,130 +178,131 @@ export default function InscriptionScreen() {
               <Ionicons name="restaurant" size={22} color="#fff" />
             </View>
             <Text style={styles.brand}>Ymeal</Text>
-            <Text style={styles.tagline}>Des recettes adaptees a ton budget etudiant</Text>
+            <Text style={styles.tagline}>Des recettes adaptées à ton budget étudiant</Text>
           </View>
+<View style={styles.card}>
+  <Text style={styles.cardTitle}>Créer un compte</Text>
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Creer un compte</Text>
+  {/* Labels */}
+  <View style={styles.row}>
+    <Text style={[styles.label, styles.halfInput]}>Prénom</Text>
+    <Text style={[styles.label, styles.halfInput]}>Nom</Text>
+  </View>
 
-        <Text style={styles.label}>Nom</Text>
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
+  {/* Inputs */}
+  <View style={styles.row}>
+    <View style={styles.halfInput}>
+      <View style={styles.inputWrap}>
+        <Ionicons name="person-outline" size={18} color="#9AA3AF" />
+        <TextInput
+          value={firstName}
+          onChangeText={(value) => {
+            setFirstName(value);
+            if (formError) setFormError(null);
+          }}
+          placeholder="Prénom"
+          autoCapitalize="words"
+          style={styles.input}
+        />
+      </View>
+    </View>
+
+    <View style={styles.halfInput}>
+      <View style={styles.inputWrap}>
+        <Ionicons name="person-outline" size={18} color="#9AA3AF" />
+        <TextInput
+          value={lastName}
+          onChangeText={(value) => {
+            setLastName(value);
+            if (formError) setFormError(null);
+          }}
+          placeholder="Nom"
+          autoCapitalize="words"
+          style={styles.input}
+        />
+      </View>
+    </View>
+  </View>
+            <Text style={styles.label}>Pseudo</Text>
             <View style={styles.inputWrap}>
               <Ionicons name="person-outline" size={18} color="#9AA3AF" />
               <TextInput
-                value={firstName}
+                value={nickname}
                 onChangeText={(value) => {
-                  setFirstName(value);
+                  setNickname(value);
                   if (formError) setFormError(null);
                 }}
-                placeholder="Prenom"
-                autoCapitalize="words"
+                placeholder="pseudo"
+                keyboardType="default"
+                autoCapitalize="none"
+                autoCorrect={false}
                 style={styles.input}
               />
             </View>
-          </View>
-
-          <View style={styles.halfInput}>
+            <Text style={styles.label}>Adresse email</Text>
             <View style={styles.inputWrap}>
-              <Ionicons name="person-outline" size={18} color="#9AA3AF" />
+              <Ionicons name="mail-outline" size={18} color="#9AA3AF" />
               <TextInput
-                value={lastName}
+                value={email}
                 onChangeText={(value) => {
-                  setLastName(value);
+                  setEmail(value);
                   if (formError) setFormError(null);
                 }}
-                placeholder="Nom"
-                autoCapitalize="words"
+                placeholder="tonemail@etudiant.fr"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
                 style={styles.input}
               />
             </View>
-          </View>
-        </View>
+            <Text style={styles.label}>Mot de passe</Text>
+            <View style={styles.inputWrap}>
+              <Ionicons name="lock-closed-outline" size={18} color="#9AA3AF" />
+              <TextInput
+                value={password}
+                onChangeText={(value) => {
+                  setPassword(value);
+                  if (formError) setFormError(null);
+                }}
+                placeholder="********"
+                secureTextEntry
+                autoCapitalize="none"
+                style={styles.input}
+              />
+            </View>
+            <Text style={styles.label}>Confirmation du mot de passe</Text>
+            <View style={styles.inputWrap}>
+              <Ionicons name="lock-closed-outline" size={18} color="#9AA3AF" />
+              <TextInput
+                value={confirm}
+                onChangeText={(value) => {
+                  setConfirm(value);
+                  if (formError) setFormError(null);
+                }}
+                placeholder="********"
+                secureTextEntry
+                autoCapitalize="none"
+                style={styles.input}
+              />
+            </View>
+            <TouchableOpacity
+              // style={[styles.button, !canSubmit && styles.buttonDisabled]}
+              style={styles.button}
+              onPress={onContinue}
+              activeOpacity={0.85}
+              // disabled={!canSubmit}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>Continuer</Text>
+            </TouchableOpacity>
 
-        <Text style={styles.label}>Surnom</Text>
-        <View style={styles.inputWrap}>
-          <Ionicons name="person-outline" size={18} color="#9AA3AF" />
-          <TextInput
-            value={nickname}
-            onChangeText={(value) => {
-              setNickname(value);
-              if (formError) setFormError(null);
-            }}
-            placeholder="surnom"
-            keyboardType="default"
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={styles.input}
-          />
-        </View>
-
-        <Text style={styles.label}>Adresse email</Text>
-        <View style={styles.inputWrap}>
-          <Ionicons name="mail-outline" size={18} color="#9AA3AF" />
-          <TextInput
-            value={email}
-            onChangeText={(value) => {
-              setEmail(value);
-              if (formError) setFormError(null);
-            }}
-            placeholder="tonemail@etudiant.fr"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            style={styles.input}
-          />
-        </View>
-
-        <Text style={styles.label}>Mot de passe</Text>
-        <View style={styles.inputWrap}>
-          <Ionicons name="lock-closed-outline" size={18} color="#9AA3AF" />
-          <TextInput
-            value={password}
-            onChangeText={(value) => {
-              setPassword(value);
-              if (formError) setFormError(null);
-            }}
-            placeholder="********"
-            secureTextEntry
-            autoCapitalize="none"
-            style={styles.input}
-          />
-        </View>
-
-        <Text style={styles.label}>Confirmation du mot de passe</Text>
-        <View style={styles.inputWrap}>
-          <Ionicons name="lock-closed-outline" size={18} color="#9AA3AF" />
-          <TextInput
-            value={confirm}
-            onChangeText={(value) => {
-              setConfirm(value);
-              if (formError) setFormError(null);
-            }}
-            placeholder="********"
-            secureTextEntry
-            autoCapitalize="none"
-            style={styles.input}
-          />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.button, !canSubmit && styles.buttonDisabled]}
-          onPress={onContinue}
-          activeOpacity={0.85}
-          disabled={!canSubmit}
-        >
-          <Text style={styles.buttonText}>Continuer</Text>
-        </TouchableOpacity>
-        {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
-
-        <View style={styles.loginRow}>
-          <Text style={styles.loginText}>Deja un compte ? </Text>
-          <Link href="/connexion" style={styles.loginLink}>
-            Se connecter
-          </Link>
-        </View>
-
+            {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
+            <View style={styles.loginRow}>
+              <Text style={styles.loginText}>Déjà un compte ? </Text>
+              <Link href="/connexion" style={styles.loginLink}>
+                Se connecter
+              </Link>
+            </View>
             <Text style={styles.legal}>En continuant, tu acceptes nos conditions d&apos;utilisation</Text>
           </View>
         </ScrollView>
@@ -404,9 +408,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 8,
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
+  // buttonDisabled: {
+  //   opacity: 0.5,
+  // },
   buttonText: {
     color: "#fff",
     fontWeight: "700",
