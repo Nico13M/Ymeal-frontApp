@@ -1,4 +1,5 @@
 import useRequireAuth from "@/src/hooks/useRequireAuth";
+import { getFrigoIngredients } from "@/src/services/fridge";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -16,8 +17,18 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
+  Alert
 } from "react-native";
 import { RECIPES } from "../../constants/recipesData";
+
+// Types pour le back
+interface BackendFrigoIngredient {
+  id: number;
+  name: string;
+  slug: string;
+  unit: string; // Ajout de l'unité
+  selected?: boolean;
+}[]>([]);
 
 const EMOJI_MAP: Record<string, string> = {
   'poulet': '🍗', 'boeuf': '🥩', 'poisson': '🐟', 'oeuf': '🥚', 'lait': '🥛',
@@ -28,12 +39,18 @@ const EMOJI_MAP: Record<string, string> = {
 
 export default function RecipesScreen() {
   const router = useRouter();
-
   const { checking } = useRequireAuth();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
+
+  // Etats
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
   const [showGenerator, setShowGenerator] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
+  const [loadingFridge, setLoadingFridge] = useState(false);
+
+  // Etats du générateur
   const [nbPers, setNbPers] = useState(2);
   const [difficulty, setDifficulty] = useState('Débutant');
   const [type, setType] = useState('Plat');
@@ -41,11 +58,11 @@ export default function RecipesScreen() {
   const [price, setPrice] = useState('Équilibré');
   const [context, setContext] = useState('');
   const [useFrigo, setUseFrigo] = useState(false);
+
   const [ingredientInput, setIngredientInput] = useState('');
   const [addedIngredients, setAddedIngredients] = useState<{name: string, emoji: string}[]>([]);
-  const [fridgeItems, setFridgeItems] = useState<{name: string, emoji: string, selected?: boolean}[]>([]);
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
+// Remplace ton useState actuel par celui-ci :
+  const [fridgeItems, setFridgeItems] = useState<{name: string, emoji: string, quantity: number, unit: string, selected?: boolean}[]>([]);
 
   const inputRef = useRef<any>(null);
 
@@ -80,34 +97,36 @@ export default function RecipesScreen() {
     setAddedIngredients(addedIngredients.filter((_, i) => i !== index));
   };
 
+// FETCH RÉEL DES INGRÉDIENTS DU FRIGO
   useEffect(() => {
-    // Mock fetching fridge items when fridge mode is enabled
     if (!useFrigo) return;
+    // Optionnel : on vide la sélection si on décoche frigo ?
+    // Sinon on garde fridgeItems en mémoire.
 
-    const loadMockFridge = async () => {
-      // Simulate network delay
-      await new Promise((res) => setTimeout(res, 200));
-      const mockNames = [
-        "tomate",
-        "oeuf",
-        "lait",
-        "fromage",
-        "pates",
-        "riz",
-        "carotte",
-      ];
-      const items = mockNames.map((n) => ({ name: n, emoji: EMOJI_MAP[n] || "🍽️", selected: false }));
-      setFridgeItems(items);
+    const loadRealFridge = async () => {
+      try {
+        const data = await getFrigoIngredients();
+        const items = data.map((ing: any) => ({
+          name: ing.name || ing.label,
+          emoji: EMOJI_MAP[(ing.name || ing.label).toLowerCase()] || "🍽️",
+          quantity: ing.quantity, // Récupéré du back
+          unit: ing.unit?.symbol || ing.unit?.name || "",
+          selected: false
+        }));
+        setFridgeItems(items);
+      } catch (error) {
+        console.error("Erreur fridge:", error);
+      }
     };
 
-    loadMockFridge();
+    loadRealFridge();
   }, [useFrigo]);
 
   if (checking) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#00C853" />
-      </View>
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" color="#00C853" />
+        </View>
     );
   }
 
@@ -118,7 +137,9 @@ export default function RecipesScreen() {
 
       // reflect in addedIngredients
       if (copy[index].selected) {
-        const exists = addedIngredients.some((a) => a.name.toLowerCase() === copy[index].name.toLowerCase());
+        const exists = addedIngredients.some(
+            (a) => a.name.toLowerCase() === copy[index].name.toLowerCase()
+        );
         if (!exists) setAddedIngredients((s) => [...s, { name: copy[index].name, emoji: copy[index].emoji }]);
       } else {
         setAddedIngredients((s) => s.filter((a) => a.name.toLowerCase() !== copy[index].name.toLowerCase()));
@@ -129,20 +150,20 @@ export default function RecipesScreen() {
   };
 
   const Selector = ({ label, options, current, setter }: any) => (
-    <View style={styles.selectorContainer}>
+      <View style={styles.selectorContainer}>
         <Text style={styles.selectorLabel}>{label}</Text>
         <View style={styles.chipRow}>
-        {options.map((opt: string) => (
-                <TouchableOpacity
-                    key={opt}
-                    onPress={() => setter(opt)}
-                    style={[styles.chip, current === opt && styles.chipActive]}
-                >
-                    <Text style={[styles.chipText, current === opt && styles.chipTextActive]}>{opt}</Text>
-                </TouchableOpacity>
-            ))}
+          {options.map((opt: string) => (
+              <TouchableOpacity
+                  key={opt}
+                  onPress={() => setter(opt)}
+                  style={[styles.chip, current === opt && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, current === opt && styles.chipTextActive]}>{opt}</Text>
+              </TouchableOpacity>
+          ))}
         </View>
-    </View>
+      </View>
   );
 
   const handleGenerate = () => {
@@ -151,9 +172,9 @@ export default function RecipesScreen() {
     if (addedIngredients.length > 0) {
       const names = addedIngredients.map((i) => i.name.toLowerCase());
       const filtered = candidates.filter((r) =>
-        r.ingredients.some((ing: string) =>
-          names.some((n) => ing.toLowerCase().includes(n))
-        )
+          r.ingredients.some((ing: string) =>
+              names.some((n) => ing.toLowerCase().includes(n))
+          )
       );
       if (filtered.length > 0) candidates = filtered;
     }
@@ -161,7 +182,7 @@ export default function RecipesScreen() {
     if (difficulty) {
       const diff = difficulty.toLowerCase();
       const diffFiltered = candidates.filter((r) =>
-        r.difficulty && r.difficulty.toLowerCase().includes(diff)
+          r.difficulty && r.difficulty.toLowerCase().includes(diff)
       );
       if (diffFiltered.length > 0) candidates = diffFiltered;
     }
@@ -188,7 +209,7 @@ export default function RecipesScreen() {
   const getDifficultyColors = (difficulty: string) => {
     const normalizedDifficulty = difficulty.toLowerCase().trim();
     if (
-      normalizedDifficulty.includes("débutant")
+        normalizedDifficulty.includes("débutant")
     ) {
       return { backgroundColor: "#1B5E20", textColor: "#FFFFFF" };
     }
@@ -208,42 +229,42 @@ export default function RecipesScreen() {
     const difficultyColors = getDifficultyColors(item.difficulty);
 
     return (
-      <TouchableOpacity
-        style={[styles.card, isDesktop && styles.cardDesktop]}
-        onPress={() => router.push(`/recipe/${item.id}`)}
-      >
-        <Image source={{ uri: item.image }} style={styles.cardImage} />
-        <View style={styles.cardContent}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={12} color="#FFF" />
-              <Text style={styles.ratingText}>{item.rating}</Text>
+        <TouchableOpacity
+            style={[styles.card, isDesktop && styles.cardDesktop]}
+            onPress={() => router.push(`/recipe/${item.id}`)}
+        >
+          <Image source={{ uri: item.image }} style={styles.cardImage} />
+          <View style={styles.cardContent}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <View style={styles.ratingBadge}>
+                <Ionicons name="star" size={12} color="#FFF" />
+                <Text style={styles.ratingText}>{item.rating}</Text>
+              </View>
             </View>
-          </View>
 
-          <View style={styles.metaContainer}>
-            <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={14} color="#666" />
-              <Text style={styles.metaText}>{item.time}</Text>
+            <View style={styles.metaContainer}>
+              <View style={styles.metaItem}>
+                <Ionicons name="time-outline" size={14} color="#666" />
+                <Text style={styles.metaText}>{item.time}</Text>
+              </View>
             </View>
-          </View>
 
-          <View style={styles.rowBetween}>
-            <View
-              style={[
-                styles.tag,
-                { backgroundColor: difficultyColors.backgroundColor },
-              ]}
-            >
-              <Text style={[styles.tagText, { color: difficultyColors.textColor }]}> 
-                {item.difficulty}
-              </Text>
+            <View style={styles.rowBetween}>
+              <View
+                  style={[
+                    styles.tag,
+                    { backgroundColor: difficultyColors.backgroundColor },
+                  ]}
+              >
+                <Text style={[styles.tagText, { color: difficultyColors.textColor }]}>
+                  {item.difficulty}
+                </Text>
+              </View>
+              <Text style={styles.linkText}>Voir la recette ➔</Text>
             </View>
-            <Text style={styles.linkText}>Voir la recette ➔</Text>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
     );
   };
 
@@ -289,14 +310,14 @@ export default function RecipesScreen() {
                     onPress={() => setShowGenerator(!showGenerator)}
                     style={styles.navButton}
                 >
-                    <Ionicons
-                        name={showGenerator ? "list" : "sparkles"}
-                        size={18}
-                        color="#00C853"
-                    />
-                    <Text style={styles.navButtonText}>
-                        {showGenerator ? "Toutes les recettes" : "Générateur de recettes"}
-                    </Text>
+                  <Ionicons
+                      name={showGenerator ? "list" : "sparkles"}
+                      size={18}
+                      color="#00C853"
+                  />
+                  <Text style={styles.navButtonText}>
+                    {showGenerator ? "Toutes les recettes" : "Générateur de recettes"}
+                  </Text>
                 </TouchableOpacity>
               </View>
           )}
@@ -329,105 +350,113 @@ export default function RecipesScreen() {
 
         {showGenerator ? (
             <ScrollView contentContainerStyle={styles.scrollForm}>
-                <View style={styles.inputGroup}>
-                    <Text style={styles.selectorLabel}>Ingrédients spécifiques</Text>
-                    <View style={styles.row}>
-                        <View style={[
-                            styles.searchBarContainer,
-                            { flex: 1, marginRight: 10 },
-                            useFrigo && { backgroundColor: '#F0F0F0', opacity: 0.6 }
-                        ]}>
-                            <TextInput
-                                placeholder={useFrigo ? "Désactivé (Mode Frigo)" : "Ajouter un ingrédient..."}
-                                style={{ flex: 1 }}
-                                value={ingredientInput}
-                                onChangeText={setIngredientInput}
-                                editable={!useFrigo}
-                                onSubmitEditing={handleAddIngredient}
-                            />
-                            <TouchableOpacity onPress={handleAddIngredient} disabled={useFrigo}>
-                                <Ionicons name="add-circle" size={24} color={useFrigo ? "#CCC" : "#00C853"} />
-                            </TouchableOpacity>
-                        </View>
-                        <TouchableOpacity
-                            onPress={() => setUseFrigo(!useFrigo)}
-                            style={[styles.frigoBtn, useFrigo && styles.frigoBtnActive]}
-                        >
-                            <Ionicons name="fast-food" size={20} color={useFrigo ? "#FFF" : "#00C853"} />
-                            <Text style={[styles.frigoBtnText, useFrigo && {color: '#FFF'}]}>Frigo</Text>
-                        </TouchableOpacity>
-                    </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.selectorLabel}>Ingrédients spécifiques</Text>
+                <View style={styles.row}>
+                  <View style={[
+                    styles.searchBarContainer,
+                    { flex: 1, marginRight: 10 },
+                    useFrigo && { backgroundColor: '#F0F0F0', opacity: 0.6 }
+                  ]}>
+                    <TextInput
+                        placeholder={useFrigo ? "Désactivé (Mode Frigo)" : "Ajouter un ingrédient..."}
+                        style={{ flex: 1 }}
+                        value={ingredientInput}
+                        onChangeText={setIngredientInput}
+                        editable={!useFrigo}
+                        onSubmitEditing={handleAddIngredient}
+                    />
+                    <TouchableOpacity onPress={handleAddIngredient} disabled={useFrigo}>
+                      <Ionicons name="add-circle" size={24} color={useFrigo ? "#CCC" : "#00C853"} />
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity
+                      onPress={() => setUseFrigo(!useFrigo)}
+                      style={[styles.frigoBtn, useFrigo && styles.frigoBtnActive]}
+                  >
+                    <Ionicons name="fast-food" size={20} color={useFrigo ? "#FFF" : "#00C853"} />
+                    <Text style={[styles.frigoBtnText, useFrigo && {color: '#FFF'}]}>Frigo</Text>
+                  </TouchableOpacity>
+                </View>
 
-                      {useFrigo ? (
-                        <View style={{ marginTop: 10 }}>
-                          <Text style={styles.selectorLabel}>Ingrédients du frigo</Text>
-                          <View style={[styles.chipRow, { flexWrap: 'wrap', marginTop: 10 }]}>
-                            {fridgeItems.map((fi, i) => (
-                              <TouchableOpacity
-                                key={fi.name + i}
+                {useFrigo ? (
+                    <View style={{ marginTop: 10 }}>
+                      <Text style={styles.selectorLabel}>Ingrédients du frigo</Text>
+                      <View style={[styles.chipRow, { flexWrap: 'wrap', marginTop: 10 }]}>
+                        {fridgeItems.map((fi, i) => (
+                            <TouchableOpacity
+                                key={i}
                                 onPress={() => toggleFridgeSelection(i)}
                                 style={[
                                   styles.chip,
                                   { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-                                  fi.selected && { backgroundColor: '#C8E6C9' },
+                                  fi.selected && { backgroundColor: '#C8E6C9', borderColor: '#00C853' },
                                 ]}
-                              >
-                                <Text>{fi.emoji} {fi.name}</Text>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        </View>
-                      ) : (
-                        addedIngredients.length > 0 && (
-                          <View style={[styles.chipRow, { flexWrap: 'wrap', marginTop: 10 }]}>
-                            {addedIngredients.map((ing, index) => (
+                            >
+                              <Text style={{ fontSize: 14 }}>
+                                {fi.emoji} {fi.name}
+                              </Text>
+                              {/* Badge de quantité et unité */}
+                              <View style={styles.quantityBadge}>
+                                <Text style={styles.quantityText}>
+                                  {fi.quantity} {fi.unit}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                ) : (
+                    addedIngredients.length > 0 && (
+                        <View style={[styles.chipRow, { flexWrap: 'wrap', marginTop: 10 }]}>
+                          {addedIngredients.map((ing, index) => (
                               <View key={index} style={[styles.chip, { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E8F5E9' }]}>
                                 <Text>{ing.emoji} {ing.name}</Text>
                                 <TouchableOpacity onPress={() => removeIngredient(index)} style={{ marginLeft: 8 }}>
                                   <Ionicons name="close-circle" size={16} color="#666" />
                                 </TouchableOpacity>
                               </View>
-                            ))}
-                          </View>
-                        )
-                      )}
+                          ))}
+                        </View>
+                    )
+                )}
+              </View>
+
+              <View style={styles.counterGroup}>
+                <Text style={styles.selectorLabel}>Nombre de personnes</Text>
+                <View style={styles.counter}>
+                  <TouchableOpacity onPress={() => setNbPers(Math.max(1, nbPers - 1))}>
+                    <Ionicons name="remove-circle-outline" size={32} color="#00C853" />
+                  </TouchableOpacity>
+                  <Text style={styles.counterText}>{nbPers}</Text>
+                  <TouchableOpacity onPress={() => setNbPers(nbPers + 1)}>
+                    <Ionicons name="add-circle-outline" size={32} color="#00C853" />
+                  </TouchableOpacity>
                 </View>
+              </View>
 
-                <View style={styles.counterGroup}>
-                    <Text style={styles.selectorLabel}>Nombre de personnes</Text>
-                    <View style={styles.counter}>
-                        <TouchableOpacity onPress={() => setNbPers(Math.max(1, nbPers - 1))}>
-                            <Ionicons name="remove-circle-outline" size={32} color="#00C853" />
-                        </TouchableOpacity>
-                        <Text style={styles.counterText}>{nbPers}</Text>
-                        <TouchableOpacity onPress={() => setNbPers(nbPers + 1)}>
-                            <Ionicons name="add-circle-outline" size={32} color="#00C853" />
-                        </TouchableOpacity>
-                    </View>
-                </View>
+              <Selector label="Difficulté" options={['Débutant', 'Moyen', 'Difficile']} current={difficulty} setter={setDifficulty} />
+              <Selector label="Type de plat" options={['Entrée', 'Plat', 'Dessert']} current={type} setter={setType} />
+              <Selector label="Temps" options={['Express', 'Moyen', 'Mijoté']} current={time} setter={setTime} />
+              <Selector label="Budget" options={['Éco', 'Équilibré', 'Gourmet']} current={price} setter={setPrice} />
 
-                <Selector label="Difficulté" options={['Débutant', 'Moyen', 'Difficile']} current={difficulty} setter={setDifficulty} />
-                <Selector label="Type de plat" options={['Entrée', 'Plat', 'Dessert']} current={type} setter={setType} />
-                <Selector label="Temps" options={['Express', 'Moyen', 'Mijoté']} current={time} setter={setTime} />
-                <Selector label="Budget" options={['Éco', 'Équilibré', 'Gourmet']} current={price} setter={setPrice} />
+              <View style={styles.inputGroup}>
+                <Text style={styles.selectorLabel}>Contexte / Régime (Optionnel)</Text>
+                <TextInput
+                    style={styles.textArea}
+                    multiline
+                    placeholder="Ex: Pas de lait, Sans gluten, Halal..."
+                    value={context}
+                    onChangeText={setContext}
+                />
+              </View>
 
-                <View style={styles.inputGroup}>
-                    <Text style={styles.selectorLabel}>Contexte / Régime (Optionnel)</Text>
-                    <TextInput
-                        style={styles.textArea}
-                        multiline
-                        placeholder="Ex: Pas de lait, Sans gluten, Halal..."
-                        value={context}
-                        onChangeText={setContext}
-                    />
-                </View>
-
-                <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate}>
-                    <LinearGradient colors={['#FF9F1C', '#FF7E05']} style={styles.gradientBtn}>
-                        <Text style={styles.generateBtnText}>Générer la recette</Text>
-                        <Ionicons name="color-wand" size={20} color="#FFF" />
-                    </LinearGradient>
-                </TouchableOpacity>
+              <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate}>
+                <LinearGradient colors={['#FF9F1C', '#FF7E05']} style={styles.gradientBtn}>
+                  <Text style={styles.generateBtnText}>Générer la recette</Text>
+                  <Ionicons name="color-wand" size={20} color="#FFF" />
+                </LinearGradient>
+              </TouchableOpacity>
             </ScrollView>
         ) : (
             <FlatList
@@ -690,5 +719,18 @@ const styles = StyleSheet.create({
     color: "#00C853",
     margin: "auto",
     textAlign: "center",
+  },
+
+  quantityBadge: {
+    backgroundColor: '#F0F0F0',
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  quantityText: {
+    fontSize: 10,
+    color: '#666',
+    fontWeight: 'bold',
   },
 });
