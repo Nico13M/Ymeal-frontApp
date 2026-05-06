@@ -242,33 +242,50 @@ if (errors.length > 0) {
             <Text style={styles.label}>Adresse email</Text>
             <View style={styles.inputWrap}>
               <Ionicons name="mail-outline" size={18} color="#9AA3AF" />
-              <TextInput
-                value={email}
-                onChangeText={(value) => {
-                  setEmail(value);
-                  if (formError) setFormError(null);
-                }}
-                placeholder="tonemail@etudiant.fr"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={styles.input}
-              />
-            </View>
-            <Text style={styles.label}>Mot de passe</Text>
-            <View style={styles.inputWrap}>
-              <Ionicons name="lock-closed-outline" size={18} color="#9AA3AF" />
-              <TextInput
-                value={password}
-                onChangeText={(value) => {
-                  setPassword(value);
-                  if (formError) setFormError(null);
-                }}
-                placeholder="********"
-                secureTextEntry
-                autoCapitalize="none"
-                style={styles.input}
-              />
+
+
+<TextInput
+    value={email}
+    onChangeText={(value) => {
+      setEmail(value);
+      if (formError) setFormError(null);
+    }}
+    placeholder="tonemail@etudiant.fr"
+    keyboardType="email-address"
+    autoCapitalize="none"
+    autoCorrect={false}
+
+    textContentType="emailAddress"
+    autoComplete="email"
+    importantForAutofill="yes"
+
+    style={styles.input}
+  />
+</View>
+
+<Text style={styles.label}>Mot de passe</Text>
+
+<View style={styles.inputWrap}>
+  <Ionicons name="lock-closed-outline" size={18} color="#9AA3AF" />
+
+  <TextInput
+    value={password}
+    onChangeText={(value) => {
+      setPassword(value);
+      if (formError) setFormError(null);
+    }}
+    placeholder="********"
+    secureTextEntry
+    autoCapitalize="none"
+
+    textContentType="newPassword"
+    autoComplete="password-new"
+    importantForAutofill="yes"
+
+    style={styles.input}
+  />
+
+
             </View>
             <Text style={styles.label}>Confirmation du mot de passe</Text>
             <View style={styles.inputWrap}>
@@ -282,6 +299,9 @@ if (errors.length > 0) {
                 placeholder="********"
                 secureTextEntry
                 autoCapitalize="none"
+                textContentType="newPassword"
+autoComplete="password-new"
+importantForAutofill="yes"
                 style={styles.input}
               />
             </View>

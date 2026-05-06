@@ -184,7 +184,7 @@ export default function ConfigurationProfilScreen() {
     setCuisines((prev) => {
       const exists = prev.includes(c);
       if (exists) return prev.filter((x) => x !== c);
-      if (prev.length >= 3) return prev;
+      if (prev.length >= 6) return prev;
       return [...prev, c];
     });
   };
@@ -432,21 +432,39 @@ export default function ConfigurationProfilScreen() {
 <Text style={styles.question}>Où habites-tu ?</Text>
 </View>
 <Text style={styles.label}>Ville ou code postal</Text>
+
+
 <View style={styles.inputWrap}>
-<Ionicons name="location-outline" size={18} color={COLORS.muted} />
+  <Ionicons name="location-outline" size={18} color={COLORS.muted} />
 <TextInput
-                        key={`location-step-${step}`}
-                        value={location}
-                        onChangeText={(value) => {
-                          setLocation(value);
-                          if (cityLookupError) setCityLookupError(null);
-                        }}
-                        placeholder="ex: Paris ou 84300"
-                        style={styles.input}
-                        returnKeyType="next"
-                        blurOnSubmit={false}
-                      />
+
+  value={location}
+  onChangeText={(value) => {
+    setLocation(value);
+    if (cityLookupError) setCityLookupError(null);
+  }}
+  placeholder="ex: Paris ou 84300"
+  style={styles.input}
+
+  keyboardType="default"
+  returnKeyType="done"
+
+  autoCorrect={false}
+  autoCapitalize="words"
+  
+
+  autoComplete="off"
+  textContentType="none"
+
+  importantForAutofill="no"
+
+  spellCheck={false}
+
+  clearButtonMode="while-editing"
+/>
 </View>
+
+
                     {isCityLookupLoading ? (
 <Text style={styles.lookupStateText}>Recherche de villes...</Text>
                     ) : null}
@@ -470,6 +488,21 @@ export default function ConfigurationProfilScreen() {
 <Text style={styles.note}>
                       Nous utiliserons cette information pour te proposer des bons plans près de chez toi.
 </Text>
+
+<TouchableOpacity
+  onPress={() => {
+    setLocation("Non renseigné");
+    setCitySuggestions([]);
+    setCityLookupError(null);
+  }}
+  style={styles.skipLocationButton}
+  activeOpacity={0.8}
+>
+  <Text style={styles.skipLocationText}>
+    Je ne souhaite pas faire connaître ma position
+  </Text>
+</TouchableOpacity>
+
 </>
                 )}
  
@@ -522,11 +555,11 @@ export default function ConfigurationProfilScreen() {
 <Ionicons name="restaurant-outline" size={18} color={COLORS.orange} />
 <Text style={styles.question}>As-tu une alimentation favorite ?</Text>
 </View>
-<Text style={styles.helper}>Choisis jusqu'à 3 styles de cuisine.</Text>
+<Text style={styles.helper}>Choisis jusqu'à 6 styles de cuisine.</Text>
 <View style={styles.chipsWrap}>
                       {CUISINES.map((c) => {
                         const selected = cuisines.includes(c);
-                        const atLimit = !selected && cuisines.length >= 3;
+                        const atLimit = !selected && cuisines.length >= 6;
                         return (
 <Pressable
                             key={c}
@@ -550,7 +583,7 @@ export default function ConfigurationProfilScreen() {
                         );
                       })}
 </View>
-<Text style={styles.helper}>Sélectionné: {cuisines.length}/3</Text>
+<Text style={styles.helper}>Sélectionné: {cuisines.length}/6</Text>
 </>
                 )}
  
@@ -824,4 +857,17 @@ const styles = StyleSheet.create({
   tileTextSelected: { color: COLORS.text },
   backButton: { flexDirection: "row", alignItems: "center", marginBottom: 12, alignSelf: "flex-start" },
   backText: { marginLeft: 6, fontSize: 13, fontWeight: "700", color: COLORS.text },
+  skipLocationButton: {
+  marginTop: 14,
+  alignSelf: "center",
+  paddingVertical: 10,
+  paddingHorizontal: 14,
+},
+
+skipLocationText: {
+  fontSize: 13,
+  fontWeight: "700",
+  color: COLORS.sub,
+  textDecorationLine: "underline",
+},
 });
