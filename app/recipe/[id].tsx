@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react'; // Ajout de useEffect
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
-import { RECIPES } from '../../constants/recipesData';
+import useRequireAuth from '../../src/hooks/useRequireAuth';
 import { ApiError, apiRequest } from '../../src/lib/api';
+import { getRecipe, type RecipeFull } from '../../src/services/recipes';
 
 // --- TYPES ---
 interface RatingPayload {
@@ -30,6 +31,7 @@ const RANDOM_TIPS = [
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { checking } = useRequireAuth();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
   const contentContainerStyle = isDesktop
@@ -42,12 +44,33 @@ export default function RecipeDetailScreen() {
     ? { ...styles.tipBox, ...styles.sectionDesktop }
     : styles.tipBox;
   
-  const recipe = RECIPES.find(r => r.id === id) || RECIPES[0];
-
+  const [recipe, setRecipe] = useState<RecipeFull | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
   const [userRating, setUserRating] = useState<number>(0);
   const [comment, setComment] = useState<string>('');
   const [isLoadingRating, setIsLoadingRating] = useState<boolean>(false);
+
+  // 📥 Charger la recette au montage
+  useEffect(() => {
+    if (checking || !id) return;
+    
+    const loadRecipe = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getRecipe(Number(id));
+        setRecipe(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erreur lors du chargement de la recette");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadRecipe();
+  }, [checking, id]);
   const [showCommentForm, setShowCommentForm] = useState<boolean>(false);
   
   // État pour l'astuce aléatoire
@@ -161,13 +184,38 @@ export default function RecipeDetailScreen() {
     }
   };
 
+  if (checking || loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#00C853" />
+        <Text style={{ marginTop: 10, color: "#666" }}>Chargement de la recette...</Text>
+      </View>
+    );
+  }
+
+  if (error || !recipe) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
+        <Text style={{ color: "#DC2626", fontSize: 16, textAlign: "center" }}>
+          {error || "Recette non trouvée"}
+        </Text>
+        <TouchableOpacity 
+          onPress={() => router.back()} 
+          style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: "#00C853", borderRadius: 8 }}
+        >
+          <Text style={{ color: "#FFF", fontWeight: "bold" }}>Retour</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       
       {/* HEADER IMAGE */}
       <View style={styles.imageContainer}>
-        <Image source={{ uri: recipe.image }} style={styles.image} />
+        <Image source={{ uri: recipe.image || "https://via.placeholder.com/300" }} style={styles.image} />
         <View style={styles.overlay} />
         
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
@@ -176,14 +224,11 @@ export default function RecipeDetailScreen() {
         </TouchableOpacity>
 
         <View style={styles.headerInfo}>
-          <Text style={styles.title}>{recipe.title}</Text>
+          <Text style={styles.title}>{recipe.name}</Text>
           <View style={styles.badgesRow}>
-            <View style={styles.badge}><Ionicons name="time-outline" size={14} color="#FFF"/><Text style={styles.badgeText}>{recipe.time}</Text></View>
+            <View style={styles.badge}><Ionicons name="time-outline" size={14} color="#FFF"/><Text style={styles.badgeText}>{(recipe.timing?.prep_time ?? 0) + (recipe.timing?.duration ?? 0)} min</Text></View>
             <View style={styles.badge}><Ionicons name="flame-outline" size={14} color="#FFF"/><Text style={styles.badgeText}>{recipe.difficulty}</Text></View>
-            <View style={styles.badge}><Ionicons name="person-outline" size={14} color="#FFF"/><Text style={styles.badgeText}>{recipe.people} pers.</Text></View>
-          </View>
-          <View style={styles.priceTag}>
-             <Text style={styles.priceText}>≈ {recipe.price}</Text>
+            <View style={styles.badge}><Ionicons name="person-outline" size={14} color="#FFF"/><Text style={styles.badgeText}>{recipe.servings} pers.</Text></View>
           </View>
         </View>
       </View>
@@ -198,32 +243,41 @@ export default function RecipeDetailScreen() {
         <View style={sectionStyle}>
           <Text style={styles.sectionTitle}>Ingrédients</Text>
           <View style={styles.card}>
-            {recipe.ingredients.map((ing, index) => (
+            {recipe.nutrition?.ingredients?.map((ing, index) => (
               <View key={index} style={styles.ingredientRow}>
                 <View style={styles.bullet} />
-                <Text style={styles.ingredientText}>{ing}</Text>
+                <Text style={styles.ingredientText}>{ing.quantity} {ing.unit} {ing.name}</Text>
               </View>
             ))}
           </View>
         </View>
 
         {/* PRÉPARATION */}
-        <View style={sectionStyle}>
-          <Text style={styles.sectionTitle}>Préparation</Text>
-          {recipe.steps.map((step, index) => {
-            const isChecked = checkedSteps[index];
-            return (
-              <TouchableOpacity key={index} onPress={() => toggleStep(index)} activeOpacity={0.8}>
-                <View style={[styles.stepCard, isChecked && styles.stepCardChecked]}>
-                  <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-                    {isChecked ? <Ionicons name="checkmark" size={16} color="#FFF" /> : <Text style={styles.stepNum}>{index + 1}</Text>}
+        {recipe.steps && recipe.steps.length > 0 ? (
+          <View style={sectionStyle}>
+            <Text style={styles.sectionTitle}>Préparation</Text>
+            {recipe.steps.map((step: string, index: number) => {
+              const isChecked = checkedSteps[index];
+              return (
+                <TouchableOpacity key={index} onPress={() => toggleStep(index)} activeOpacity={0.8}>
+                  <View style={[styles.stepCard, isChecked && styles.stepCardChecked]}>
+                    <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+                      {isChecked ? <Ionicons name="checkmark" size={16} color="#FFF" /> : <Text style={styles.stepNum}>{index + 1}</Text>}
+                    </View>
+                    <Text style={[styles.stepText, isChecked && styles.stepTextChecked]}>{step}</Text>
                   </View>
-                  <Text style={[styles.stepText, isChecked && styles.stepTextChecked]}>{step}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ) : (
+          <View style={sectionStyle}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <View style={styles.card}>
+              <Text style={{ color: "#333", lineHeight: 1.6 }}>{recipe.description}</Text>
+            </View>
+          </View>
+        )}
 
         {/* NOTATION */}
         <View style={sectionStyle}>

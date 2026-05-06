@@ -1,4 +1,5 @@
 import useRequireAuth from "@/src/hooks/useRequireAuth";
+import { getRecipes, searchRecipes, type RecipeMinimal } from "@/src/services/recipes";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -17,7 +18,6 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { RECIPES } from "../../constants/recipesData";
 
 const EMOJI_MAP: Record<string, string> = {
   'poulet': '🍗', 'boeuf': '🥩', 'poisson': '🐟', 'oeuf': '🥚', 'lait': '🥛',
@@ -32,7 +32,6 @@ export default function RecipesScreen() {
   const { checking } = useRequireAuth();
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
   const [showGenerator, setShowGenerator] = useState(false);
   const [nbPers, setNbPers] = useState(2);
   const [difficulty, setDifficulty] = useState('Débutant');
@@ -44,17 +43,55 @@ export default function RecipesScreen() {
   const [ingredientInput, setIngredientInput] = useState('');
   const [addedIngredients, setAddedIngredients] = useState<{name: string, emoji: string}[]>([]);
   const [fridgeItems, setFridgeItems] = useState<{name: string, emoji: string, selected?: boolean}[]>([]);
+  
+  // Backend state
+  const [recipes, setRecipes] = useState<RecipeMinimal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searching, setSearching] = useState(false);
+  
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
 
   const inputRef = useRef<any>(null);
 
-  const filteredRecipes = RECIPES.filter(
-      (recipe) =>
-          recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          recipe.ingredients.some((ing) =>
-              ing.toLowerCase().includes(searchQuery.toLowerCase())
-          )
+  // Charger les recettes au montage
+  useEffect(() => {
+    if (checking) return;
+    
+    const loadRecipes = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getRecipes();
+        setRecipes(
+          data.map((r) => ({
+            id: r.id,
+            name: r.name,
+            slug: r.slug,
+            image: r.image,
+            description: r.description,
+            servings: r.servings,
+            difficulty: r.difficulty,
+            timing: r.timing,
+            author: r.author?.name || "Inconnu",
+            favorites_count: r.engagement.favorites_count,
+          }))
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erreur lors du chargement des recettes");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadRecipes();
+  }, [checking]);
+
+  // 🔍 Filtrage local des recettes affichées
+  const filteredRecipes = recipes.filter((recipe) =>
+    recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    recipe.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const toggleSearch = () => {
@@ -103,10 +140,11 @@ export default function RecipesScreen() {
     loadMockFridge();
   }, [useFrigo]);
 
-  if (checking) {
+  if (checking || loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" color="#00C853" />
+        <Text style={{ marginTop: 10, color: "#666" }}>Chargement...</Text>
       </View>
     );
   }
@@ -145,44 +183,33 @@ export default function RecipesScreen() {
     </View>
   );
 
-  const handleGenerate = () => {
-    let candidates = RECIPES.slice();
-
-    if (addedIngredients.length > 0) {
-      const names = addedIngredients.map((i) => i.name.toLowerCase());
-      const filtered = candidates.filter((r) =>
-        r.ingredients.some((ing: string) =>
-          names.some((n) => ing.toLowerCase().includes(n))
-        )
-      );
-      if (filtered.length > 0) candidates = filtered;
+  const handleGenerate = async () => {
+    try {
+      setSearching(true);
+      setError(null);
+      
+      const result = await searchRecipes({
+        difficulty: difficulty !== "Moyen" ? difficulty : undefined,
+        servings: nbPers,
+        frigo: useFrigo,
+      });
+      
+      if (result.data.recipes.length > 0) {
+        // Sélectionner aléatoirement une recette dans les résultats
+        const chosen = result.data.recipes[Math.floor(Math.random() * result.data.recipes.length)];
+        
+        // Rediriger directement vers la recette
+        router.push(`/recipe/${chosen.id}`);
+      } else {
+        setError("Aucune recette ne correspond à vos critères");
+      }
+      
+      setShowGenerator(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur lors de la génération");
+    } finally {
+      setSearching(false);
     }
-
-    if (difficulty) {
-      const diff = difficulty.toLowerCase();
-      const diffFiltered = candidates.filter((r) =>
-        r.difficulty && r.difficulty.toLowerCase().includes(diff)
-      );
-      if (diffFiltered.length > 0) candidates = diffFiltered;
-    }
-
-    if (candidates.length === 0) candidates = RECIPES.slice();
-
-    const scored = candidates.map((r) => {
-      let score = 0;
-      score += addedIngredients.reduce((s, ing) => {
-        return s + (r.ingredients.some((ri: string) => ri.toLowerCase().includes(ing.name.toLowerCase())) ? 2 : 0);
-      }, 0);
-      if (r.difficulty && r.difficulty.toLowerCase().includes(difficulty.toLowerCase())) score += 1;
-      score += Math.random();
-      return { recipe: r, score };
-    });
-
-    scored.sort((a, b) => b.score - a.score);
-    const chosen = scored[0]?.recipe || RECIPES[Math.floor(Math.random() * RECIPES.length)];
-
-    setSelectedRecipe(chosen);
-    setShowGenerator(false);
   };
 
   const getDifficultyColors = (difficulty: string) => {
@@ -204,32 +231,36 @@ export default function RecipesScreen() {
     return { backgroundColor: "#E8F5E9", textColor: "#2E7D32" };
   };
 
-  const renderRecipeItem = ({ item }: any) => {
-    const difficultyColors = getDifficultyColors(item.difficulty);
+  const renderRecipeItem = ({ item }: { item: RecipeMinimal }) => {
+    const difficultyColors = getDifficultyColors(item.difficulty || "");
 
     return (
       <TouchableOpacity
         style={[styles.card, isDesktop && styles.cardDesktop]}
         onPress={() => router.push(`/recipe/${item.id}`)}
       >
-        <Image source={{ uri: item.image }} style={styles.cardImage} />
+        <Image source={{ uri: item.image || "https://via.placeholder.com/300" }} style={styles.cardImage} />
         <View style={styles.cardContent}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={12} color="#FFF" />
-              <Text style={styles.ratingText}>{item.rating}</Text>
+          <View>
+            <View style={styles.rowBetween}>
+              <Text numberOfLines={2} style={styles.cardTitle}>{item.name}</Text>
+              <View style={styles.ratingBadge}>
+                <Ionicons name="star" size={12} color="#FFF" />
+                <Text style={styles.ratingText}>{item.favorites_count}</Text>
+              </View>
+            </View>
+
+            <View style={styles.metaContainer}>
+              <View style={styles.metaItem}>
+                <Ionicons name="time-outline" size={14} color="#666" />
+                <Text style={styles.metaText}>
+                  {(item.timing?.prep_time ?? 0) + (item.timing?.duration ?? 0)} min
+                </Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.metaContainer}>
-            <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={14} color="#666" />
-              <Text style={styles.metaText}>{item.time}</Text>
-            </View>
-          </View>
-
-          <View style={styles.rowBetween}>
+          <View style={[styles.rowBetween, styles.cardFooter]}>
             <View
               style={[
                 styles.tag,
@@ -237,10 +268,10 @@ export default function RecipesScreen() {
               ]}
             >
               <Text style={[styles.tagText, { color: difficultyColors.textColor }]}> 
-                {item.difficulty}
+                {item.difficulty || "Moyen"}
               </Text>
             </View>
-            <Text style={styles.linkText}>Voir la recette ➔</Text>
+            <Text style={styles.linkText}>Voir ➔</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -329,6 +360,11 @@ export default function RecipesScreen() {
 
         {showGenerator ? (
             <ScrollView contentContainerStyle={styles.scrollForm}>
+                {error && (
+                  <View style={{ backgroundColor: "#FFEBEE", padding: 10, borderRadius: 8, marginBottom: 15 }}>
+                    <Text style={{ color: "#DC2626" }}>{error}</Text>
+                  </View>
+                )}
                 <View style={styles.inputGroup}>
                     <Text style={styles.selectorLabel}>Ingrédients spécifiques</Text>
                     <View style={styles.row}>
@@ -422,60 +458,87 @@ export default function RecipesScreen() {
                     />
                 </View>
 
-                <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate}>
+                <TouchableOpacity style={styles.generateBtn} onPress={handleGenerate} disabled={searching}>
                     <LinearGradient colors={['#FF9F1C', '#FF7E05']} style={styles.gradientBtn}>
-                        <Text style={styles.generateBtnText}>Générer la recette</Text>
-                        <Ionicons name="color-wand" size={20} color="#FFF" />
+                        {searching ? (
+                          <ActivityIndicator size="small" color="#FFF" />
+                        ) : (
+                          <>
+                            <Text style={styles.generateBtnText}>Générer la recette</Text>
+                            <Ionicons name="color-wand" size={20} color="#FFF" />
+                          </>
+                        )}
                     </LinearGradient>
                 </TouchableOpacity>
             </ScrollView>
         ) : (
-            <FlatList
-                data={filteredRecipes}
-                keyExtractor={(item) => item.id}
-                numColumns={isDesktop ? 3 : 1}
-                columnWrapperStyle={isDesktop ? styles.columnWrapperDesktop : undefined}
-                contentContainerStyle={[
-                  styles.listContent,
-                  isDesktop && styles.listContentDesktop,
-                ]}
-                renderItem={renderRecipeItem}
-                ListEmptyComponent={
-                  <View style={{ alignItems: "center", marginTop: 50 }}>
-                    <Text style={{ color: "#888" }}>
-                      Aucune recette trouvée pour "{searchQuery}" 😕
-                    </Text>
-                  </View>
-                }
-                ListHeaderComponent={() =>
-                    !isSearchActive && searchQuery === "" ? (
-                        <LinearGradient
-                            colors={["#FF9F1C", "#FFC107"]}
-                            style={styles.promoCard}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                        >
-                          <View style={{ flexDirection: "row", marginBottom: 10 }}>
-                            <Ionicons name="trending-up" size={24} color="#FFF" />
-                            <Text style={styles.promoTitle}>
-                              Recommandations personnalisées
-                            </Text>
-                          </View>
-                          <Text style={styles.promoDesc}>
-                            Ces recettes utilisent au maximum les ingrédients de ton frigo
-                            pour éviter le gaspillage !
-                          </Text>
-                        </LinearGradient>
-                    ) : null
-                }
-            />
+            <>
+              {loading && (
+                <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+                  <ActivityIndicator size="large" color="#00C853" />
+                  <Text style={{ marginTop: 10, color: "#666" }}>Chargement des recettes...</Text>
+                </View>
+              )}
+              
+              {error && (
+                <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
+                  <Text style={{ color: "#DC2626", fontSize: 16, textAlign: "center" }}>{error}</Text>
+                </View>
+              )}
+              
+              {!loading && !error && (
+                <FlatList
+                    data={filteredRecipes}
+                    keyExtractor={(item) => item.id.toString()}
+                    numColumns={isDesktop ? 4 : 2}
+                    columnWrapperStyle={isDesktop ? styles.columnWrapperDesktop : undefined}
+                    contentContainerStyle={[
+                      styles.listContent,
+                      isDesktop && styles.listContentDesktop,
+                    ]}
+                    renderItem={renderRecipeItem}
+                    ListEmptyComponent={
+                      <View style={{ alignItems: "center", marginTop: 50 }}>
+                        <Text style={{ color: "#888" }}>
+                          Aucune recette trouvée pour "{searchQuery}" 😕
+                        </Text>
+                      </View>
+                    }
+                    ListHeaderComponent={() =>
+                        !isSearchActive && searchQuery === "" ? (
+                            <LinearGradient
+                                colors={["#FF9F1C", "#FFC107"]}
+                                style={styles.promoCard}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 1 }}
+                            >
+                              <View style={{ flexDirection: "row", marginBottom: 10 }}>
+                                <Ionicons name="trending-up" size={24} color="#FFF" />
+                                <Text style={styles.promoTitle}>
+                                  Recommandations personnalisées
+                                </Text>
+                              </View>
+                              <Text style={styles.promoDesc}>
+                                Ces recettes utilisent au maximum les ingrédients de ton frigo
+                                pour éviter le gaspillage !
+                              </Text>
+                            </LinearGradient>
+                        ) : null
+                    }
+                />
+              )}
+            </>
         )}
       </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F5F5F5" },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#F5F5F5", 
+    // marginHorizontal:"1.67%",
+  },
 
   header: {
     backgroundColor: "#00C853",
@@ -589,14 +652,13 @@ const styles = StyleSheet.create({
 
   listContent: { padding: 20, paddingBottom: 100 },
   listContentDesktop: {
-    paddingHorizontal: 48,
-    alignItems: "stretch",
+    paddingHorizontal: 24,
   },
   columnWrapperDesktop: {
-    justifyContent: "space-between",
+     marginHorizontal: "3.60%"
   },
 
-  promoCard: { borderRadius: 15, padding: 20, marginBottom: 20, marginTop: 15 },
+  promoCard: { borderRadius: 15, padding: 20, marginBottom: 20, marginTop: 15, marginHorizontal: "3.60%" },
   promoTitle: { color: "#FFF", fontWeight: "bold", fontSize: 16, marginLeft: 10 },
   promoDesc: { color: "#FFF", marginTop: 5, lineHeight: 20 },
 
@@ -609,28 +671,33 @@ const styles = StyleSheet.create({
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 5,
+    width:"32%",
+    // flex: 1,
+    // marginHorizontal: 9,
+    marginVertical: 16,
   },
   cardDesktopWrapper: {
     width: "100%",
     alignItems: "center",
   },
   cardDesktop: {
-    width: "31%",
+    width: "23.3%",
     flexGrow: 0,
     flexShrink: 0,
-    marginHorizontal: 0,
     marginTop: 15,
+    marginLeft: 0,
+    marginRight: "2.2%"
   },
 
   cardImage: { width: "100%", height: 180 },
-  cardContent: { padding: 15 },
+  cardContent: { flex: 1, padding: 16 },
+  cardFooter: { marginTop: "auto" },
 
-  cardTitle: { fontSize: 18, fontWeight: "bold", color: "#333", flex: 1 },
+  cardTitle: { fontSize: 18, fontWeight: "bold", color: "#333", flex: 1, marginRight: 2 },
   rowBetween: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
+    alignItems: "flex-start",
   },
 
   ratingBadge: {
@@ -644,7 +711,7 @@ const styles = StyleSheet.create({
 
   ratingText: { fontSize: 12, fontWeight: "bold", marginLeft: 4, color: "#333" },
 
-  metaContainer: { flexDirection: "row", gap: 15, marginBottom: 12 },
+  metaContainer: { flexDirection: "row", gap: 15, marginBottom: 16, marginTop:8, },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 5 },
   metaText: { color: "#666", fontSize: 13 },
 
@@ -656,7 +723,7 @@ const styles = StyleSheet.create({
   },
   tagText: { color: "#2E7D32", fontSize: 12, fontWeight: "bold" },
 
-  linkText: { color: "#FF9F1C", fontWeight: "bold", fontSize: 14 },
+  linkText: { color: "#FF9F1C", fontWeight: "bold", fontSize: 14,alignSelf: "center" },
 
   btnRow: {
     flexDirection: "row",
