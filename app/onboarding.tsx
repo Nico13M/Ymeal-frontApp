@@ -6,6 +6,7 @@ import React, { useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
+  Image as Img,
   StatusBar,
   StyleSheet,
   Text,
@@ -36,7 +37,7 @@ const SLIDES = [
     subtitle: "Une app complète pour cuisiner malin.",
     items: [
       { icon: 'phone-portrait-outline', title: "Inventaire Frigo", desc: "Génère des recettes avec ce que tu as." },
-      { icon: 'trending-down-outline', title: "Budget Maîtrisé", desc: "Des recettes dès 2€ par repas." },
+      { icon: 'trending-down-outline', title: 'Budget maitrise', desc: 'Des idees repas pour mieux gerer ton budget.' },
       { icon: 'location-outline', title: "Bons Plans", desc: "Les promos autour de toi." },
       { icon: 'people-outline', title: "Communauté", desc: "Partage et découvre les recettes préférées." }, 
     ]
@@ -60,7 +61,57 @@ const SLIDES = [
 
 export default function OnboardingScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const slidesRef = useRef(null);
+  const currentIndexRef = useRef(0);
+  const slidesRef = useRef<FlatList<(typeof SLIDES)[number]> | null>(null);
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60 });
+  // const [recipeCount, setRecipeCount] = useState<number | null>(null);
+
+  // useEffect(() => {
+  //   let mounted = true;
+
+  //   (async () => {
+  //     const count = await fetchRecipesCount();
+  //     if (mounted) setRecipeCount(count);
+  //   })();
+
+  //   return () => {
+  //     mounted = false;
+  //   };
+  // }, []);
+
+
+  const updateCurrentIndex = (index: number) => {
+    const nextIndex = Math.max(
+      0,
+      Math.min(SLIDES.length - 1, index)
+    );
+
+    currentIndexRef.current = nextIndex;
+    setCurrentIndex((prev) => (prev === nextIndex ? prev : nextIndex));
+  };
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    const firstVisible = viewableItems?.[0];
+    if (typeof firstVisible?.index === 'number') {
+      updateCurrentIndex(firstVisible.index);
+    }
+  });
+
+  const scrollToSlide = (targetIndex: number) => {
+    const nextIndex = Math.max(0, Math.min(SLIDES.length - 1, targetIndex));
+    const offset = nextIndex * width;
+    const list = slidesRef.current as any;
+
+    if (list) {
+      if (typeof list.scrollToOffset === 'function') {
+        list.scrollToOffset({ offset, animated: true });
+      } else if (typeof list.scrollToIndex === 'function') {
+        list.scrollToIndex({ index: nextIndex, animated: true });
+      }
+    }
+
+    updateCurrentIndex(nextIndex);
+  };
 
   const finishOnboarding = async () => {
     try {
@@ -70,11 +121,8 @@ export default function OnboardingScreen() {
   };
 
   const scrollToNext = () => {
-    if (currentIndex < SLIDES.length - 1) {
-      slidesRef.current?.scrollToIndex({ index: currentIndex + 1 });
-    } else {
-      finishOnboarding();
-    }
+    const nextIndex = (currentIndexRef.current + 1) % SLIDES.length;
+    scrollToSlide(nextIndex);
   };
 
   const renderItem = ({ item }) => {
@@ -88,13 +136,14 @@ export default function OnboardingScreen() {
               <Text style={styles.mainDesc}>{item.description}</Text>
               
               <View style={styles.imagePlaceholder}>
-                <Ionicons name="restaurant-outline" size={80} color={COLORS.primary} />
-                <Text style={{color: '#aaa', marginTop: 10}}>Image Cuisine ici</Text>
+                <Img source={require('../assets/images/onboarding-picture.jpg')} style={styles.imageSlide} />
               </View>
 
               <View style={styles.statsContainer}>
-                 <Text style={styles.statText}>✨ 10K+ Étudiants</Text>
-                 <Text style={styles.statText}>🍲 500+ Recettes</Text>
+                 <Text style={styles.statText}>✨ Pensé pour les étudiants</Text>
+                 <Text style={styles.statText}>
+                  {/* 🍲 {recipeCount !== null ? `${recipeCount}+ recettes` : "Recettes faciles"} */}
+                </Text>
               </View>
             </View>
           </LinearGradient>
@@ -104,22 +153,30 @@ export default function OnboardingScreen() {
 
     if (item.type === 'features') {
       return (
-        <View style={[styles.creamContainer, { width }]}>
-          <Text style={styles.darkTitle}>{item.title}</Text>
-          <Text style={styles.darkSubtitle}>{item.subtitle}</Text>
-          
-          <View style={styles.cardsWrapper}>
-            {item.items.map((feature, index) => (
-              <View key={index} style={styles.featureCard}>
-                <View style={styles.iconBox}>
-                  <Ionicons name={feature.icon} size={28} color="#FFF" />
+        <View style={[styles.creamContainer, { width, height }]}>
+          <View style={styles.centeredSlideBlock}>
+            <Text style={styles.darkTitle} accessibilityRole="header">{item.title}</Text>
+            <Text style={styles.darkSubtitle}>{item.subtitle}</Text>
+            
+            <View style={styles.cardsWrapper}>
+              {item.items.map((feature, index) => (
+                <View
+                  key={index}
+                  style={styles.featureCard}
+                  accessible
+                  accessibilityRole="text"
+                  accessibilityLabel={`${feature.title}. ${feature.desc}`}
+                >
+                  <View style={styles.iconBox} accessible={false} importantForAccessibility="no">
+                    <Ionicons name={feature.icon} size={28} color="#FFF" />
+                  </View>
+                  <View style={{flex: 1}}>
+                    <Text style={styles.cardTitle}>{feature.title}</Text>
+                    <Text style={styles.cardDesc}>{feature.desc}</Text>
+                  </View>
                 </View>
-                <View style={{flex: 1}}>
-                  <Text style={styles.cardTitle}>{feature.title}</Text>
-                  <Text style={styles.cardDesc}>{feature.desc}</Text>
-                </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
         </View>
       );
@@ -127,23 +184,25 @@ export default function OnboardingScreen() {
 
     if (item.type === 'steps') {
       return (
-        <View style={[styles.creamContainer, { width }]}>
-           <Text style={styles.darkTitle}>{item.title}</Text>
-           <Text style={styles.darkSubtitle}>{item.subtitle}</Text>
+        <View style={[styles.creamContainer, { width, height }]}>
+          <View style={styles.centeredSlideBlock}>
+             <Text style={styles.darkTitle} accessibilityRole="header">{item.title}</Text>
+             <Text style={styles.darkSubtitle}>{item.subtitle}</Text>
 
-           <View style={styles.stepsWrapper}>
-              {item.steps.map((step, index) => (
-                <View key={index} style={styles.stepItem}>
-                  <View style={styles.stepCircle}>
-                    <Text style={styles.stepNum}>{step.num}</Text>
+             <View style={styles.stepsWrapper}>
+                {item.steps.map((step, index) => (
+                  <View key={index} style={styles.stepItem}>
+                    <View style={styles.stepCircle}>
+                      <Text style={styles.stepNum}>{step.num}</Text>
+                    </View>
+                    <View style={{ alignItems: 'center' }}>
+                      <Text style={styles.stepTitle}>{step.title}</Text>
+                      <Text style={styles.stepDesc}>{step.desc}</Text>
+                    </View>
                   </View>
-                  <View style={{ alignItems: 'center' }}>
-                    <Text style={styles.stepTitle}>{step.title}</Text>
-                    <Text style={styles.stepDesc}>{step.desc}</Text>
-                  </View>
-                </View>
-              ))}
-           </View>
+                ))}
+             </View>
+          </View>
         </View>
       );
     }
@@ -174,50 +233,56 @@ export default function OnboardingScreen() {
       <FlatList
         ref={slidesRef}
         data={SLIDES}
+        keyExtractor={(item) => item.type}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         bounces={false}
         renderItem={renderItem}
+        getItemLayout={(_, index) => ({
+          length: width,
+          offset: width * index,
+          index,
+        })}
+        onViewableItemsChanged={onViewableItemsChanged.current}
+        viewabilityConfig={viewabilityConfig.current}
         onMomentumScrollEnd={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / width);
-          setCurrentIndex(index);
+          updateCurrentIndex(Math.round(e.nativeEvent.contentOffset.x / width));
         }}
       />
 
-      {currentIndex < SLIDES.length - 1 && (
-        <View style={styles.footer}>
-          <View style={styles.indicatorContainer}>
-            {SLIDES.map((_, index) => (
-              <View 
-                key={index} 
-                style={[
-                  styles.indicator, 
-                  currentIndex === index && styles.activeIndicator,
-                  // Gestion intelligente des couleurs des points
-                  (currentIndex === 1 || currentIndex === 2) ? { backgroundColor: '#E0D0C0' } : { backgroundColor: 'rgba(255,255,255,0.4)' },
-                  (currentIndex === index && (currentIndex === 1 || currentIndex === 2)) && { backgroundColor: COLORS.primary },
-                  (currentIndex === index && (currentIndex === 0 || currentIndex === 3)) && { backgroundColor: '#FFF' }
-                ]} 
-              />
-            ))}
-          </View>
-
-          <TouchableOpacity onPress={scrollToNext} style={styles.nextBtn}>
-            <Text style={[
-              styles.nextText, 
-              (currentIndex === 1 || currentIndex === 2) ? { color: COLORS.primary } : { color: '#FFF' }
-            ]}>
-              Suivant
-            </Text>
-          </TouchableOpacity>
+      <View style={styles.footer}>
+        <View style={styles.indicatorContainer}>
+          {SLIDES.map((_, index) => (
+            <View 
+              key={index} 
+              style={[
+                styles.indicator, 
+                currentIndex === index && styles.activeIndicator,
+                // Gestion intelligente des couleurs des points
+                (currentIndex === 1 || currentIndex === 2) ? { backgroundColor: '#E0D0C0' } : { backgroundColor: 'rgba(255,255,255,0.4)' },
+                (currentIndex === index && (currentIndex === 1 || currentIndex === 2)) && { backgroundColor: COLORS.primary },
+                (currentIndex === index && (currentIndex === 0 || currentIndex === 3)) && { backgroundColor: '#FFF' }
+              ]} 
+            />
+          ))}
         </View>
-      )}
+
+        <TouchableOpacity onPress={scrollToNext} style={styles.nextBtn}>
+          <Text style={[
+            styles.nextText, 
+            (currentIndex === 1 || currentIndex === 2) ? { color: COLORS.primary } : { color: '#FFF' }
+          ]}>
+            Suivant
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  imageSlide: { width: '100%', height: '100%', borderRadius: 25, resizeMode: 'cover' },
   container: { flex: 1 },
   
   gradientContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
@@ -229,7 +294,8 @@ const styles = StyleSheet.create({
   mainDesc: { fontSize: 17, color: '#FFF', textAlign: 'center', opacity: 0.95, lineHeight: 26, paddingHorizontal: 10 },
   
   darkTitle: { fontSize: 26, fontWeight: 'bold', color: COLORS.dark, marginBottom: 8, textAlign: 'center' },
-  darkSubtitle: { fontSize: 15, color: COLORS.grey, marginBottom: 30, textAlign: 'center' },
+  darkSubtitle: { fontSize: 15, color: '#4D4D4D', marginBottom: 30, textAlign: 'center' },
+  centeredSlideBlock: { flex: 1, width: '100%', justifyContent: 'center', paddingBottom: 85 },
 
   imagePlaceholder: {
     width: width * 0.85, height: 260, backgroundColor: '#FFF', borderRadius: 25,
@@ -260,7 +326,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center', marginRight: 18 
   },
   cardTitle: { fontSize: 17, fontWeight: 'bold', color: '#333', marginBottom: 4 },
-  cardDesc: { fontSize: 13, color: '#777', lineHeight: 18 },
+  cardDesc: { fontSize: 14, color: '#4A4A4A', lineHeight: 20 },
 
   // --- PAGE 3 : ETAPES ---
   stepsWrapper: { width: '100%', alignItems: 'center', gap: 35 },
@@ -275,11 +341,11 @@ const styles = StyleSheet.create({
   stepDesc: { fontSize: 15, color: '#666', textAlign: 'center', lineHeight: 22 },
 
   // --- FOOTER ---
-  footer: { position: 'absolute', bottom: 50, left: 25, right: 25, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  footer: { position: 'absolute', bottom: 50, left: 25, right: 25, minHeight: 40, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', zIndex: 30, elevation: 30 },
   indicatorContainer: { flexDirection: 'row' },
   indicator: { height: 8, width: 8, borderRadius: 4, marginHorizontal: 4 },
   activeIndicator: { width: 22 },
-  nextBtn: { padding: 10 },
+  nextBtn: { paddingVertical: 10, paddingHorizontal: 12, minWidth: 90, alignItems: 'flex-end' },
   nextText: { fontSize: 18, fontWeight: 'bold' },
 
   whiteBtn: { 
@@ -289,3 +355,4 @@ const styles = StyleSheet.create({
   },
   whiteBtnText: { color: COLORS.primary, fontSize: 18, fontWeight: 'bold' }
 });
+
