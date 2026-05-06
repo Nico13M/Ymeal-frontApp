@@ -51,7 +51,11 @@ export default function RecipesScreen() {
   const [searching, setSearching] = useState(false);
 
   const { width } = useWindowDimensions();
-  const isDesktop = width >= 768;
+  const isDesktop = width >= 1024;
+  const isTablet = width >= 768 && width < 1024;
+  const isMobile = width < 768;
+
+  const numColumns = isDesktop ? 4 : isTablet ? 2 : 1;
 
   const inputRef = useRef<any>(null);
 
@@ -92,7 +96,7 @@ export default function RecipesScreen() {
     recipe.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const recipesPerPage = isDesktop ? 8 : 4;
+  const recipesPerPage = isDesktop ? 32 : isTablet ? 16 : 8;
   const totalPages = Math.ceil(filteredRecipes.length / recipesPerPage);
   const startIndex = (currentPage - 1) * recipesPerPage;
   const paginatedRecipes = filteredRecipes.slice(startIndex, startIndex + recipesPerPage);
@@ -213,12 +217,18 @@ export default function RecipesScreen() {
     return { backgroundColor: "#E8F5E9", textColor: "#2E7D32" };
   };
 
+  const getCardStyle = () => {
+    if (isDesktop) return [styles.card, styles.cardDesktop];
+    if (isTablet) return [styles.card, styles.cardTablet];
+    return [styles.card, styles.cardMobile];
+  };
+
   const renderRecipeItem = ({ item }: { item: RecipeMinimal }) => {
     const difficultyColors = getDifficultyColors(item.difficulty || "");
 
     return (
       <TouchableOpacity
-        style={[styles.card, isDesktop && styles.cardDesktop]}
+        style={getCardStyle()}
         onPress={() => router.push(`/recipe/${item.id}`)}
       >
         <Image source={{ uri: item.image || "https://via.placeholder.com/300" }} style={styles.cardImage} />
@@ -255,12 +265,18 @@ export default function RecipesScreen() {
     );
   };
 
+  const getColumnWrapperStyle = () => {
+    if (numColumns === 1) return undefined;
+    if (isDesktop) return styles.columnWrapperDesktop;
+    return styles.columnWrapperTablet;
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar backgroundColor="#00C853" barStyle="light-content" />
 
       {/* HEADER — toujours une seule ligne */}
-      <View style={[styles.header, isDesktop && styles.headerDesktop]}>
+      <View style={[styles.header, !isMobile && styles.headerDesktop]}>
         {!showGenerator && isSearchActive ? (
           <View style={styles.searchBarContainer}>
             <Ionicons name="search" size={20} color="#00C853" style={{ marginRight: 10 }} />
@@ -441,11 +457,12 @@ export default function RecipesScreen() {
               <FlatList
                 data={paginatedRecipes}
                 keyExtractor={(item) => item.id.toString()}
-                numColumns={isDesktop ? 4 : 2}
-                columnWrapperStyle={isDesktop ? styles.columnWrapperDesktop : styles.columnWrapperMobile}
+                key={numColumns} // force re-render when numColumns changes
+                numColumns={numColumns}
+                columnWrapperStyle={numColumns > 1 ? getColumnWrapperStyle() : undefined}
                 contentContainerStyle={[
                   styles.listContent,
-                  isDesktop && styles.listContentDesktop,
+                  !isMobile && styles.listContentDesktop,
                 ]}
                 renderItem={renderRecipeItem}
                 ListEmptyComponent={
@@ -459,7 +476,7 @@ export default function RecipesScreen() {
                   !isSearchActive && searchQuery === "" ? (
                     <LinearGradient
                       colors={["#FF9F1C", "#FFC107"]}
-                      style={styles.promoCard}
+                      style={!isMobile ? styles.promoCardDesktop : styles.promoCard}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 1 }}
                     >
@@ -474,7 +491,7 @@ export default function RecipesScreen() {
                   ) : null
                 }
               />
-              {filteredRecipes.length > 4 && (
+              {filteredRecipes.length > recipesPerPage && (
                 <View style={styles.paginationContainer}>
                   <TouchableOpacity
                     style={[styles.paginationBtn, currentPage === 1 && styles.paginationBtnDisabled]}
@@ -524,7 +541,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: "#00C853",
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 20,
     paddingBottom: 15,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
@@ -636,43 +653,52 @@ const styles = StyleSheet.create({
   },
   generateBtnText: { color: "#FFF", fontSize: 18, fontWeight: "bold" },
 
-  listContent: { padding: 20, paddingBottom: 0 },
+  listContent: { padding: 15, paddingBottom: 0 },
   listContentDesktop: { paddingHorizontal: 24 },
-  columnWrapperDesktop: { marginHorizontal: "3.60%" },
-  columnWrapperMobile: { marginHorizontal: "2%"},
 
-  promoCard: { borderRadius: 15, padding: 20, marginBottom: 20, marginTop: 15, marginHorizontal: "3.60%" },
+  columnWrapperDesktop: { marginHorizontal: "3.60%" },
+  columnWrapperTablet: { marginHorizontal: "1%" },
+
+  promoCardDesktop: { borderRadius: 15, padding: 20, marginBottom: 20, marginTop: 15, marginHorizontal: "3.60%" },
+  promoCard: { borderRadius: 15, padding: 20, marginBottom: 20, marginTop: 15, marginHorizontal: 0 },
   promoTitle: { color: "#FFF", fontWeight: "bold", fontSize: 16, marginLeft: 10 },
   promoDesc: { color: "#FFF", marginTop: 5, lineHeight: 20 },
 
+  // Base card style
   card: {
     backgroundColor: "#FFF",
     borderRadius: 15,
-    marginBottom: 15,
     overflow: "hidden",
     elevation: 3,
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowRadius: 5,
-    width: "32%",
-    marginVertical: 16,
+    marginVertical: 8,
   },
-  cardDesktopWrapper: {
+
+  // Mobile: 1 column, full width
+  cardMobile: {
     width: "100%",
-    alignItems: "center",
+    marginRight: 0,
   },
+
+  // Tablet: 2 columns
+  cardTablet: {
+    width: "48%",
+    marginRight: "2%",
+  },
+
+  // Desktop: 4 columns
   cardDesktop: {
     width: "23.3%",
     flexGrow: 0,
     flexShrink: 0,
-    marginTop: 15,
-    marginLeft: 0,
     marginRight: "2.2%",
   },
 
   cardImage: { width: "100%", height: 180 },
   cardContent: { flex: 1, padding: 16 },
-  cardFooter: { marginTop: "auto" },
+  cardFooter: { marginTop: "auto", paddingTop: 12 },
 
   cardTitle: { fontSize: 18, fontWeight: "bold", color: "#333", flex: 1, marginRight: 2 },
   rowBetween: {
