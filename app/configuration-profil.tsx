@@ -4,7 +4,18 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
  
 import { getHumanErrorMessage } from "@/src/lib/api";
@@ -383,17 +394,28 @@ export default function ConfigurationProfilScreen() {
                 {step === 0 && (
 <View style={styles.welcomeContainer}>
 <View style={styles.welcomeHero}>
+
+<Image
+  source={require("@/assets/images/logo_ymeal.png")}
+  style={styles.welcomeLogo}
+  resizeMode="contain"
+/>
+
 <View style={styles.welcomeIcon}>
-<Ionicons name="sparkles" size={28} color="#fff" />
+  <Ionicons name="sparkles" size={28} color="#fff" />
 </View>
-<Text style={styles.welcomeTitle}>Bienvenue sur Ymeal</Text>
-<Text style={styles.welcomeSubtitle}>
-                        On va te poser quelques questions rapides pour adapter les recettes à ton
-                        budget, ton régime et tes goûts.
+
+<Text style={styles.welcomeTitle}>
+  Bienvenue sur Ymeal
 </Text>
+
+<Text style={styles.welcomeSubtitle}>
+  On va te poser quelques questions rapides...
+</Text>
+
 </View>
 </View>
-                )}
+)}
  
                 {/* ── Étape 1 : Régime ── */}
                 {step === 1 && (
@@ -714,6 +736,11 @@ export default function ConfigurationProfilScreen() {
                 {step === 8 && (
 <View style={styles.welcomeContainer}>
 <View style={styles.welcomeHero}>
+  <Image
+  source={require("@/assets/images/logo_ymeal.png")}
+  style={styles.finalLogo}
+  resizeMode="contain"
+/>
 <View style={styles.bigIcon}>
 <Ionicons name="checkmark" size={28} color="#fff" />
 </View>
@@ -870,4 +897,18 @@ skipLocationText: {
   color: COLORS.sub,
   textDecorationLine: "underline",
 },
+
+welcomeLogo: {
+  width: 170,
+  height: 90,
+  marginBottom: 20,
+},
+
+finalLogo: {
+  width: 150,
+  height: 80,
+  marginBottom: 20,
+},
+
+
 });

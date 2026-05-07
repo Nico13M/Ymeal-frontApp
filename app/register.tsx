@@ -6,6 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,6 +18,7 @@ import {
 } from "react-native";
 import { ActivityIndicator } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+
 
 function getRegisterErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
@@ -54,6 +56,11 @@ export default function InscriptionScreen() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+    const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isValidEmail = emailRegex.test(email.trim());
+
 
     const passwordRules = {
     minLength: password.length >= 6,
@@ -65,7 +72,7 @@ export default function InscriptionScreen() {
       !loading &&
       firstName.trim().length > 1 &&
       lastName.trim().length > 1 &&
-      email.trim().length > 3 &&
+      isValidEmail &&
       passwordRules.minLength &&
     passwordRules.hasSpecialChar &&
       password === confirm
@@ -89,6 +96,9 @@ if (trimmedNickname.length > 0 && trimmedNickname.length < 2) {
 }
 
 if (!trimmedEmail) errors.push("Email manquant");
+if (trimmedEmail && !emailRegex.test(trimmedEmail)) {
+  errors.push("Email invalide");
+}
 
 if (!passwordRules.minLength) {
   errors.push("Mot de passe trop court (min 6)");
@@ -173,13 +183,17 @@ if (errors.length > 0) {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.content}
         >
-          <View style={styles.header}>
-            <View style={styles.logoCircle}>
-              <Ionicons name="restaurant" size={22} color="#fff" />
-            </View>
-            <Text style={styles.brand}>Ymeal</Text>
-            <Text style={styles.tagline}>Des recettes adaptées à ton budget étudiant</Text>
-          </View>
+<View style={styles.header}>
+  <Image
+    source={require("@/assets/images/logo_ymeal.png")}
+    style={styles.logo}
+    resizeMode="contain"
+  />
+
+  <Text style={styles.tagline}>
+    Des recettes adaptées à ton budget étudiant
+  </Text>
+</View>
 <View style={styles.card}>
   <Text style={styles.cardTitle}>Créer un compte</Text>
 
@@ -263,6 +277,13 @@ if (errors.length > 0) {
   />
 </View>
 
+  {email.length > 0 && !isValidEmail && (
+    <Text style={styles.errorText}>
+  Format d'email invalide
+</Text>
+  )}
+
+
 <Text style={styles.label}>Mot de passe</Text>
 
 <View style={styles.inputWrap}>
@@ -275,7 +296,7 @@ if (errors.length > 0) {
       if (formError) setFormError(null);
     }}
     placeholder="********"
-    secureTextEntry
+    secureTextEntry={!showPassword}
     autoCapitalize="none"
 
     textContentType="newPassword"
@@ -284,34 +305,58 @@ if (errors.length > 0) {
 
     style={styles.input}
   />
-
+<TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+  <Ionicons
+    name={showPassword ? "eye-off-outline" : "eye-outline"}
+    size={20}
+    color="#64748B"
+  />
+</TouchableOpacity>
 
             </View>
             <Text style={styles.label}>Confirmation du mot de passe</Text>
             <View style={styles.inputWrap}>
               <Ionicons name="lock-closed-outline" size={18} color="#9AA3AF" />
-              <TextInput
-                value={confirm}
-                onChangeText={(value) => {
-                  setConfirm(value);
-                  if (formError) setFormError(null);
-                }}
-                placeholder="********"
-                secureTextEntry
-                autoCapitalize="none"
-                textContentType="newPassword"
-autoComplete="password-new"
-importantForAutofill="yes"
-                style={styles.input}
-              />
+              
+<TextInput
+  value={confirm}
+  onChangeText={(value) => {
+    setConfirm(value);
+    if (formError) setFormError(null);
+  }}
+  placeholder="********"
+  secureTextEntry={!showConfirmPassword}
+  autoCapitalize="none"
+  textContentType="newPassword"
+  autoComplete="password-new"
+  importantForAutofill="yes"
+  style={styles.input}
+/>
+
+<TouchableOpacity
+  onPress={() =>
+    setShowConfirmPassword(!showConfirmPassword)
+  }
+>
+  <Ionicons
+    name={
+      showConfirmPassword
+        ? "eye-off-outline"
+        : "eye-outline"
+    }
+    size={20}
+    color="#64748B"
+  />
+</TouchableOpacity>
             </View>
             <TouchableOpacity
-              // style={[styles.button, !canSubmit && styles.buttonDisabled]}
-              style={styles.button}
+             style={[styles.button,
+              !canSubmit && styles.buttonDisabled
+            ]}
               onPress={onContinue}
               activeOpacity={0.85}
               // disabled={!canSubmit}
-              disabled={loading}
+              disabled={!canSubmit || loading}
             >
               <Text style={styles.buttonText}>Continuer</Text>
             </TouchableOpacity>
@@ -350,21 +395,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 22,
   },
-  logoCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#FF7A00",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  brand: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: "#0F172A",
-    letterSpacing: 0.2,
-  },
+  // logoCircle: {
+  //   width: 56,
+  //   height: 56,
+  //   borderRadius: 28,
+  //   backgroundColor: "#FF7A00",
+  //   alignItems: "center",
+  //   justifyContent: "center",
+  //   marginBottom: 12,
+  // },
+  // brand: {
+  //   fontSize: 34,
+  //   fontWeight: "800",
+  //   color: "#0F172A",
+  //   letterSpacing: 0.2,
+  // },
   tagline: {
     marginTop: 6,
     fontSize: 13,
@@ -468,4 +513,15 @@ const styles = StyleSheet.create({
 
   row: { flexDirection: "row", gap: 10 },
   halfInput: { flex: 1 },
+
+buttonDisabled: {
+  opacity: 0.5,
+},
+
+logo: {
+  width: 180,
+  height: 120,
+  marginBottom: 10,
+},
+
 });

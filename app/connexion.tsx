@@ -200,6 +200,14 @@ export default function ConnexionScreen() {
         </View>
 
         <TouchableOpacity
+  onPress={() => router.push("/mot-de-passe-oublie" as any)}
+>
+  <Text style={styles.forgotPassword}>
+    Mot de passe oublié ?
+  </Text>
+</TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.button, !canSubmit && styles.buttonDisabled]}
           onPress={onLogin}
           activeOpacity={0.85}
@@ -349,4 +357,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#FF7A00",
   },
+
+forgotPassword: {
+  alignSelf: "flex-end",
+  marginTop: 2,
+  marginBottom: 12,
+  color: "#FF7A00",
+  fontSize: 12,
+  fontWeight: "600",
+},
+
 });
