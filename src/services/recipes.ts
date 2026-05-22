@@ -52,6 +52,7 @@ export type RecipeFull = {
   difficulty: string | null;
   dish_type: string | null;
   is_public: boolean;
+  is_favorited: boolean;
   timestamps: RecipeTimestamps;
   author: RecipeAuthor | null;
   nutrition: RecipeNutrition;

@@ -3,7 +3,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   ScrollView,
   StatusBar,
@@ -17,6 +16,7 @@ import {
 
 import useRequireAuth from '../../src/hooks/useRequireAuth';
 import { ApiError, apiRequest } from '../../src/lib/api';
+import { getSession } from '../../src/services/auth';
 import { getRecipe, type RecipeFull } from '../../src/services/recipes';
 
 interface RatingPayload {
@@ -57,6 +57,24 @@ export default function RecipeDetailScreen() {
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [isLoadingRating, setIsLoadingRating] = useState(false);
   const [randomTip, setRandomTip] = useState(RANDOM_TIPS[0]);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
+  
+  // État pour la notification
+  const [notification, setNotification] = useState<{
+    message: string;
+    type: 'success' | 'error' | 'info';
+    visible: boolean;
+  }>({ message: '', type: 'success', visible: false });
+
+  // Fonction pour afficher une notification
+  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setNotification({ message, type, visible: true });
+    // Auto-close après 3 secondes
+    setTimeout(() => {
+      setNotification(prev => ({ ...prev, visible: false }));
+    }, 3000);
+  };
 
   const contentContainerStyle = isDesktop
     ? { paddingBottom: 40, paddingHorizontal: 48, alignItems: 'center' }
@@ -76,6 +94,7 @@ export default function RecipeDetailScreen() {
       try {
         const data = await getRecipe(Number(id));
         setRecipe(data);
+        setIsFavorite(data.is_favorited);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Erreur');
       } finally {
@@ -114,6 +133,73 @@ export default function RecipeDetailScreen() {
     return 'Erreur inconnue';
   };
 
+  const toggleFavorite = async () => {
+    if (!recipe) return;
+
+    setIsLoadingFavorite(true);
+    try {
+      const session = await getSession();
+      const COOKIE_SESSION_TOKEN = "__cookie_session__";
+      const isCookie = session?.token === COOKIE_SESSION_TOKEN;
+      const token = isCookie ? undefined : session?.token;
+      const userId = (session?.user as any)?.id as number | undefined;
+
+      const headers = userId ? { "X-User-Id": String(userId) } : {};
+
+      if (isFavorite) {
+        // Supprimer des favoris
+        const response = await apiRequest(`/admin/recipes/${recipe.id}/favorite`, {
+          method: 'DELETE',
+          token,
+          credentials: 'include',
+          headers
+        });
+        console.log('Delete response:', response);
+        setIsFavorite(false);
+        // Décrémenter le compteur de favoris
+        setRecipe({
+          ...recipe,
+          engagement: {
+            ...recipe.engagement,
+            favorites_count: Math.max(0, (recipe.engagement?.favorites_count ?? 0) - 1)
+          }
+        });
+        showNotification('Recette supprimée des favoris', 'success');
+      } else {
+        // Ajouter aux favoris
+        const response = await apiRequest(`/admin/recipes/${recipe.id}/favorite`, {
+          method: 'POST',
+          body: {},
+          token,
+          credentials: 'include',
+          headers
+        });
+        console.log('Post response:', response);
+        setIsFavorite(true);
+        // Incrémenter le compteur de favoris
+        setRecipe({
+          ...recipe,
+          engagement: {
+            ...recipe.engagement,
+            favorites_count: (recipe.engagement?.favorites_count ?? 0) + 1
+          }
+        });
+        showNotification('Recette sauvegardée dans les favoris', 'success');
+      }
+    } catch (err) {
+      console.log('Error:', err);
+      if (err instanceof ApiError && err.status === 400) {
+        // Déjà en favoris
+        setIsFavorite(true);
+        showNotification('Déjà dans vos favoris', 'info');
+      } else {
+        showNotification(getErrorMessage(err), 'error');
+      }
+    } finally {
+      setIsLoadingFavorite(false);
+    }
+  };
+
   const submitRating = async () => {
     if (!recipe || userRating === 0) return;
 
@@ -129,12 +215,12 @@ export default function RecipeDetailScreen() {
         body: JSON.stringify(payload)
       });
 
-      Alert.alert('Succès', 'Votre notation a été enregistrée');
+      showNotification('Votre notation a été enregistrée', 'success');
       setUserRating(0);
       setComment('');
       setShowCommentForm(false);
     } catch (err) {
-      Alert.alert('Erreur', getErrorMessage(err));
+      showNotification(getErrorMessage(err), 'error');
     } finally {
       setIsLoadingRating(false);
     }
@@ -186,6 +272,18 @@ export default function RecipeDetailScreen() {
         >
           <Ionicons name="arrow-back" size={20} color="#111" />
           <Text style={styles.backText}>Retour</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.favoriteBtn}
+          onPress={toggleFavorite}
+          disabled={isLoadingFavorite}
+        >
+          <Ionicons
+            name={isFavorite ? "heart" : "heart-outline"}
+            size={28}
+            color={isFavorite ? "#FF1744" : "#fff"}
+          />
         </TouchableOpacity>
 
         <View style={styles.headerInfo}>
@@ -437,6 +535,25 @@ export default function RecipeDetailScreen() {
 
         <View style={{ height: 50 }} />
       </ScrollView>
+
+      {/* NOTIFICATION TOAST */}
+      {notification.visible && (
+        <View style={[
+          styles.notification,
+          notification.type === 'success' && styles.notificationSuccess,
+          notification.type === 'error' && styles.notificationError,
+          notification.type === 'info' && styles.notificationInfo
+        ]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Ionicons
+              name={notification.type === 'success' ? 'checkmark-circle' : notification.type === 'error' ? 'close-circle' : 'information-circle'}
+              size={20}
+              color="#fff"
+            />
+            <Text style={styles.notificationText}>{notification.message}</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -499,6 +616,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 999
+  },
+
+  favoriteBtn: {
+    position: 'absolute',
+    top: 55,
+    right: 20,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
 
   backText: {
@@ -732,6 +861,40 @@ infoCardFull: {
   },
 
   gridSingle: {
-  flexDirection: 'column',
-},
+    flexDirection: 'column',
+  },
+
+  notification: {
+    position: 'absolute',
+    top: 20,
+    right: 16,
+    maxWidth: 320,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    zIndex: 1000,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8
+  },
+
+  notificationSuccess: {
+    backgroundColor: '#22C55E'
+  },
+
+  notificationError: {
+    backgroundColor: '#EF4444'
+  },
+
+  notificationInfo: {
+    backgroundColor: '#3B82F6'
+  },
+
+  notificationText: {
+    color: '#fff',
+    fontWeight: '600',
+    flex: 1
+  }
 });
