@@ -1,12 +1,24 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View
+} from 'react-native';
+
 import useRequireAuth from '../../src/hooks/useRequireAuth';
 import { ApiError, apiRequest } from '../../src/lib/api';
 import { getRecipe, type RecipeFull } from '../../src/services/recipes';
 
-// --- TYPES ---
 interface RatingPayload {
   rating: number;
   comment: string | null;
@@ -19,166 +31,110 @@ interface RatingResponse {
   createdAt: string;
 }
 
-// --- LISTE DES ASTUCES ALÉATOIRES AUSSI ICI ---
 const RANDOM_TIPS = [
-  "En préparant tes repas toi-même, tu peux économiser jusqu'à 200€ par mois par rapport aux plats préparés !",
-  "Cette recette peut se conserver 3 jours au frigo : idéale pour tes lunchbox.",
-  "Tu peux remplacer la crème fraîche par du yaourt nature pour une version plus légère et moins chère.",
-  "Astuce chef : Ajoute un filet de jus de citron à la fin pour rehausser tous les goûts.",
-  "Pas de balance ? Une tasse à mug équivaut environ à 120g de farinex ou 200g de sucre."
+  "Économise jusqu'à 200€ par mois en cuisinant maison.",
+  "Parfait pour des lunchbox sur 3 jours.",
+  "Remplace la crème par du yaourt pour alléger.",
+  "Ajoute du citron pour relever les saveurs.",
+  "Une tasse ≈ 120g farine / 200g sucre."
 ];
 
 export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { checking } = useRequireAuth();
+
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
-  const contentContainerStyle = isDesktop
-    ? { ...styles.contentContainerInner, ...styles.contentContainerInnerDesktop }
-    : styles.contentContainerInner;
-  const sectionStyle = isDesktop
-    ? { ...styles.section, ...styles.sectionDesktop }
-    : styles.section;
-  const tipBoxStyle = isDesktop
-    ? { ...styles.tipBox, ...styles.sectionDesktop }
-    : styles.tipBox;
-  
+
   const [recipe, setRecipe] = useState<RecipeFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
   const [userRating, setUserRating] = useState<number>(0);
-  const [comment, setComment] = useState<string>('');
-  const [isLoadingRating, setIsLoadingRating] = useState<boolean>(false);
+  const [comment, setComment] = useState('');
+  const [showCommentForm, setShowCommentForm] = useState(false);
+  const [isLoadingRating, setIsLoadingRating] = useState(false);
+  const [randomTip, setRandomTip] = useState(RANDOM_TIPS[0]);
 
-  // 📥 Charger la recette au montage
+  const contentContainerStyle = isDesktop
+    ? { paddingBottom: 40, paddingHorizontal: 48, alignItems: 'center' }
+    : { paddingBottom: 20 };
+
+  const sectionStyle = isDesktop
+    ? { width: '100%', maxWidth: 960 }
+    : {};
+
   useEffect(() => {
     if (checking || !id) return;
-    
-    const loadRecipe = async () => {
+
+    const load = async () => {
       setLoading(true);
       setError(null);
+
       try {
         const data = await getRecipe(Number(id));
         setRecipe(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur lors du chargement de la recette");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Erreur');
       } finally {
         setLoading(false);
       }
     };
-    
-    loadRecipe();
+
+    load();
   }, [checking, id]);
-  const [showCommentForm, setShowCommentForm] = useState<boolean>(false);
-  
-  // État pour l'astuce aléatoire
-  const [randomTip, setRandomTip] = useState<string>(RANDOM_TIPS[0]);
 
   useEffect(() => {
-    // Changement aléatoire à chaque chargement de recette
     const index = Math.floor(Math.random() * RANDOM_TIPS.length);
     setRandomTip(RANDOM_TIPS[index]);
   }, []);
 
-  const toggleStep = (index: number): void => {
-    setCheckedSteps(prev => ({ ...prev, [index]: !prev[index] }));
+  const toggleStep = (index: number) => {
+    setCheckedSteps(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
   };
 
-  const handleRating = (score: number): void => {
+  const handleRating = (score: number) => {
     setUserRating(score);
     setShowCommentForm(true);
   };
 
   const getErrorMessage = (error: unknown): string => {
-    // Vérification d'erreur API
     if (error instanceof ApiError) {
-      // Extraction du texte des réponses HTML
-      const message = error.message.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-      
-      // Extraction du code d'erreur spécifique
-      if (message.includes('Not Found')) {
-        return 'La notation ne peut pas être enregistrée. Vérifiez votre connexion.';
-      }
-      if (message.includes('Forbidden') || error.status === 403) {
-        return 'Vous n\'avez pas la permission d\'ajouter une notation.';
-      }
-      if (message.includes('Unauthorized') || error.status === 401) {
-        return 'Veuillez vous connecter pour noter cette recette.';
-      }
-      if (error.status === 500) {
-        return 'Erreur serveur. Veuillez réessayer plus tard.';
-      }
-      
-      // Retourner le message nettoyé si c'est du texte
-      return message.slice(0, 150) || 'Erreur lors de l\'enregistrement';
+      const msg = error.message.replace(/<[^>]*>/g, ' ').trim();
+      if (error.status === 401) return 'Connexion requise';
+      if (error.status === 403) return 'Accès refusé';
+      if (error.status === 500) return 'Erreur serveur';
+      return msg;
     }
-    
-    // Vérification d'erreur standard
-    if (error instanceof Error) {
-      return error.message;
-    }
-    
-    return 'Une erreur est survenue. Veuillez réessayer.';
+    return 'Erreur inconnue';
   };
 
-  const submitRating = async (): Promise<void> => {
-    // Validation
-    if (userRating === 0) {
-      Alert.alert('Erreur', 'Veuillez sélectionner une note');
-      return;
-    }
-
-    if (!id || typeof id !== 'string') {
-      Alert.alert('Erreur', 'ID de recette invalide');
-      return;
-    }
+  const submitRating = async () => {
+    if (!recipe || userRating === 0) return;
 
     setIsLoadingRating(true);
     try {
       const payload: RatingPayload = {
         rating: userRating,
-        comment: comment.trim() || null,
+        comment: comment || null
       };
 
-      const response = await apiRequest<RatingResponse>(
-        `/Admin/recipes/${id}/ratings`,
-        {
-          method: 'POST',
-          body: payload,
-        }
-      );
+      await apiRequest(`/recipes/${recipe.id}/ratings`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
 
-      // Vérification de la réponse
-      if (!response || !response.id) {
-        throw new Error('Réponse serveur invalide');
-      }
-
-      Alert.alert('Succès ✓', 'Votre notation a été enregistrée avec succès !');
-      
-      // Réinitialisation des états
-      setComment('');
+      Alert.alert('Succès', 'Votre notation a été enregistrée');
       setUserRating(0);
+      setComment('');
       setShowCommentForm(false);
-    } catch (error: unknown) {
-      const errorMsg = getErrorMessage(error);
-      
-      Alert.alert('Erreur de l\'enregistrement', errorMsg, [
-        {
-          text: 'Réessayer',
-          onPress: () => submitRating(),
-        },
-        {
-          text: 'Annuler',
-          onPress: () => {
-            setComment('');
-            setUserRating(0);
-            setShowCommentForm(false);
-          },
-          style: 'cancel',
-        },
-      ]);
+    } catch (err) {
+      Alert.alert('Erreur', getErrorMessage(err));
     } finally {
       setIsLoadingRating(false);
     }
@@ -186,170 +142,300 @@ export default function RecipeDetailScreen() {
 
   if (checking || loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" color="#00C853" />
-        <Text style={{ marginTop: 10, color: "#666" }}>Chargement de la recette...</Text>
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color="#FF9F1C" />
+        <Text style={styles.loadingText}>Chargement...</Text>
       </View>
     );
   }
 
   if (error || !recipe) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}>
-        <Text style={{ color: "#DC2626", fontSize: 16, textAlign: "center" }}>
-          {error || "Recette non trouvée"}
+      <View style={styles.center}>
+        <Text style={styles.errorText}>
+          {error || "Recette introuvable"}
         </Text>
-        <TouchableOpacity 
-          onPress={() => router.back()} 
-          style={{ marginTop: 20, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: "#00C853", borderRadius: 8 }}
+
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={() => router.back()}
         >
-          <Text style={{ color: "#FFF", fontWeight: "bold" }}>Retour</Text>
+          <Text style={styles.primaryBtnText}>Retour</Text>
         </TouchableOpacity>
       </View>
     );
   }
+  const isSmallGrid = width < 330;
 
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      
-      {/* HEADER IMAGE */}
+
+      {/* IMAGE HEADER */}
       <View style={styles.imageContainer}>
-        <Image source={{ uri: recipe.image || "https://via.placeholder.com/300" }} style={styles.image} />
+        <Image
+          source={{ uri: recipe.image || 'https://via.placeholder.com/300' }}
+          style={styles.image}
+        />
+
         <View style={styles.overlay} />
-        
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#333" />
-          <Text style={{fontWeight: 'bold', marginLeft: 5}}>Retour</Text>
+
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={20} color="#111" />
+          <Text style={styles.backText}>Retour</Text>
         </TouchableOpacity>
 
         <View style={styles.headerInfo}>
           <Text style={styles.title}>{recipe.name}</Text>
+
           <View style={styles.badgesRow}>
-            <View style={styles.badge}><Ionicons name="time-outline" size={14} color="#FFF"/><Text style={styles.badgeText}>{(recipe.timing?.prep_time ?? 0) + (recipe.timing?.duration ?? 0)} min</Text></View>
-            <View style={styles.badge}><Ionicons name="flame-outline" size={14} color="#FFF"/><Text style={styles.badgeText}>{recipe.difficulty}</Text></View>
-            <View style={styles.badge}><Ionicons name="person-outline" size={14} color="#FFF"/><Text style={styles.badgeText}>{recipe.servings} pers.</Text></View>
+            <View style={styles.badge}>
+              <Ionicons name="time-outline" size={14} color="#fff" />
+              <Text style={styles.badgeText}>
+                {(recipe.timing?.prep_time ?? 0) + (recipe.timing?.duration ?? 0)} min
+              </Text>
+            </View>
+
+            <View style={styles.badge}>
+              <Ionicons name="flame-outline" size={14} color="#fff" />
+              <Text style={styles.badgeText}>{recipe.difficulty}</Text>
+            </View>
+
+            <View style={styles.badge}>
+              <Ionicons name="person-outline" size={14} color="#fff" />
+              <Text style={styles.badgeText}>{recipe.servings}</Text>
+            </View>
           </View>
         </View>
       </View>
 
+      {/* CONTENT */}
       <ScrollView
-        style={styles.contentContainer}
+        style={styles.content}
         contentContainerStyle={contentContainerStyle}
         showsVerticalScrollIndicator={false}
       >
-        
-        {/* INGRÉDIENTS */}
-        <View style={sectionStyle}>
+        {/* INFOS GRID */}
+        <View style={[styles.section, sectionStyle]}>
+          <Text style={styles.sectionTitle}>Informations</Text>
+
+<View style={[styles.grid, isSmallGrid && styles.gridSingle]}>
+
+            <View style={[
+              styles.infoCard,
+              isSmallGrid && styles.infoCardFull
+            ]}>
+              <Ionicons name="restaurant-outline" size={22} color="#FF9F1C" />
+              <Text style={styles.cardTitle}>Type</Text>
+              <Text style={styles.cardValue}>{recipe.dish_type || '-'}</Text>
+            </View>
+
+            <View style={[
+              styles.infoCard,
+              isSmallGrid && styles.infoCardFull
+            ]}>
+              <Ionicons name="time-outline" size={22} color="#FF9F1C" />
+              <Text style={styles.cardTitle}>Temps</Text>
+              <Text style={styles.cardValue}>
+                {(recipe.timing?.prep_time ?? 0) + (recipe.timing?.duration ?? 0)} min
+              </Text>
+            </View>
+
+            <View style={[
+              styles.infoCard,
+              isSmallGrid && styles.infoCardFull
+            ]}>
+              <Ionicons name="person-outline" size={22} color="#FF9F1C" />
+              <Text style={styles.cardTitle}>Portions</Text>
+              <Text style={styles.cardValue}>{recipe.servings}</Text>
+            </View>
+
+            <View style={[
+              styles.infoCard,
+              isSmallGrid && styles.infoCardFull
+            ]}>
+              <Ionicons name={recipe.is_public ? "globe-outline" : "lock-closed-outline"} size={22} color="#FF9F1C" />
+              <Text style={styles.cardTitle}>Visibilité</Text>
+              <Text style={styles.cardValue}>
+                {recipe.is_public ? 'Publique' : 'Privée'}
+              </Text>
+            </View>
+
+            <View style={[
+              styles.infoCard,
+              isSmallGrid && styles.infoCardFull
+            ]}>
+              <Ionicons name="heart-outline" size={22} color="#FF9F1C" />
+              <Text style={styles.cardTitle}>Favoris</Text>
+              <Text style={styles.cardValue}>
+                {recipe.engagement?.favorites_count ?? 0}
+              </Text>
+            </View>
+
+            <View style={[
+              styles.infoCard,
+              isSmallGrid && styles.infoCardFull
+            ]}>
+              <Ionicons name="person-circle-outline" size={22} color="#FF9F1C" />
+              <Text style={styles.cardTitle}>Auteur</Text>
+              <Text style={styles.cardValue}>{recipe.author.name}</Text>
+            </View>
+
+          </View>
+
+          {/* DESCRIPTION */}
+          {recipe.description && (
+            <View style={styles.descriptionCard}>
+              <Text style={styles.descriptionTitle}>Description</Text>
+              <Text style={styles.descriptionText}>
+                {recipe.description}
+              </Text>
+            </View>
+          )}
+
+          {/* DIETS */}
+          {recipe.nutrition?.diets?.length > 0 && (
+            <View style={{ marginTop: 25 }}>
+              <Text style={styles.sectionTitle}>Régimes</Text>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {recipe.nutrition.diets.map((diet, i) => (
+                  <View key={i} style={styles.tag}>
+                    <Text style={styles.tagText}>{diet.name}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
+
+        {/* INGREDIENTS */}
+        <View style={[styles.section, sectionStyle]}>
           <Text style={styles.sectionTitle}>Ingrédients</Text>
-          <View style={styles.card}>
-            {recipe.nutrition?.ingredients?.map((ing, index) => (
-              <View key={index} style={styles.ingredientRow}>
-                <View style={styles.bullet} />
-                <Text style={styles.ingredientText}>{ing.quantity} {ing.unit} {ing.name}</Text>
+
+          <View style={styles.ingredientsContainer}>
+            {recipe.nutrition?.ingredients?.map((ing, i) => (
+              <View key={i} style={styles.ingredientCard}>
+                <Text style={styles.ingredientName}>{ing.name}</Text>
+                <Text style={styles.ingredientQty}>
+                  {ing.quantity} {typeof ing.unit === 'string' ? ing.unit : ing.unit?.symbol}
+                </Text>
               </View>
             ))}
           </View>
         </View>
 
-        {/* PRÉPARATION */}
-        {recipe.steps && recipe.steps.length > 0 ? (
-          <View style={sectionStyle}>
-            <Text style={styles.sectionTitle}>Préparation</Text>
-            {recipe.steps.map((step: string, index: number) => {
-              const isChecked = checkedSteps[index];
+        {/* STEPS */}
+        <View style={[styles.section, sectionStyle]}>
+          <Text style={styles.sectionTitle}>Préparation</Text>
+
+          {recipe.steps?.length > 0 ? (
+            recipe.steps.map((step: string, index: number) => {
+              const checked = checkedSteps[index];
+
               return (
-                <TouchableOpacity key={index} onPress={() => toggleStep(index)} activeOpacity={0.8}>
-                  <View style={[styles.stepCard, isChecked && styles.stepCardChecked]}>
-                    <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
-                      {isChecked ? <Ionicons name="checkmark" size={16} color="#FFF" /> : <Text style={styles.stepNum}>{index + 1}</Text>}
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => toggleStep(index)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[
+                    styles.stepCard,
+                    checked && styles.stepCardChecked
+                  ]}>
+                    <View style={[
+                      styles.checkbox,
+                      checked && styles.checkboxChecked
+                    ]}>
+                      {checked ? (
+                        <Ionicons name="checkmark" size={16} color="#fff" />
+                      ) : (
+                        <Text style={styles.stepNum}>{index + 1}</Text>
+                      )}
                     </View>
-                    <Text style={[styles.stepText, isChecked && styles.stepTextChecked]}>{step}</Text>
+
+                    <Text style={[
+                      styles.stepText,
+                      checked && styles.stepTextChecked
+                    ]}>
+                      {step}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               );
-            })}
+            })
+          ) : (
+            <Text style={{ color: '#666' }}>
+              Aucune étape disponible
+            </Text>
+          )}
+        </View>
+
+        {/* RATING */}
+        <View style={[styles.section, sectionStyle]}>
+          <Text style={styles.sectionTitle}>Notation</Text>
+
+          <View style={styles.ratingCard}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {[1, 2, 3, 4, 5].map(star => (
+                <TouchableOpacity
+                  key={star}
+                  onPress={() => handleRating(star)}
+                >
+                  <Ionicons
+                    name={star <= userRating ? "star" : "star-outline"}
+                    size={34}
+                    color={star <= userRating ? "#FFC107" : "#D1D5DB"}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={{ marginTop: 10, color: '#666' }}>
+              {userRating ? `${userRating}/5` : 'Noter cette recette'}
+            </Text>
+
+            {showCommentForm && (
+              <View style={styles.commentForm}>
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder="Commentaire"
+                  value={comment}
+                  onChangeText={setComment}
+                  multiline
+                />
+
+                <TouchableOpacity
+                  style={styles.submitBtn}
+                  onPress={submitRating}
+                  disabled={isLoadingRating}
+                >
+                  {isLoadingRating ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>Valider</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
-        ) : (
-          <View style={sectionStyle}>
-            <Text style={styles.sectionTitle}>Description</Text>
-            <View style={styles.card}>
-              <Text style={{ color: "#333", lineHeight: 1.6 }}>{recipe.description}</Text>
+        </View>
+
+        {/* TIP */}
+        <View style={[styles.section, sectionStyle]}>
+          <View style={styles.tipBox}>
+            <Ionicons name="bulb" size={20} color="#0284C7" />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.tipTitle}>Astuce</Text>
+              <Text style={styles.tipText}>{randomTip}</Text>
             </View>
           </View>
-        )}
-
-        {/* NOTATION */}
-        <View style={sectionStyle}>
-           <Text style={styles.sectionTitle}>Note cette recette</Text>
-           <View style={styles.ratingCard}>
-             <View style={{flexDirection: 'row', gap: 10, marginBottom: 10}}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <TouchableOpacity key={star} onPress={() => handleRating(star)}>
-                    <Ionicons 
-                      name={star <= userRating ? "star" : "star-outline"} 
-                      size={36} 
-                      color={star <= userRating ? "#FFC107" : "#CCC"} 
-                    />
-                  </TouchableOpacity>
-                ))}
-             </View>
-             <Text style={{color: '#666', fontSize: 16}}>
-               {userRating > 0 ? `Tu as noté ${userRating}/5 ⭐` : "Touche une étoile pour noter"}
-             </Text>
-
-             {/* Formulaire de commentaire - visible après avoir cliqué sur une étoile */}
-             {showCommentForm && userRating > 0 && (
-               <View style={styles.commentForm}>
-                 <TextInput
-                   style={styles.commentInput}
-                   placeholder="Ajoute un commentaire (optionnel)..."
-                   placeholderTextColor="#999"
-                   value={comment}
-                   onChangeText={setComment}
-                   multiline
-                   maxLength={500}
-                   editable={!isLoadingRating}
-                 />
-                 <Text style={styles.characterCount}>
-                   {comment.length}/500
-                 </Text>
-                 <TouchableOpacity
-                   style={[styles.submitBtn, isLoadingRating && styles.submitBtnDisabled]}
-                   onPress={submitRating}
-                   disabled={isLoadingRating}
-                 >
-                   {isLoadingRating ? (
-                     <ActivityIndicator color="#FFF" size="small" />
-                   ) : (
-                     <>
-                       <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-                       <Text style={styles.submitBtnText}>Valider</Text>
-                     </>
-                   )}
-                 </TouchableOpacity>
-               </View>
-             )}
-           </View>
         </View>
 
-        {/* PARTAGE
-        <TouchableOpacity style={styles.shareBtn}>
-           <Ionicons name="share-social-outline" size={20} color="#FFF" />
-           <Text style={styles.shareBtnText}>Partager avec la communauté</Text>
-        </TouchableOpacity> */}
-
-        {/* ASTUCE BOX (Maintenant Aléatoire) */}
-        <View style={tipBoxStyle}>
-          <Ionicons name="bulb" size={20} color="#FFC107" style={{marginRight: 10}} />
-          <View style={{flex: 1}}>
-            <Text style={styles.tipTitle}>Le savais-tu ?</Text>
-            {/* Ici on affiche l'astuce aléatoire stockée dans le state */}
-            <Text style={styles.tipText}>{randomTip}</Text> 
-          </View>
-        </View>
-
-        <View style={{height: 50}} />
+        <View style={{ height: 50 }} />
       </ScrollView>
     </View>
   );
@@ -357,87 +443,295 @@ export default function RecipeDetailScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF9F2' },
-  imageContainer: { height: 300, width: '100%', position: 'relative' },
-  image: { width: '100%', height: '100%' },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)' },
-  backBtn: { position: 'absolute', top: 50, left: 20, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.9)', padding: 8, borderRadius: 20 },
-  headerInfo: { position: 'absolute', bottom: 30, left: 20, right: 20 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#FFF', marginBottom: 10, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 5 },
-  badgesRow: { flexDirection: 'row', gap: 10 },
-  badge: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.3)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 15, alignItems: 'center', gap: 5 },
-  badgeText: { color: '#FFF', fontWeight: 'bold', fontSize: 12 },
-  priceTag: { position: 'absolute', right: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.2)', padding: 5, borderRadius: 10 },
-  priceText: { color: '#FFF', fontWeight: 'bold' },
-  contentContainer: { flex: 1, marginTop: -20, backgroundColor: '#FFF9F2', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingTop: 30, paddingHorizontal: 20 },
-  contentContainerInner: {
-    paddingBottom: 20,
+
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
   },
-  contentContainerInnerDesktop: {
-    paddingHorizontal: 48,
-    alignItems: 'center',
+
+  loadingText: {
+    marginTop: 10,
+    color: '#666'
   },
-  section: { marginBottom: 25 },
-  sectionDesktop: {
-    width: '100%',
-    maxWidth: 860,
-    alignSelf: 'center',
+
+  errorText: {
+    color: '#DC2626',
+    fontSize: 16,
+    marginBottom: 20,
+    textAlign: 'center'
   },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1A1A2E', marginBottom: 15 },
-  card: { backgroundColor: '#FFF', padding: 20, borderRadius: 15, elevation: 2 },
-  ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  bullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FF9F1C', marginRight: 10 },
-  ingredientText: { fontSize: 16, color: '#444' },
-  stepCard: { flexDirection: 'row', backgroundColor: '#FFF', padding: 15, borderRadius: 15, marginBottom: 10, alignItems: 'flex-start', borderWidth: 1, borderColor: '#EEE' },
-  stepCardChecked: { backgroundColor: '#F0F9F4', borderColor: '#4CAF50' },
-  checkbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#DDD', justifyContent: 'center', alignItems: 'center', marginRight: 15, marginTop: 2 },
-  checkboxChecked: { backgroundColor: '#4CAF50', borderColor: '#4CAF50' },
-  stepNum: { color: '#AAA', fontSize: 12, fontWeight: 'bold' },
-  stepText: { fontSize: 15, color: '#333', flex: 1, lineHeight: 22 },
-  stepTextChecked: { color: '#888', textDecorationLine: 'line-through' },
-  ratingCard: { alignItems: 'center', backgroundColor: '#FFF', padding: 20, borderRadius: 15 },
-  shareBtn: { backgroundColor: '#FF9F1C', flexDirection: 'row', justifyContent: 'center', padding: 18, borderRadius: 15, alignItems: 'center', gap: 10, marginBottom: 20 },
-  shareBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
-  
-  // Style formulaire de commentaire
-  commentForm: { marginTop: 20, width: '100%' },
-  commentInput: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 14,
-    color: '#333',
-    borderWidth: 1,
-    borderColor: '#DDD',
-    minHeight: 80,
-    textAlignVertical: 'top',
-    marginBottom: 8,
-  },
-  characterCount: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 12,
-    textAlign: 'right',
-  },
-  submitBtn: {
+
+  primaryBtn: {
     backgroundColor: '#FF9F1C',
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 12
+  },
+
+  primaryBtnText: {
+    color: '#fff',
+    fontWeight: '700'
+  },
+
+  imageContainer: {
+    height: 320,
+    position: 'relative'
+  },
+
+  image: {
+    width: '100%',
+    height: '100%'
+  },
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)'
+  },
+
+  backBtn: {
+    position: 'absolute',
+    top: 55,
+    left: 20,
     flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999
+  },
+
+  backText: {
+    marginLeft: 6,
+    fontWeight: '600'
+  },
+
+  headerInfo: {
+    position: 'absolute',
+    bottom: 25,
+    left: 20,
+    right: 20
+  },
+
+  title: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#fff'
+  },
+
+  badgesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12
+  },
+
+  badge: {
+    flexDirection: 'row',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999
+  },
+
+  badgeText: {
+    color: '#fff',
+    fontWeight: '700'
+  },
+
+  content: {
+    flex: 1,
+    marginTop: -20,
+    backgroundColor: '#FFF9F2',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 20,
+    paddingHorizontal: 16
+  },
+
+  section: {
+    marginBottom: 28
+  },
+
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    marginBottom: 14
+  },
+
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12
+  },
+
+  infoCard: {
+    width: '48%',
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 18
+  },
+infoCardFull: {
+  width: '100%',
+},
+  cardTitle: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 8
+  },
+
+  cardValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 4
+  },
+
+  descriptionCard: {
+    marginTop: 20,
+    backgroundColor: '#fff',
+    padding: 18,
+    borderRadius: 18
+  },
+
+  descriptionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 10
+  },
+
+  descriptionText: {
+    lineHeight: 22,
+    color: '#444'
+  },
+
+  tag: {
+    backgroundColor: '#FFF3E6',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    marginRight: 8
+  },
+
+  tagText: {
+    color: '#FF9F1C',
+    fontWeight: '700'
+  },
+
+  ingredientsContainer: {
+    gap: 10
+  },
+
+  ingredientCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 14
+  },
+
+  ingredientName: {
+    fontWeight: '600'
+  },
+
+  ingredientQty: {
+    fontWeight: '800',
+    color: '#FF9F1C'
+  },
+
+  stepCard: {
+    flexDirection: 'row',
+    padding: 14,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginBottom: 10
+  },
+
+  stepCardChecked: {
+    backgroundColor: '#ECFDF5'
+  },
+
+  checkbox: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: '#ccc',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 10,
+    marginRight: 12
   },
-  submitBtnDisabled: {
-    opacity: 0.6,
+
+  checkboxChecked: {
+    backgroundColor: '#22C55E',
+    borderColor: '#22C55E'
   },
+
+  stepNum: {
+    fontSize: 12,
+    color: '#999'
+  },
+
+  stepText: {
+    flex: 1,
+    lineHeight: 20
+  },
+
+  stepTextChecked: {
+    textDecorationLine: 'line-through',
+    color: '#999'
+  },
+
+  ratingCard: {
+    backgroundColor: '#fff',
+    padding: 18,
+    borderRadius: 18,
+    alignItems: 'center'
+  },
+
+  commentForm: {
+    marginTop: 16,
+    width: '100%'
+  },
+
+  commentInput: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 80
+  },
+
+  submitBtn: {
+    marginTop: 12,
+    backgroundColor: '#FF9F1C',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center'
+  },
+
   submitBtnText: {
-    color: '#FFF',
-    fontWeight: 'bold',
-    fontSize: 16,
+    color: '#fff',
+    fontWeight: '800'
   },
-  
-  // Style Astuce Detail
-  tipBox: { backgroundColor: '#E3F2FD', padding: 20, borderRadius: 15, flexDirection: 'row', borderLeftWidth: 4, borderLeftColor: '#2196F3' },
-  tipTitle: { fontWeight: 'bold', color: '#1565C0', marginBottom: 5 },
-  tipText: { color: '#1565C0', lineHeight: 20 }
+
+  tipBox: {
+    flexDirection: 'row',
+    backgroundColor: '#E0F2FE',
+    padding: 16,
+    borderRadius: 16
+  },
+
+  tipTitle: {
+    fontWeight: '800',
+    marginBottom: 4
+  },
+
+  tipText: {
+    color: '#075985'
+  },
+
+  gridSingle: {
+  flexDirection: 'column',
+},
 });
