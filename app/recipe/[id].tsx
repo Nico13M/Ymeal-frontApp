@@ -25,10 +25,14 @@ interface RatingPayload {
 }
 
 interface RatingResponse {
-  id: string;
+  id: number;
   rating: number;
-  comment?: string;
-  createdAt: string;
+  comment?: string | null;
+  created_at: string;
+  user?: {
+    id: number;
+    name: string;
+  };
 }
 
 const RANDOM_TIPS = [
@@ -53,9 +57,11 @@ export default function RecipeDetailScreen() {
 
   const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
   const [userRating, setUserRating] = useState<number>(0);
+  const [hasUserRated, setHasUserRated] = useState<boolean>(false);
   const [comment, setComment] = useState('');
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [isLoadingRating, setIsLoadingRating] = useState(false);
+  const [allRatings, setAllRatings] = useState<RatingResponse[]>([]);
   const [randomTip, setRandomTip] = useState(RANDOM_TIPS[0]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
@@ -95,6 +101,11 @@ export default function RecipeDetailScreen() {
         const data = await getRecipe(Number(id));
         setRecipe(data);
         setIsFavorite(data.is_favorited);
+        
+        // Charger mon rating
+        await loadMyRating(Number(id));
+        // Charger tous les ratings
+        await loadAllRatings(Number(id));
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Erreur');
       } finally {
@@ -120,6 +131,82 @@ export default function RecipeDetailScreen() {
   const handleRating = (score: number) => {
     setUserRating(score);
     setShowCommentForm(true);
+  };
+
+  const loadMyRating = async (recipeId: number) => {
+    try {
+      const session = await getSession();
+      const COOKIE_SESSION_TOKEN = "__cookie_session__";
+      const isCookie = session?.token === COOKIE_SESSION_TOKEN;
+      const token = isCookie ? undefined : session?.token;
+      const userId = (session?.user as any)?.id as number | undefined;
+
+      const headers = userId ? { "X-User-Id": String(userId) } : {};
+
+      const response = await apiRequest(`/admin/ratings/recipes/${recipeId}/me`, {
+        token,
+        credentials: 'include',
+        headers
+      });
+
+      if (response.data) {
+        setUserRating(response.data.rating || 0);
+        setComment(response.data.comment || '');
+        setHasUserRated(true);
+      }
+    } catch (err) {
+      console.log('Erreur lors du chargement du rating:', err);
+      setHasUserRated(false);
+    }
+  };
+
+  const loadAllRatings = async (recipeId: number) => {
+    try {
+      const response = await apiRequest(`/admin/ratings/recipes/${recipeId}`, {
+        credentials: 'include'
+      });
+
+      if (Array.isArray(response.data)) {
+        setAllRatings(response.data);
+      }
+    } catch (err) {
+      console.log('Erreur lors du chargement des ratings:', err);
+    }
+  };
+
+  const deleteMyRating = async () => {
+    if (!recipe) return;
+
+    setIsLoadingRating(true);
+    try {
+      const session = await getSession();
+      const COOKIE_SESSION_TOKEN = "__cookie_session__";
+      const isCookie = session?.token === COOKIE_SESSION_TOKEN;
+      const token = isCookie ? undefined : session?.token;
+      const userId = (session?.user as any)?.id as number | undefined;
+
+      const headers = userId ? { "X-User-Id": String(userId) } : {};
+
+      await apiRequest(`/admin/ratings/delete/${recipe.id}`, {
+        method: 'DELETE',
+        token,
+        credentials: 'include',
+        headers
+      });
+
+      setUserRating(0);
+      setComment('');
+      setShowCommentForm(false);
+      setHasUserRated(false);
+      showNotification('Votre notation a été supprimée', 'success');
+      
+      // Recharger les ratings
+      await loadAllRatings(recipe.id);
+    } catch (err) {
+      showNotification(getErrorMessage(err), 'error');
+    } finally {
+      setIsLoadingRating(false);
+    }
   };
 
   const getErrorMessage = (error: unknown): string => {
@@ -205,20 +292,33 @@ export default function RecipeDetailScreen() {
 
     setIsLoadingRating(true);
     try {
+      const session = await getSession();
+      const COOKIE_SESSION_TOKEN = "__cookie_session__";
+      const isCookie = session?.token === COOKIE_SESSION_TOKEN;
+      const token = isCookie ? undefined : session?.token;
+      const userId = (session?.user as any)?.id as number | undefined;
+
+      const headers = userId ? { "X-User-Id": String(userId) } : {};
+
       const payload: RatingPayload = {
         rating: userRating,
         comment: comment || null
       };
 
-      await apiRequest(`/recipes/${recipe.id}/ratings`, {
+      await apiRequest(`/admin/ratings/create-or-update/${recipe.id}`, {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        token,
+        credentials: 'include',
+        headers
       });
 
       showNotification('Votre notation a été enregistrée', 'success');
-      setUserRating(0);
-      setComment('');
       setShowCommentForm(false);
+      setHasUserRated(true);
+      
+      // Recharger les ratings
+      await loadAllRatings(recipe.id);
     } catch (err) {
       showNotification(getErrorMessage(err), 'error');
     } finally {
@@ -500,7 +600,7 @@ export default function RecipeDetailScreen() {
               <View style={styles.commentForm}>
                 <TextInput
                   style={styles.commentInput}
-                  placeholder="Commentaire"
+                  placeholder="Commentaire (optionnel)"
                   value={comment}
                   onChangeText={setComment}
                   multiline
@@ -519,8 +619,55 @@ export default function RecipeDetailScreen() {
                 </TouchableOpacity>
               </View>
             )}
+
+            {hasUserRated && (
+              <TouchableOpacity
+                style={styles.deleteBtn}
+                onPress={deleteMyRating}
+                disabled={isLoadingRating}
+              >
+                <Text style={styles.deleteBtnText}>Supprimer mon avis</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
+
+        {/* COMMENTAIRES */}
+        {allRatings.length > 0 && (
+          <View style={[styles.section, sectionStyle]}>
+            <Text style={styles.sectionTitle}>Avis des utilisateurs ({allRatings.length})</Text>
+            
+            {allRatings.map((rating) => (
+              <View key={rating.id} style={styles.commentItem}>
+                <View style={{ marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <Text style={styles.commentAuthor}>{rating.user?.name || 'Anonyme'}</Text>
+                    <View style={{ flexDirection: 'row', gap: 3 }}>
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <Ionicons
+                          key={star}
+                          name={star <= rating.rating ? "star" : "star-outline"}
+                          size={16}
+                          color="#FFC107"
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.commentRating}>{rating.rating}/5</Text>
+                </View>
+                
+                {rating.comment && (
+                  <Text style={styles.commentText}>{rating.comment}</Text>
+                )}
+                
+                <Text style={styles.commentDate}>
+                  {new Date(rating.created_at).toLocaleDateString('fr-FR')}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* TIP */}
         <View style={[styles.section, sectionStyle]}>
@@ -842,6 +989,58 @@ infoCardFull: {
   submitBtnText: {
     color: '#fff',
     fontWeight: '800'
+  },
+
+  deleteBtn: {
+    backgroundColor: '#EF4444',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center'
+  },
+
+  deleteBtnText: {
+    color: '#fff',
+    fontWeight: '800'
+  },
+
+  ratingItem: {
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 10
+  },
+
+  commentItem: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9F1C'
+  },
+
+  commentAuthor: {
+    fontWeight: '700',
+    fontSize: 15,
+    color: '#111'
+  },
+
+  commentRating: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF9F1C'
+  },
+
+  commentText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#555',
+    marginBottom: 12
+  },
+
+  commentDate: {
+    fontSize: 12,
+    color: '#999'
   },
 
   tipBox: {
