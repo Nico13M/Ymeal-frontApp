@@ -72,11 +72,18 @@ export type RecipeMinimal = {
   description: string;
   servings: number;
   difficulty: string | null;
+  created_at: string | null;
   timing: {
     duration: number | null;
     prep_time: number | null;
   };
   author: string;
+  ratings?: {
+    stats?: {
+      average?: number | null;
+      count?: number | null;
+    } | null;
+  } | null;
   favorites_count: number;
 };
 
@@ -191,6 +198,115 @@ export async function getTrendingRecipes(): Promise<TrendingRecipesResult> {
   } catch (error) {
     console.error("[RECIPES] ❌ getTrendingRecipes:", error instanceof ApiError ? error.message : error);
     throw error;
+  }
+}
+
+export async function getRecipeRatingsCount(recipeId: number): Promise<number> {
+  try {
+    const { token, userId } = await getToken();
+    const response = await apiRequest<unknown>(`/admin/ratings/recipes/${recipeId}`, {
+      method: "GET",
+      token,
+      credentials: "include",
+      headers: buildHeaders(userId),
+    });
+
+    if (Array.isArray(response)) {
+      return response.length;
+    }
+
+    if (response && typeof response === "object") {
+      const payload = response as {
+        data?: { ratings?: unknown[] } | unknown[];
+        ratings?: unknown[];
+        stats?: { count?: number };
+      };
+
+      if (typeof payload.stats?.count === "number") {
+        return payload.stats.count;
+      }
+
+      if (Array.isArray(payload.data)) {
+        return payload.data.length;
+      }
+
+      if (payload.data && typeof payload.data === "object" && Array.isArray((payload.data as { ratings?: unknown[] }).ratings)) {
+        return (payload.data as { ratings: unknown[] }).ratings.length;
+      }
+
+      if (Array.isArray(payload.ratings)) {
+        return payload.ratings.length;
+      }
+    }
+
+    return 0;
+  } catch (error) {
+    console.error("[RECIPES] ❌ getRecipeRatingsCount:", error instanceof ApiError ? error.message : error);
+    return 0;
+  }
+}
+
+export async function getRecipeRatingsStats(recipeId: number): Promise<{ count: number; average: number }> {
+  try {
+    const { token, userId } = await getToken();
+    const response = await apiRequest<unknown>(`/admin/ratings/recipes/${recipeId}`, {
+      method: "GET",
+      token,
+      credentials: "include",
+      headers: buildHeaders(userId),
+    });
+
+    const extractRatings = (payload: unknown): Array<{ rating?: number }> => {
+      if (Array.isArray(payload)) return payload as Array<{ rating?: number }>;
+
+      if (!payload || typeof payload !== "object") return [];
+
+      const record = payload as {
+        data?: { ratings?: Array<{ rating?: number }> } | Array<{ rating?: number }>;
+        ratings?: Array<{ rating?: number }>;
+        stats?: {
+          average?: number | null;
+          count?: number | null;
+        };
+      };
+
+      if (typeof record.stats?.average === "number" || typeof record.stats?.count === "number") {
+        return [];
+      }
+
+      if (Array.isArray(record.data)) return record.data;
+      if (record.data && typeof record.data === "object" && Array.isArray((record.data as { ratings?: Array<{ rating?: number }> }).ratings)) {
+        return (record.data as { ratings: Array<{ rating?: number }> }).ratings;
+      }
+      if (Array.isArray(record.ratings)) return record.ratings;
+
+      return [];
+    };
+
+    if (response && typeof response === "object") {
+      const payload = response as {
+        stats?: {
+          average?: number | null;
+          count?: number | null;
+        };
+      };
+
+      if (typeof payload.stats?.count === "number") {
+        return {
+          count: payload.stats.count,
+          average: typeof payload.stats.average === "number" ? payload.stats.average : 0,
+        };
+      }
+    }
+
+    const ratings = extractRatings(response).filter((item) => typeof item.rating === "number");
+    const count = ratings.length;
+    const average = count > 0 ? ratings.reduce((sum, item) => sum + (item.rating as number), 0) / count : 0;
+
+    return { count, average };
+  } catch (error) {
+    console.error("[RECIPES] ❌ getRecipeRatingsStats:", error instanceof ApiError ? error.message : error);
+    return { count: 0, average: 0 };
   }
 }
 

@@ -3,7 +3,7 @@ import { getTrendingRecipes, type RecipeMinimal } from "@/src/services/recipes";
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router'; // <--- IMPORT IMPORTANT
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -27,6 +27,34 @@ const TIPS = [
   "Remplace la viande par des lentilles ou des pois chiches une fois par semaine : c'est moins cher et protéiné !"
 ];
 
+type SortOption = 'ratings_count_desc' | 'average_rating_desc' | 'created_at_desc' | 'created_at_asc';
+
+type TrendingRecipeItem = RecipeMinimal & {
+  ratings_count?: number | null;
+  reviews_count?: number | null;
+  comments_count?: number | null;
+  average_rating?: number | null;
+  avg_rating?: number | null;
+  rating_average?: number | null;
+  created_at?: string | null;
+  ratings?: {
+    stats?: {
+      average?: number | null;
+      count?: number | null;
+    } | null;
+  } | null;
+  timestamps?: {
+    created_at?: string | null;
+  } | null;
+};
+
+const SORT_OPTIONS: Array<{ value: SortOption; label: string }> = [
+  { value: 'ratings_count_desc', label: 'Plus de ratings' },
+  { value: 'average_rating_desc', label: 'Meilleure moyenne' },
+  { value: 'created_at_desc', label: 'Plus récent' },
+  { value: 'created_at_asc', label: 'Plus ancien' },
+];
+
 export default function DashboardScreen() {
   const { checking } = useRequireAuth();
   const { width } = useWindowDimensions();
@@ -36,9 +64,11 @@ export default function DashboardScreen() {
   const numColumns = isDesktop ? 4 : isTablet ? 2 : 1;
 
   const [todaysTip, setTodaysTip] = useState(TIPS[0]);
-  const [trendingRecipes, setTrendingRecipes] = useState<RecipeMinimal[]>([]);
+  const [trendingRecipes, setTrendingRecipes] = useState<TrendingRecipeItem[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [trendingError, setTrendingError] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<SortOption>('ratings_count_desc');
+  const [showSortOptions, setShowSortOptions] = useState(false);
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * TIPS.length);
     setTodaysTip(TIPS[randomIndex]);
@@ -47,20 +77,30 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (checking) return;
 
-    const loadTrending = async () => {
-      setTrendingLoading(true);
-      setTrendingError(null);
+   const loadTrending = async () => {
+  setTrendingLoading(true);
+  setTrendingError(null);
 
-      try {
-        const result = await getTrendingRecipes();
-        setTrendingRecipes(result.recipes ?? []);
-      } catch (error) {
-        setTrendingError(error instanceof Error ? error.message : 'Impossible de charger les recettes tendances');
-        setTrendingRecipes([]);
-      } finally {
-        setTrendingLoading(false);
-      }
-    };
+  try {
+    const result = await getTrendingRecipes();
+    const recipes = (result.recipes ?? []) as TrendingRecipeItem[];
+    recipes.forEach((recipe, index) => {
+    });
+
+    setTrendingRecipes(recipes);
+  } catch (error) {
+
+    setTrendingError(
+      error instanceof Error
+        ? error.message
+        : 'Impossible de charger les recettes tendances'
+    );
+
+    setTrendingRecipes([]);
+  } finally {
+    setTrendingLoading(false);
+  }
+};
 
     loadTrending();
   }, [checking]);
@@ -79,10 +119,81 @@ export default function DashboardScreen() {
     return { backgroundColor: '#E8F5E9', textColor: '#2E7D32' };
   };
 
+  const getRatingsCount = (recipe: TrendingRecipeItem): number => {
+    if (typeof recipe.ratings?.stats?.count === 'number') return recipe.ratings.stats.count;
+    if (typeof recipe.ratings_count === 'number') return recipe.ratings_count;
+    if (typeof recipe.reviews_count === 'number') return recipe.reviews_count;
+    if (typeof recipe.comments_count === 'number') return recipe.comments_count;
+    return 0;
+  };
+
+ const getAverageRating = (recipe: TrendingRecipeItem): number => {
+
+  if (typeof recipe.ratings?.stats?.average === 'number') {
+    return recipe.ratings.stats.average;
+  }
+
+  if (typeof recipe.average_rating === 'number') {
+    return recipe.average_rating;
+  }
+
+  if (typeof recipe.avg_rating === 'number') {
+    return recipe.avg_rating;
+  }
+
+  if (typeof recipe.rating_average === 'number') {
+    return recipe.rating_average;
+  }
+
+  return 0;
+};
+
+  const formatAverageRating = (average: number): string => {
+    if (!Number.isFinite(average) || average <= 0) return '0.0';
+    return average.toFixed(1);
+  };
+
+  const getCreatedAtTimestamp = (recipe: TrendingRecipeItem): number => {
+    const createdAt = recipe.created_at ?? recipe.timestamps?.created_at;
+    if (!createdAt) return 0;
+
+    const timestamp = new Date(createdAt).getTime();
+    return Number.isNaN(timestamp) ? 0 : timestamp;
+  };
+
+  const sortedTrendingRecipes = useMemo(() => {
+    const items = [...trendingRecipes];
+
+    items.sort((a, b) => {
+      if (sortBy === 'ratings_count_desc') {
+        return getRatingsCount(b) - getRatingsCount(a);
+      }
+
+      if (sortBy === 'average_rating_desc') {
+        return getAverageRating(b) - getAverageRating(a);
+      }
+
+      if (sortBy === 'created_at_desc') {
+        return getCreatedAtTimestamp(b) - getCreatedAtTimestamp(a);
+      }
+
+      return getCreatedAtTimestamp(a) - getCreatedAtTimestamp(b);
+    });
+
+    return items;
+  }, [trendingRecipes, sortBy]);
+
+  const selectedSortLabel = SORT_OPTIONS.find(option => option.value === sortBy)?.label ?? 'Trier';
+
   const renderTrendingRecipe = ({ item }: { item: RecipeMinimal }) => {
     const difficultyColors = getDifficultyColors(item.difficulty);
     const totalTime = (item.timing?.prep_time ?? 0) + (item.timing?.duration ?? 0);
-
+    const reviewCount = getRatingsCount(item as TrendingRecipeItem);
+    const averageRating = getAverageRating(item as TrendingRecipeItem);
+    
+console.log("Recipe:", item.name);
+console.log("Average Rating:", averageRating);
+console.log("Formatted:", formatAverageRating(averageRating));
     return (
       <Link href={`/recipe/${item.id}`} asChild>
         <TouchableOpacity
@@ -97,10 +208,6 @@ export default function DashboardScreen() {
           <View style={styles.recipeContent}>
             <View style={styles.recipeTitleRow}>
               <Text numberOfLines={2} style={styles.recipeTitle}>{item.name}</Text>
-              <View style={styles.recipeBadge}>
-                <Ionicons name="star" size={12} color="#FFF" />
-                <Text style={styles.recipeBadgeText}>{item.favorites_count}</Text>
-              </View>
             </View>
             <View style={styles.recipeMeta}>
               <View style={styles.recipeMetaItem}>
@@ -112,6 +219,20 @@ export default function DashboardScreen() {
             <View style={styles.recipeTagRow}>
               <View style={[styles.recipeTag, { backgroundColor: difficultyColors.backgroundColor }]}>
                 <Text style={[styles.recipeTagText, { color: difficultyColors.textColor }]}>{item.difficulty || 'Moyen'}</Text>
+              </View>
+              <View style={styles.recipeStatsRow}>
+                <View style={styles.recipeStatPill}>
+                  <Ionicons name="heart" size={12} color="#FF1744" />
+                  <Text style={styles.recipeStatText}>{item.favorites_count} favoris</Text>
+                </View>
+                <View style={styles.recipeStatPill}>
+                  <Ionicons name="chatbubble-outline" size={12} color="#666" />
+                    <Text style={styles.recipeStatText}>{reviewCount} avis</Text>
+                </View>
+                  <View style={styles.recipeStatPill}>
+                    <Ionicons name="star" size={12} color="#FFC107" />
+                    <Text style={styles.recipeStatText}>{formatAverageRating(averageRating)}/5</Text>
+                  </View>
               </View>
             </View>
             <View style={styles.recipeFooter}>
@@ -184,6 +305,35 @@ export default function DashboardScreen() {
             <Text style={styles.sectionTitle}>Recettes tendances</Text>
           </View>
 
+          <View style={styles.sortContainer}>
+            <TouchableOpacity
+              style={styles.sortSelect}
+              onPress={() => setShowSortOptions(prev => !prev)}
+            >
+              <Text style={styles.sortSelectText}>Tri: {selectedSortLabel}</Text>
+              <Ionicons name={showSortOptions ? 'chevron-up' : 'chevron-down'} size={18} color="#555" />
+            </TouchableOpacity>
+
+            {showSortOptions && (
+              <View style={styles.sortDropdown}>
+                {SORT_OPTIONS.map(option => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[styles.sortOption, sortBy === option.value && styles.sortOptionActive]}
+                    onPress={() => {
+                      setSortBy(option.value);
+                      setShowSortOptions(false);
+                    }}
+                  >
+                    <Text style={[styles.sortOptionText, sortBy === option.value && styles.sortOptionTextActive]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+
           {trendingLoading ? (
             <View style={{ paddingVertical: 30, alignItems: 'center' }}>
               <ActivityIndicator size="large" color="#FF9F1C" />
@@ -194,7 +344,7 @@ export default function DashboardScreen() {
             </View>
           ) : (
             <FlatList
-              data={trendingRecipes}
+              data={sortedTrendingRecipes}
               keyExtractor={(item) => item.id.toString()}
               key={numColumns}
               numColumns={numColumns}
@@ -245,6 +395,41 @@ const styles = StyleSheet.create({
   sectionContainer: { paddingHorizontal: 20, marginTop: 25, marginHorizontal: "3.60%" },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1A1A2E' },
+  sortContainer: { marginBottom: 14 },
+  sortSelect: {
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sortSelectText: { color: '#333', fontWeight: '600' },
+  sortDropdown: {
+    marginTop: 8,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  sortOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  sortOptionActive: {
+    backgroundColor: '#FFF3E6',
+  },
+  sortOptionText: {
+    color: '#555',
+  },
+  sortOptionTextActive: {
+    color: '#FF9F1C',
+    fontWeight: '700',
+  },
   listContent: { paddingBottom: 0 },
   listContentDesktop: { paddingHorizontal: 0 },
   columnWrapperDesktop: { justifyContent: 'space-between' },
@@ -294,6 +479,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 5,
+  },
+  recipeStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    flexWrap: 'wrap',
+  },
+  recipeStatPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  recipeStatText: {
+    fontSize: 12,
+    color: '#444',
+    fontWeight: '600',
   },
   recipeTagText: { fontSize: 12, fontWeight: 'bold' },
   recipeFooter: { marginTop: 'auto', paddingTop: 12, alignSelf: 'flex-end'},
