@@ -2,17 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router'; // <--- IMPORT IMPORTANT
 import React, { useEffect, useState } from 'react';
-import {
-  Dimensions,
-  Image,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
-} from 'react-native';
-
+import { Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 // --- LISTE DES ASTUCES ---
 const TIPS = [
   "Achète tes légumes au marché le samedi après-midi : les prix baissent jusqu'à 50% !",
@@ -60,15 +50,14 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#FF9F1C" />
       
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
         
         {/* HEADER ORANGE */}
         <View style={styles.headerContainer}>
           <View style={styles.headerTop}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-               <Ionicons name="restaurant" size={24} color="#FFF" />
-               <Text style={styles.brandName}>Ymeal</Text>
-            </View>
+<View style={{flexDirection: 'row', justifyContent: 'flex-end'}}>
+   <Text style={styles.brandName}>Ymeal</Text>
+</View>
           </View>
           <Text style={styles.greetingTitle}>Bonjour ! 👋</Text>
           <Text style={styles.greetingSub}>Prêt à cuisiner quelque chose de délicieux ?</Text>
@@ -148,7 +137,7 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF9F2' },
-  headerContainer: { backgroundColor: '#FF9F1C', paddingTop: 60, paddingBottom: 30, paddingHorizontal: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
+  headerContainer: { backgroundColor: '#FF9F1C', paddingTop: 50, paddingBottom: 30, paddingHorizontal: 20, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   brandName: { fontSize: 20, fontWeight: 'bold', color: '#FFF' },
   greetingTitle: { fontSize: 32, fontWeight: 'bold', color: '#FFF', marginBottom: 5 },

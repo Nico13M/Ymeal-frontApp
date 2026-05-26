@@ -62,10 +62,12 @@ export default function InscriptionScreen() {
   const isValidEmail = emailRegex.test(email.trim());
 
 
-    const passwordRules = {
-    minLength: password.length >= 6,
-    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>_\-./]/.test(password),
-  };
+const passwordRules = {
+  minLength: password.length >= 6,
+  hasUpperCase: /[A-Z]/.test(password),
+  hasNumber: /[0-9]/.test(password),
+  hasSpecialChar: /[!@#$%^&*(),.?":{}|<>_\-./]/.test(password),
+};
 
   const canSubmit = useMemo(() => {
     return (
@@ -73,8 +75,10 @@ export default function InscriptionScreen() {
       firstName.trim().length > 1 &&
       lastName.trim().length > 1 &&
       isValidEmail &&
-      passwordRules.minLength &&
-    passwordRules.hasSpecialChar &&
+passwordRules.minLength &&
+passwordRules.hasUpperCase &&
+passwordRules.hasNumber &&
+passwordRules.hasSpecialChar &&
       password === confirm
     );
   }, [confirm, email, firstName, lastName, loading, password]);
@@ -101,11 +105,16 @@ if (trimmedEmail && !emailRegex.test(trimmedEmail)) {
 }
 
 if (!passwordRules.minLength) {
-  errors.push("Mot de passe trop court (min 6)");
+  errors.push("Mot de passe trop court (min 6 caractères)");
 }
-
+if (!passwordRules.hasUpperCase) {
+  errors.push("Ajoute au moins une majuscule");
+}
+if (!passwordRules.hasNumber) {
+  errors.push("Ajoute au moins un chiffre");
+}
 if (!passwordRules.hasSpecialChar) {
-  errors.push("Ajoute un caractère spécial dans ton mot de passe");
+  errors.push("Ajoute un caractère spécial (!@#$%...)");
 }
 
 if (password !== confirm) {
@@ -314,6 +323,22 @@ if (errors.length > 0) {
 </TouchableOpacity>
 
             </View>
+            {password.length > 0 && (
+  <View style={styles.passwordRules}>
+    <Text style={[styles.rule, passwordRules.minLength && styles.ruleOk]}>
+      {passwordRules.minLength ? "✓" : "✗"} Au moins 6 caractères
+    </Text>
+    <Text style={[styles.rule, passwordRules.hasUpperCase && styles.ruleOk]}>
+      {passwordRules.hasUpperCase ? "✓" : "✗"} Une majuscule
+    </Text>
+    <Text style={[styles.rule, passwordRules.hasNumber && styles.ruleOk]}>
+      {passwordRules.hasNumber ? "✓" : "✗"} Un chiffre
+    </Text>
+    <Text style={[styles.rule, passwordRules.hasSpecialChar && styles.ruleOk]}>
+      {passwordRules.hasSpecialChar ? "✓" : "✗"} Un caractère spécial
+    </Text>
+  </View>
+)}
             <Text style={styles.label}>Confirmation du mot de passe</Text>
             <View style={styles.inputWrap}>
               <Ionicons name="lock-closed-outline" size={18} color="#9AA3AF" />
@@ -522,6 +547,20 @@ logo: {
   width: 180,
   height: 120,
   marginBottom: 10,
+},
+
+passwordRules: {
+  marginBottom: 10,
+  gap: 4,
+  paddingHorizontal: 4,
+},
+rule: {
+  fontSize: 12,
+  color: "#DC2626",
+  fontWeight: "600",
+},
+ruleOk: {
+  color: "#16A34A",
 },
 
 });
