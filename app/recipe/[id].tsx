@@ -298,7 +298,11 @@ export default function RecipeDetailScreen() {
       const token = isCookie ? undefined : session?.token;
       const userId = (session?.user as any)?.id as number | undefined;
 
-      const headers = userId ? { "X-User-Id": String(userId) } : {};
+      const headers: Record<string, string> = {};
+
+      if (userId) {
+        headers["X-User-Id"] = String(userId);
+      }
 
       const payload: RatingPayload = {
         rating: userRating,
@@ -307,7 +311,7 @@ export default function RecipeDetailScreen() {
 
       await apiRequest(`/admin/ratings/create-or-update/${recipe.id}`, {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: payload,
         token,
         credentials: 'include',
         headers
