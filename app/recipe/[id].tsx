@@ -62,20 +62,11 @@ export default function RecipeDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { checking } = useRequireAuth();
-
-<<<<<<< HEAD
-  const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
-  const [userRating, setUserRating] = useState(0);
-  
-  // État pour l'astuce aléatoire
-=======
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
-
   const [recipe, setRecipe] = useState<RecipeFull | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
   const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
   const [userRating, setUserRating] = useState<number>(0);
   const [hasUserRated, setHasUserRated] = useState<boolean>(false);
@@ -83,7 +74,6 @@ export default function RecipeDetailScreen() {
   const [showCommentForm, setShowCommentForm] = useState(false);
   const [isLoadingRating, setIsLoadingRating] = useState(false);
   const [allRatings, setAllRatings] = useState<RatingResponse[]>([]);
->>>>>>> origin/Dev
   const [randomTip, setRandomTip] = useState(RANDOM_TIPS[0]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
@@ -145,11 +135,6 @@ export default function RecipeDetailScreen() {
   }, []);
 
   const toggleStep = (index: number) => {
-<<<<<<< HEAD
-    setCheckedSteps(prev => ({ ...prev, [index]: !prev[index] }));
-  };
-
-=======
     setCheckedSteps(prev => ({
       ...prev,
       [index]: !prev[index]
@@ -165,7 +150,6 @@ export default function RecipeDetailScreen() {
     init();
   }, []);
 
->>>>>>> origin/Dev
   const handleRating = (score: number) => {
     setUserRating(score);
     setShowCommentForm(true);
