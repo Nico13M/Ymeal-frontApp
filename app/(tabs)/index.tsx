@@ -3,7 +3,7 @@ import { getTrendingRecipes, type RecipeMinimal } from "@/src/services/recipes";
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link } from 'expo-router'; // <--- IMPORT IMPORTANT
+import { Link } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -224,10 +224,12 @@ export default function DashboardScreen() {
                   <Ionicons name="chatbubble-outline" size={12} color="#666" />
                     <Text style={styles.recipeStatText}>{reviewCount} avis</Text>
                 </View>
+                {reviewCount > 0 && (
                   <View style={styles.recipeStatPill}>
                     <Ionicons name="star" size={12} color="#FFC107" />
                     <Text style={styles.recipeStatText}>{formatAverageRating(averageRating)}/5</Text>
                   </View>
+                )}
               </View>
             </View>
             <View style={styles.recipeFooter}>
