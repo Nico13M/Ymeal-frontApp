@@ -11,7 +11,8 @@ import {
   TextInput,
   TouchableOpacity,
   useWindowDimensions,
-  View
+  View,
+  type ViewStyle
 } from 'react-native';
 
 import useRequireAuth from '../../src/hooks/useRequireAuth';
@@ -34,6 +35,15 @@ interface RatingResponse {
     name: string;
   };
 }
+
+type RatingsListApiResponse = {
+  data?: { ratings?: RatingResponse[] } | RatingResponse[] | null;
+  ratings?: RatingResponse[] | null;
+};
+
+type MyRatingApiResponse = {
+  data?: RatingResponse | null;
+} & Partial<RatingResponse>;
 
 const RANDOM_TIPS = [
   "Économise jusqu'à 200€ par mois en cuisinant maison.",
@@ -82,13 +92,13 @@ export default function RecipeDetailScreen() {
     }, 3000);
   };
 
-  const contentContainerStyle = isDesktop
+  const contentContainerStyle: ViewStyle = isDesktop
     ? { paddingBottom: 40, paddingHorizontal: 48, alignItems: 'center' }
     : { paddingBottom: 20 };
 
-  const sectionStyle = isDesktop
+  const sectionStyle: ViewStyle | undefined = isDesktop
     ? { width: '100%', maxWidth: 960 }
-    : {};
+    : undefined;
 
   useEffect(() => {
     if (checking || !id) return;
@@ -133,6 +143,50 @@ export default function RecipeDetailScreen() {
     setShowCommentForm(true);
   };
 
+  const extractRatings = (response: RatingsListApiResponse): RatingResponse[] => {
+    const nestedData = response.data;
+
+    if (Array.isArray(nestedData)) {
+      return nestedData;
+    }
+
+    if (nestedData && Array.isArray((nestedData as { ratings?: RatingResponse[] }).ratings)) {
+      return (nestedData as { ratings: RatingResponse[] }).ratings;
+    }
+
+    if (Array.isArray(response.ratings)) {
+      return response.ratings;
+    }
+
+    return [];
+  };
+
+  const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null => {
+    if (response.data) return response.data;
+
+    if (
+      typeof response.id === 'number' &&
+      typeof response.rating === 'number' &&
+      typeof response.created_at === 'string'
+    ) {
+      return {
+        id: response.id,
+        rating: response.rating,
+        comment: response.comment ?? null,
+        created_at: response.created_at,
+        user: response.user
+      };
+    }
+
+    return null;
+  };
+
+  const formatIngredientUnit = (unit: RecipeFull['nutrition']['ingredients'][number]['unit']): string => {
+    if (!unit) return '';
+    if (typeof unit === 'string') return unit;
+    return unit.symbol || unit.name || '';
+  };
+
   const loadMyRating = async (recipeId: number) => {
     try {
       const session = await getSession();
@@ -141,17 +195,23 @@ export default function RecipeDetailScreen() {
       const token = isCookie ? undefined : session?.token;
       const userId = (session?.user as any)?.id as number | undefined;
 
-      const headers = userId ? { "X-User-Id": String(userId) } : {};
+      const headers: Record<string, string> = {};
 
-      const response = await apiRequest(`/admin/ratings/recipes/${recipeId}/me`, {
+      if (userId !== undefined) {
+        headers["X-User-Id"] = String(userId);
+      }
+
+      const response = await apiRequest<MyRatingApiResponse>(`/admin/ratings/recipes/${recipeId}/me`, {
         token,
         credentials: 'include',
         headers
       });
 
-      if (response.data) {
-        setUserRating(response.data.rating || 0);
-        setComment(response.data.comment || '');
+      const rating = extractMyRating(response);
+
+      if (rating) {
+        setUserRating(rating.rating || 0);
+        setComment(rating.comment || '');
         setHasUserRated(true);
       }
     } catch (err) {
@@ -161,18 +221,19 @@ export default function RecipeDetailScreen() {
   };
 
   const loadAllRatings = async (recipeId: number) => {
-    try {
-      const response = await apiRequest(`/admin/ratings/recipes/${recipeId}`, {
-        credentials: 'include'
-      });
+  try {
+    const response = await apiRequest<RatingsListApiResponse>(`/admin/ratings/recipes/${recipeId}`, {
+      credentials: 'include'
+    });
 
-      if (Array.isArray(response.data)) {
-        setAllRatings(response.data);
-      }
-    } catch (err) {
-      console.log('Erreur lors du chargement des ratings:', err);
-    }
-  };
+    console.log('Ratings response:', response);
+
+    setAllRatings(extractRatings(response));
+  } catch (err) {
+    console.log('Erreur lors du chargement des ratings:', err);
+    setAllRatings([]);
+  }
+};
 
   const deleteMyRating = async () => {
     if (!recipe) return;
@@ -185,7 +246,11 @@ export default function RecipeDetailScreen() {
       const token = isCookie ? undefined : session?.token;
       const userId = (session?.user as any)?.id as number | undefined;
 
-      const headers = userId ? { "X-User-Id": String(userId) } : {};
+      const headers: Record<string, string> = {};
+
+      if (userId !== undefined) {
+        headers["X-User-Id"] = String(userId);
+      }
 
       await apiRequest(`/admin/ratings/delete/${recipe.id}`, {
         method: 'DELETE',
@@ -231,7 +296,11 @@ export default function RecipeDetailScreen() {
       const token = isCookie ? undefined : session?.token;
       const userId = (session?.user as any)?.id as number | undefined;
 
-      const headers = userId ? { "X-User-Id": String(userId) } : {};
+      const headers: Record<string, string> = {};
+
+      if (userId !== undefined) {
+        headers["X-User-Id"] = String(userId);
+      }
 
       if (isFavorite) {
         // Supprimer des favoris
@@ -483,7 +552,7 @@ export default function RecipeDetailScreen() {
             ]}>
               <Ionicons name="person-circle-outline" size={22} color="#FF9F1C" />
               <Text style={styles.cardTitle}>Auteur</Text>
-              <Text style={styles.cardValue}>{recipe.author.name}</Text>
+              <Text style={styles.cardValue}>{recipe.author?.name ?? 'Anonyme'}</Text>
             </View>
 
           </View>
@@ -523,7 +592,7 @@ export default function RecipeDetailScreen() {
               <View key={i} style={styles.ingredientCard}>
                 <Text style={styles.ingredientName}>{ing.name}</Text>
                 <Text style={styles.ingredientQty}>
-                  {ing.quantity} {typeof ing.unit === 'string' ? ing.unit : ing.unit?.symbol}
+                  {ing.quantity} {formatIngredientUnit(ing.unit)}
                 </Text>
               </View>
             ))}
@@ -534,7 +603,7 @@ export default function RecipeDetailScreen() {
         <View style={[styles.section, sectionStyle]}>
           <Text style={styles.sectionTitle}>Préparation</Text>
 
-          {recipe.steps?.length > 0 ? (
+          {Array.isArray(recipe.steps) && recipe.steps.length > 0 ? (
             recipe.steps.map((step: string, index: number) => {
               const checked = checkedSteps[index];
 

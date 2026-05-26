@@ -7,7 +7,11 @@ export type RecipeIngredient = {
   id: number;
   name: string;
   quantity: number;
-  unit: string | null;
+  unit: string | {
+    id: number;
+    name: string;
+    symbol: string;
+  } | null;
 };
 
 export type RecipeDiet = {
