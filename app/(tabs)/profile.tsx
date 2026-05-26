@@ -480,7 +480,7 @@ export default function ProfileScreen() {
               <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
             </TouchableOpacity>
 
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={styles.settingsAction}
               onPress={onEditConfiguration}
               activeOpacity={0.85}
@@ -492,7 +492,7 @@ export default function ProfileScreen() {
                 <Text style={styles.settingsActionTitle}>Modifier ma configuration</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
 
             <TouchableOpacity
               style={[styles.settingsAction, styles.settingsDangerAction]}
