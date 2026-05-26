@@ -41,6 +41,7 @@ function extractCsrfToken(payload: unknown): string | null {
 async function getCsrfToken(): Promise<string> {
   const payload = await apiRequest<unknown>("/admin/security/csrf-token", {
     method: "GET",
+    credentials: "include",
   });
 
   const token = extractCsrfToken(payload);

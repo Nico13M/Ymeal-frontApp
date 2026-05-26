@@ -1,23 +1,24 @@
 import { STORAGE_KEYS } from "@/constants/storage";
 import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
-import { loginRequest, saveSession } from "@/src/services/auth";
+import { loginRequest, resolveUserId, saveSession } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type StoredAccount = {
+  id?: string | number;
   firstName?: string;
   lastName?: string;
   nickname?: string;
@@ -102,8 +103,10 @@ export default function ConnexionScreen() {
 
       const existing = parseStoredAccount(await AsyncStorage.getItem(STORAGE_KEYS.accountProfile));
       const sessionUser = (session.user ?? {}) as Record<string, unknown>;
+      const sessionUserId = resolveUserId(session.user);
 
       const merged: StoredAccount = {
+        id: sessionUserId ?? existing.id,
         firstName:
           toStringOrUndefined(sessionUser.firstName) ??
           toStringOrUndefined(sessionUser.firstname) ??

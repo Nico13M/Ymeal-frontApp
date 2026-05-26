@@ -1,8 +1,23 @@
+import useRequireAuth from "@/src/hooks/useRequireAuth";
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router'; // <--- IMPORT IMPORTANT
 import React, { useEffect, useState } from 'react';
+<<<<<<< HEAD
 import { Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+=======
+import {
+    ActivityIndicator,
+    Image,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+
+>>>>>>> origin/Dev
 // --- LISTE DES ASTUCES ---
 const TIPS = [
   "Achète tes légumes au marché le samedi après-midi : les prix baissent jusqu'à 50% !",
@@ -39,13 +54,21 @@ const TRENDING_RECIPES = [
 ];
 
 export default function DashboardScreen() {
-  const [todaysTip, setTodaysTip] = useState(TIPS[0]);
+  const { checking } = useRequireAuth();
 
+  const [todaysTip, setTodaysTip] = useState(TIPS[0]);
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * TIPS.length);
     setTodaysTip(TIPS[randomIndex]);
   }, []);
 
+  if (checking) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#FF9F1C" />
+      </View>
+    );
+  }
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#FF9F1C" />
