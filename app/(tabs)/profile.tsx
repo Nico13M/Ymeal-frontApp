@@ -4,7 +4,6 @@ import useRequireAuth from "@/src/hooks/useRequireAuth";
 import { clearSession, getSession, resolveUserId, updateUserRequest } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-// import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -18,7 +17,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import {
   SafeAreaView,
@@ -74,8 +73,6 @@ const DIET_LABELS = DIETS.reduce<Record<string, string>>((acc, diet) => {
   return acc;
 }, {});
 
-// ─── Étapes de configuration (adapter selon votre /config-profil) ────────────
-// Ajustez les numéros selon l'ordre réel des étapes dans votre config-profil
 const CONFIG_STEPS = {
   diet: 1,
   budget: 3,
@@ -85,7 +82,6 @@ const CONFIG_STEPS = {
   allergies: 6,
 } as const;
 
-// ─── Helper de navigation vers une étape précise ─────────────────────────────
 function goToConfigurationStep(step: number): void {
   router.push({
     pathname: "/config-profil",
@@ -96,17 +92,10 @@ function goToConfigurationStep(step: number): void {
   });
 }
 
-// ─── Utilitaires ─────────────────────────────────────────────────────────────
-// function toDisplayList(values?: string[]) {
-//   if (!values || values.length === 0) return "Non renseigne";
-//   return values.join(", ");
-// }
-
 function toDisplayArray(values?: string[]): string[] {
   if (!values || values.length === 0) return [];
   return values;
 }
-
 
 function MultiLineValue({ values, fallback = "Non renseigne" }: { values: string[]; fallback?: string }) {
   if (values.length === 0) {
@@ -124,21 +113,16 @@ function MultiLineValue({ values, fallback = "Non renseigne" }: { values: string
   );
 }
 
-function resolveAvoidedIngredients(
-  config: StoredProfileConfig | null
-): string[] | undefined {
+function resolveAvoidedIngredients(config: StoredProfileConfig | null): string[] | undefined {
   if (!config) return undefined;
   return config.avoidVeg ?? config.avoid_ingredients;
 }
 
-function resolvePeople(
-  config: StoredProfileConfig | null
-): PeopleChoice | null {
+function resolvePeople(config: StoredProfileConfig | null): PeopleChoice | null {
   if (!config) return null;
   return config.people ?? config.people_count ?? null;
 }
 
-// ─── Composant InfoRow ────────────────────────────────────────────────────────
 function InfoRow({
   icon,
   label,
@@ -174,7 +158,6 @@ function InfoRow({
   );
 }
 
-// ─── Écran principal ──────────────────────────────────────────────────────────
 export default function ProfileScreen() {
   const { checking } = useRequireAuth();
 
@@ -194,7 +177,6 @@ export default function ProfileScreen() {
   });
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const insets = useSafeAreaInsets();
-  // const tabBarHeight = useBottomTabBarHeight ? useBottomTabBarHeight() : 0;
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -204,20 +186,10 @@ export default function ProfileScreen() {
         AsyncStorage.getItem(STORAGE_KEYS.profileConfig),
         getSession(),
       ]);
-<<<<<<< HEAD
-      setAccount(
-        accountRaw ? (JSON.parse(accountRaw) as StoredAccount) : null
-      );
-      setConfig(
-        configRaw ? (JSON.parse(configRaw) as StoredProfileConfig) : null
-      );
-=======
-
       const parsedAccount = accountRaw ? (JSON.parse(accountRaw) as StoredAccount) : null;
       const sessionUserId = resolveUserId(session?.user);
       setAccount(parsedAccount ? { ...parsedAccount, id: parsedAccount.id ?? sessionUserId ?? undefined } : null);
       setConfig(configRaw ? (JSON.parse(configRaw) as StoredProfileConfig) : null);
->>>>>>> origin/Dev
     } catch {
       setAccount(null);
       setConfig(null);
@@ -232,8 +204,6 @@ export default function ProfileScreen() {
     }, [loadProfile])
   );
 
- 
-
   const fullName = useMemo(() => {
     return [account?.firstName?.trim(), account?.lastName?.trim()].filter(Boolean).join(" ");
   }, [account]);
@@ -242,10 +212,6 @@ export default function ProfileScreen() {
     return account?.email?.trim() || "Email non renseigne";
   }, [account]);
 
-<<<<<<< HEAD
-  const location =
-    config?.location?.trim() || "Localisation non renseignee";
-=======
   const topName = useMemo(() => {
     const pseudo = account?.pseudo?.trim();
     if (pseudo) return pseudo;
@@ -255,25 +221,18 @@ export default function ProfileScreen() {
 
   const subLine = useMemo(() => {
     const pseudo = account?.pseudo?.trim();
-    if (pseudo) {
-      return fullName || email;
-    }
+    if (pseudo) return fullName || email;
     return email;
   }, [account, fullName, email]);
 
   const location = config?.location?.trim() || "Localisation non renseignee";
->>>>>>> origin/Dev
 
   const diets = useMemo(() => {
     if (!config?.diets || config.diets.length === 0) return "Non renseigne";
-    return config.diets
-      .map((dietKey) => DIET_LABELS[dietKey] || dietKey)
-      .join(", ");
+    return config.diets.map((dietKey) => DIET_LABELS[dietKey] || dietKey).join(", ");
   }, [config]);
 
-  const budget = config?.budget
-    ? BUDGET_LABELS[config.budget]
-    : "Non renseigne";
+  const budget = config?.budget ? BUDGET_LABELS[config.budget] : "Non renseigne";
   const peopleKey = resolvePeople(config);
   const people = peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigne";
 
@@ -282,10 +241,10 @@ export default function ProfileScreen() {
     if (!isLoggingOut) setSettingsOpen(false);
   };
 
-const onEditConfiguration = () => {
-  setSettingsOpen(false);
-  router.push("/modifier-profil");
-};
+  const onEditConfiguration = () => {
+    setSettingsOpen(false);
+    router.push("/modifier-profil");
+  };
 
   const onOpenEditUser = () => {
     setEditDraft({
@@ -328,7 +287,7 @@ const onEditConfiguration = () => {
     setEditUserDebug(
       `userId: ${userId ?? "null"} | account.id: ${account?.id ?? "null"} | session.user: ${JSON.stringify(session?.user)}`
     );
-    
+
     if (!userId) {
       setEditUserError(
         "Identifiant utilisateur introuvable. Deconnecte-toi puis reconnecte-toi pour regenerer ton profil."
@@ -339,14 +298,16 @@ const onEditConfiguration = () => {
     try {
       setEditUserSaving(true);
       setEditUserError(null);
-      await updateUserRequest(userId, {
-        firstname: nextAccount.firstName,
-        lastname: nextAccount.lastName,
-        pseudo: nextAccount.pseudo,
-        email: nextAccount.email,
-      }, {
-        onDebug: (message) => setEditUserDebug(message),
-      });
+      await updateUserRequest(
+        userId,
+        {
+          firstname: nextAccount.firstName,
+          lastname: nextAccount.lastName,
+          pseudo: nextAccount.pseudo,
+          email: nextAccount.email,
+        },
+        { onDebug: (message) => setEditUserDebug(message) }
+      );
       await AsyncStorage.setItem(STORAGE_KEYS.accountProfile, JSON.stringify(nextAccount));
       setAccount(nextAccount);
       setEditUserOpen(false);
@@ -383,7 +344,8 @@ const onEditConfiguration = () => {
       </SafeAreaView>
     );
   }
- if (checking) {
+
+  if (checking) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#FF7A00" />
@@ -391,26 +353,17 @@ const onEditConfiguration = () => {
       </SafeAreaView>
     );
   }
+
   return (
-    <SafeAreaView
-      edges={["left", "right", "bottom"]}
-      style={styles.container}
-    >
+    <SafeAreaView edges={["left", "right", "bottom"]} style={styles.container}>
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
-          {
-            paddingBottom:
-              (styles.content?.paddingBottom || 0) +
-              // tabBarHeight +
-              insets.bottom +
-              16,
-          },
+          { paddingBottom: (styles.content?.paddingBottom || 0) + insets.bottom + 16 },
         ]}
       >
-        {/* ── Hero gradient ── */}
         <LinearGradient
           colors={["#FFA245", "#FF7A00"]}
           start={{ x: 0, y: 0 }}
@@ -445,67 +398,64 @@ const onEditConfiguration = () => {
           </View>
         </LinearGradient>
 
-        {/* ── Fiche info ── */}
         <View style={styles.sheet}>
           <Text style={styles.sheetTitle}>{"Infos d'inscription"}</Text>
 
-<InfoRow
-  icon="leaf-outline"
-  label="Regime alimentaire"
-  onPress={() => goToConfigurationStep(CONFIG_STEPS.diet)}
->
-  <MultiLineValue
-    values={config?.diets?.map((k) => DIET_LABELS[k] || k) ?? []}
-  />
-</InfoRow>
+          <InfoRow
+            icon="leaf-outline"
+            label="Regime alimentaire"
+            onPress={() => goToConfigurationStep(CONFIG_STEPS.diet)}
+          >
+            <MultiLineValue values={config?.diets?.map((k) => DIET_LABELS[k] || k) ?? []} />
+          </InfoRow>
 
-<InfoRow
-  icon="wallet-outline"
-  label="Budget mensuel"
-  onPress={() => goToConfigurationStep(CONFIG_STEPS.budget)}
->
-  <Text style={styles.infoValue}>
-    {config?.budget ? BUDGET_LABELS[config.budget] : "Non renseigne"}
-  </Text>
-</InfoRow>
+          <InfoRow
+            icon="wallet-outline"
+            label="Budget mensuel"
+            onPress={() => goToConfigurationStep(CONFIG_STEPS.budget)}
+          >
+            <Text style={styles.infoValue}>
+              {config?.budget ? BUDGET_LABELS[config.budget] : "Non renseigne"}
+            </Text>
+          </InfoRow>
 
-<InfoRow
-  icon="people-outline"
-  label="Nombre de personnes"
-  onPress={() => goToConfigurationStep(CONFIG_STEPS.people)}
->
-  <Text style={styles.infoValue}>
-    {peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigne"}
-  </Text>
-</InfoRow>
+          <InfoRow
+            icon="people-outline"
+            label="Nombre de personnes"
+            onPress={() => goToConfigurationStep(CONFIG_STEPS.people)}
+          >
+            <Text style={styles.infoValue}>
+              {peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigne"}
+            </Text>
+          </InfoRow>
 
-<InfoRow
-  icon="restaurant-outline"
-  label="Cuisines favorites"
-  onPress={() => goToConfigurationStep(CONFIG_STEPS.cuisines)}
->
-  <MultiLineValue values={config?.cuisines ?? []} />
-</InfoRow>
+          <InfoRow
+            icon="restaurant-outline"
+            label="Cuisines favorites"
+            onPress={() => goToConfigurationStep(CONFIG_STEPS.cuisines)}
+          >
+            <MultiLineValue values={config?.cuisines ?? []} />
+          </InfoRow>
 
-<InfoRow
-  icon="ban-outline"
-  label="Ingredients a eviter"
-  onPress={() => goToConfigurationStep(CONFIG_STEPS.avoidIngredients)}
->
-  <MultiLineValue values={resolveAvoidedIngredients(config) ?? []} />
-</InfoRow>
+          <InfoRow
+            icon="ban-outline"
+            label="Ingredients a eviter"
+            onPress={() => goToConfigurationStep(CONFIG_STEPS.avoidIngredients)}
+          >
+            <MultiLineValue values={resolveAvoidedIngredients(config) ?? []} />
+          </InfoRow>
 
-<InfoRow
-  icon="medkit-outline"
-  label="Allergies"
-  onPress={() => goToConfigurationStep(CONFIG_STEPS.allergies)}
->
-  <MultiLineValue values={config?.allergies ?? []} />
-</InfoRow>
+          <InfoRow
+            icon="medkit-outline"
+            label="Allergies"
+            onPress={() => goToConfigurationStep(CONFIG_STEPS.allergies)}
+          >
+            <MultiLineValue values={config?.allergies ?? []} />
+          </InfoRow>
         </View>
       </ScrollView>
 
-      {/* ── Modal paramètres ── */}
+      {/* Modal paramètres */}
       <Modal
         visible={settingsOpen}
         transparent
@@ -513,13 +463,8 @@ const onEditConfiguration = () => {
         onRequestClose={onCloseSettings}
       >
         <Pressable style={styles.settingsBackdrop} onPress={onCloseSettings}>
-          <Pressable
-            style={styles.settingsSheet}
-            onPress={(e) => e.stopPropagation()}
-          >
+          <Pressable style={styles.settingsSheet} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.settingsTitle}>Parametres du profil</Text>
-<<<<<<< HEAD
-=======
 
             <TouchableOpacity
               style={styles.settingsAction}
@@ -534,7 +479,6 @@ const onEditConfiguration = () => {
               </View>
               <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
             </TouchableOpacity>
->>>>>>> origin/Dev
 
             <TouchableOpacity
               style={styles.settingsAction}
@@ -545,9 +489,7 @@ const onEditConfiguration = () => {
                 <Ionicons name="create-outline" size={18} color="#FF7A00" />
               </View>
               <View style={styles.settingsActionTextWrap}>
-                <Text style={styles.settingsActionTitle}>
-                  Modifier ma configuration
-                </Text>
+                <Text style={styles.settingsActionTitle}>Modifier ma configuration</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
             </TouchableOpacity>
@@ -565,16 +507,13 @@ const onEditConfiguration = () => {
                 <Text style={styles.settingsDangerTitle}>
                   {isLoggingOut ? "Deconnexion..." : "Se deconnecter"}
                 </Text>
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/Dev
               </View>
             </TouchableOpacity>
           </Pressable>
         </Pressable>
       </Modal>
 
+      {/* Modal modifier infos */}
       <Modal
         visible={editUserOpen}
         transparent
@@ -665,16 +604,8 @@ const onEditConfiguration = () => {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-<<<<<<< HEAD
   container: { flex: 1, backgroundColor: "#FFF7EC" },
-=======
-  container: {
-    flex: 1,
-    backgroundColor: "#FFF7EC",
-  },
->>>>>>> origin/Dev
   scroll: { flex: 1, backgroundColor: "#FFF7EC" },
   content: { flexGrow: 1, paddingBottom: 24 },
   loadingContainer: {
@@ -713,28 +644,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-<<<<<<< HEAD
-  avatar: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: "#FFF",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  identityTextWrap: { flex: 1, gap: 2 },
-  name: { fontSize: 26, fontWeight: "900", color: "#FFF" },
-  subText: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.9)",
-    fontWeight: "600",
-  },
-=======
   avatar: { width: 76, height: 76, borderRadius: 38, backgroundColor: "#FFF", justifyContent: "center", alignItems: "center" },
   identityTextWrap: { flex: 1, gap: 2 },
   name: { fontSize: 26, fontWeight: "900", color: "#FFF" },
   subText: { fontSize: 13, color: "rgba(255,255,255,0.9)", fontWeight: "600" },
->>>>>>> origin/Dev
   locationRow: {
     marginTop: 12,
     alignSelf: "flex-start",
@@ -757,142 +670,28 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
     borderWidth: 1,
     borderColor: "#F1E5D5",
-<<<<<<< HEAD
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
-      },
-      android: { elevation: 4 },
-    }),
-  },
-  sheetTitle: {
-    fontSize: 19,
-    fontWeight: "900",
-    color: "#0F172A",
-    paddingHorizontal: 6,
-    paddingVertical: 10,
-  },
-  // ── InfoRow ──
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "center",        // ← centrage vertical avec le bouton
-    gap: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F6ECDC",
-  },
-  infoIconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "rgba(255,122,0,0.14)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  infoTextWrap: { flex: 1, gap: 2 },
-  infoLabel: {
-    color: "#FF7A00",
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.35,
-  },
-  infoValue: {
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 20,
-  },
-  // ── Bouton d'édition discret ──
-  editButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "rgba(255,122,0,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // ── Modal paramètres ──
-  settingsBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(15,23,42,0.45)",
-    justifyContent: "flex-end",
-  },
-  settingsSheet: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 28,
-    gap: 12,
-  },
-  settingsTitle: { fontSize: 20, fontWeight: "900", color: "#0F172A" },
-  settingsAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#EAE4DA",
-    backgroundColor: "#FFFDF8",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  settingsDangerAction: {
-    borderColor: "#F4D2D2",
-    backgroundColor: "#FFF9F9",
-  },
-  settingsActionIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,122,0,0.14)",
-  },
-
-infoValueRow: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 6,
-},
-infoValueDot: {
-  width: 5,
-  height: 5,
-  borderRadius: 3,
-  backgroundColor: "#FF7A00",
-  opacity: 0.5,
-  marginTop: 1,
-},
-
-=======
   },
   sheetTitle: { fontSize: 19, fontWeight: "900", color: "#0F172A", paddingHorizontal: 6, paddingVertical: 10 },
-  infoRow: { flexDirection: "row", gap: 10, paddingHorizontal: 6, paddingVertical: 12, borderTopWidth: 1, borderTopColor: "#F6ECDC" },
-  infoIconWrap: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(255,122,0,0.14)", alignItems: "center", justifyContent: "center", marginTop: 2 },
+  infoRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 6, paddingVertical: 12, borderTopWidth: 1, borderTopColor: "#F6ECDC" },
+  infoIconWrap: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(255,122,0,0.14)", alignItems: "center", justifyContent: "center" },
   infoTextWrap: { flex: 1, gap: 2 },
   infoLabel: { color: "#FF7A00", fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.35 },
   infoValue: { color: "#334155", fontSize: 14, fontWeight: "600", lineHeight: 20 },
+  editButton: { width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(255,122,0,0.12)", alignItems: "center", justifyContent: "center" },
   settingsBackdrop: { flex: 1, backgroundColor: "rgba(15,23,42,0.45)", justifyContent: "flex-end" },
   settingsSheet: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28, gap: 12 },
   settingsTitle: { fontSize: 20, fontWeight: "900", color: "#0F172A" },
+  settingsSubtitle: { fontSize: 13, color: "#475569", lineHeight: 18 },
   settingsAction: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 14, borderWidth: 1, borderColor: "#EAE4DA", backgroundColor: "#FFFDF8", paddingHorizontal: 12, paddingVertical: 12 },
   settingsDangerAction: { borderColor: "#F4D2D2", backgroundColor: "#FFF9F9" },
   settingsActionIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,122,0,0.14)" },
->>>>>>> origin/Dev
   settingsDangerIcon: { backgroundColor: "rgba(220,38,38,0.12)" },
   settingsActionTextWrap: { flex: 1, gap: 2 },
   settingsActionTitle: { fontSize: 14, fontWeight: "800", color: "#0F172A" },
   settingsDangerTitle: { fontSize: 14, fontWeight: "800", color: "#B91C1C" },
-<<<<<<< HEAD
-});
-=======
   settingsActionSub: { fontSize: 12, color: "#64748B" },
+  infoValueRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  infoValueDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#FF7A00", opacity: 0.5, marginTop: 1 },
   editField: { gap: 6 },
   editLabel: { fontSize: 12, fontWeight: "800", color: "#334155" },
   editInput: { borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, fontSize: 14, color: "#0F172A", backgroundColor: "#FFF" },
@@ -905,7 +704,3 @@ infoValueDot: {
   editCancelText: { color: "#334155", fontSize: 14, fontWeight: "800" },
   editSaveText: { color: "#FFF", fontSize: 14, fontWeight: "800" },
 });
-
-
-
->>>>>>> origin/Dev
