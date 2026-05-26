@@ -75,6 +75,7 @@ export default function RecipeDetailScreen() {
   const [randomTip, setRandomTip] = useState(RANDOM_TIPS[0]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   
   // État pour la notification
   const [notification, setNotification] = useState<{
@@ -137,6 +138,15 @@ export default function RecipeDetailScreen() {
       [index]: !prev[index]
     }));
   };
+
+  useEffect(() => {
+    const init = async () => {
+      const session = await getSession();
+      setCurrentUserId((session?.user as any)?.id ?? null);
+    };
+
+    init();
+  }, []);
 
   const handleRating = (score: number) => {
     setUserRating(score);
@@ -709,36 +719,48 @@ export default function RecipeDetailScreen() {
         {allRatings.length > 0 && (
           <View style={[styles.section, sectionStyle]}>
             <Text style={styles.sectionTitle}>Avis des utilisateurs ({allRatings.length})</Text>
-            
-            {allRatings.map((rating) => (
-              <View key={rating.id} style={styles.commentItem}>
-                <View style={{ marginBottom: 12 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <Text style={styles.commentAuthor}>{rating.user?.name || 'Anonyme'}</Text>
-                    <View style={{ flexDirection: 'row', gap: 3 }}>
-                      {[1, 2, 3, 4, 5].map(star => (
-                        <Ionicons
-                          key={star}
-                          name={star <= rating.rating ? "star" : "star-outline"}
-                          size={16}
-                          color="#FFC107"
-                        />
-                      ))}
+
+            {allRatings.map((rating) => {
+              const isMe = currentUserId !== null && rating.user?.id === currentUserId;
+
+              return (
+                <View key={rating.id} style={styles.commentItem}>
+                  <View style={{ marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={styles.commentAuthor}>{rating.user?.name || 'Anonyme'}</Text>
+                        {isMe && (
+                          <View style={styles.youBadge}>
+                            <Text style={styles.youBadgeText}>Vous</Text>
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={{ flexDirection: 'row', gap: 3 }}>
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Ionicons
+                            key={star}
+                            name={star <= rating.rating ? "star" : "star-outline"}
+                            size={16}
+                            color="#FFC107"
+                          />
+                        ))}
+                      </View>
                     </View>
+
+                    <Text style={styles.commentRating}>{rating.rating}/5</Text>
                   </View>
-                  
-                  <Text style={styles.commentRating}>{rating.rating}/5</Text>
+
+                  {rating.comment && (
+                    <Text style={styles.commentText}>{rating.comment}</Text>
+                  )}
+
+                  <Text style={styles.commentDate}>
+                    {new Date(rating.created_at).toLocaleDateString('fr-FR')}
+                  </Text>
                 </View>
-                
-                {rating.comment && (
-                  <Text style={styles.commentText}>{rating.comment}</Text>
-                )}
-                
-                <Text style={styles.commentDate}>
-                  {new Date(rating.created_at).toLocaleDateString('fr-FR')}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
@@ -1168,5 +1190,17 @@ infoCardFull: {
     color: '#fff',
     fontWeight: '600',
     flex: 1
+  },
+  youBadge: {
+  backgroundColor: '#FF9F1C',
+  paddingHorizontal: 8,
+  paddingVertical: 2,
+  borderRadius: 999
+  },
+
+  youBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700'
   }
 });
