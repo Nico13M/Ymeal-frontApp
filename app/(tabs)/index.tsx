@@ -260,9 +260,9 @@ console.log("Formatted:", formatAverageRating(averageRating));
         {/* HEADER ORANGE */}
         <View style={styles.headerContainer}>
           <View style={styles.headerTop}>
-<View style={{flexDirection: 'row', justifyContent: 'flex-end'}}>
-   <Text style={styles.brandName}>Ymeal</Text>
-</View>
+        <View style={{flexDirection: 'row', justifyContent: 'flex-end'}}>
+          <Text style={styles.brandName}>Ymeal</Text>
+        </View>
           </View>
           <Text style={styles.greetingTitle}>Bonjour ! 👋</Text>
           <Text style={styles.greetingSub}>Prêt à cuisiner quelque chose de délicieux ?</Text>
@@ -300,38 +300,48 @@ console.log("Formatted:", formatAverageRating(averageRating));
 
         {/* RECETTES TENDANCES */}
         <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="trending-up" size={24} color="#FF9F1C" style={{marginRight: 8}} />
-            <Text style={styles.sectionTitle}>Recettes tendances</Text>
-          </View>
-
-          <View style={styles.sortContainer}>
-            <TouchableOpacity
-              style={styles.sortSelect}
-              onPress={() => setShowSortOptions(prev => !prev)}
-            >
-              <Text style={styles.sortSelectText}>Tri: {selectedSortLabel}</Text>
-              <Ionicons name={showSortOptions ? 'chevron-up' : 'chevron-down'} size={18} color="#555" />
-            </TouchableOpacity>
-
-            {showSortOptions && (
+          {showSortOptions && (
+            <View style={styles.sortOverlay} pointerEvents="box-none">
               <View style={styles.sortDropdown}>
                 {SORT_OPTIONS.map(option => (
                   <TouchableOpacity
                     key={option.value}
-                    style={[styles.sortOption, sortBy === option.value && styles.sortOptionActive]}
+                    style={[
+                      styles.sortOption,
+                      sortBy === option.value && styles.sortOptionActive
+                    ]}
                     onPress={() => {
                       setSortBy(option.value);
                       setShowSortOptions(false);
                     }}
                   >
-                    <Text style={[styles.sortOptionText, sortBy === option.value && styles.sortOptionTextActive]}>
+                    <Text
+                      style={[
+                        styles.sortOptionText,
+                        sortBy === option.value && styles.sortOptionTextActive
+                      ]}
+                    >
                       {option.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-            )}
+            </View>
+          )}
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderTitle}>
+              <Ionicons name="trending-up" size={24} color="#FF9F1C" style={{marginRight: 8}} />
+              <Text style={styles.sectionTitle}>Recettes tendances</Text>
+            </View>
+            <View style={styles.sortControl}>
+              <TouchableOpacity
+                style={styles.sortSelect}
+                onPress={() => setShowSortOptions(prev => !prev)}
+              >
+                <Text style={styles.sortSelectText}>Tri: {selectedSortLabel}</Text>
+                <Ionicons name={showSortOptions ? 'chevron-up' : 'chevron-down'} size={18} color="#555" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {trendingLoading ? (
@@ -353,6 +363,7 @@ console.log("Formatted:", formatAverageRating(averageRating));
                 styles.listContent,
                 !isMobile && styles.listContentDesktop,
               ]}
+              style={styles.trendingList}
               scrollEnabled={false}
               renderItem={renderTrendingRecipe}
             />
@@ -392,10 +403,11 @@ const styles = StyleSheet.create({
   badgeText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
   actionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A1A2E', marginBottom: 5 },
   actionDesc: { fontSize: 14, color: '#888', lineHeight: 20 },
-  sectionContainer: { paddingHorizontal: 20, marginTop: 25, marginHorizontal: "3.60%" },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  sectionContainer: { paddingHorizontal: 20, marginTop: 25, marginHorizontal: "3.60%", position: 'relative', zIndex: 20, elevation: 20, overflow: 'visible' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, gap: 12 },
+  sectionHeaderTitle: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 },
+  sortControl: { position: 'relative', alignItems: 'flex-end', zIndex: 100, elevation: 100 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1A1A2E' },
-  sortContainer: { marginBottom: 14 },
   sortSelect: {
     backgroundColor: '#FFF',
     borderWidth: 1,
@@ -406,16 +418,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexShrink: 1,
+    minWidth: 150,
   },
+  sortOverlay: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  zIndex: 9999,
+  elevation: 9999,
+},
+sortDropdown: {
+  position: 'absolute',
+  top: 45,
+  right: 20,
+  width: 220,
+  backgroundColor: '#FFF',
+  borderRadius: 12,
+  borderWidth: 1,
+  borderColor: '#E5E7EB',
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 8 },
+  shadowOpacity: 0.12,
+  shadowRadius: 16,
+  elevation: 9999,
+},
   sortSelectText: { color: '#333', fontWeight: '600' },
-  sortDropdown: {
-    marginTop: 8,
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    overflow: 'hidden',
-  },
   sortOption: {
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -432,6 +462,7 @@ const styles = StyleSheet.create({
   },
   listContent: { paddingBottom: 0 },
   listContentDesktop: { paddingHorizontal: 0 },
+  trendingList: { zIndex: 0, elevation: 0 },
   columnWrapperDesktop: { justifyContent: 'space-between' },
   columnWrapperTablet: { justifyContent: 'space-between' },
   recipeCard: {
