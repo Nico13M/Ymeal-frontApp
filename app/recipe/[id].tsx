@@ -42,8 +42,13 @@ type RatingsListApiResponse = {
 };
 
 type MyRatingApiResponse = {
-  data?: RatingResponse | null;
-} & Partial<RatingResponse>;
+  data?: unknown;
+  rating?: unknown;
+  comment?: unknown;
+  created_at?: unknown;
+  user?: unknown;
+  id?: unknown;
+} & Record<string, unknown>;
 
 const RANDOM_TIPS = [
   "Économise jusqu'à 200€ par mois en cuisinant maison.",
@@ -171,26 +176,106 @@ export default function RecipeDetailScreen() {
     return [];
   };
 
-  const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null => {
-    if (response.data) return response.data;
+  // const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null => {
+  //   const candidates = [response, response.data].filter(Boolean) as unknown[];
 
+  //   for (const candidate of candidates) {
+  //     if (!candidate || typeof candidate !== 'object') continue;
+
+  //     const record = candidate as Record<string, unknown>;
+  //     const nestedData = record.data;
+
+  //     if (nestedData && nestedData !== candidate) {
+  //       const nestedRating = extractMyRating(nestedData as MyRatingApiResponse);
+  //       if (nestedRating) return nestedRating;
+  //     }
+
+  //     if (
+  //       typeof record.id === 'number' &&
+  //       typeof record.rating === 'number' &&
+  //       typeof record.created_at === 'string'
+  //     ) {
+  //       return {
+  //         id: record.id,
+  //         rating: record.rating,
+  //         comment: typeof record.comment === 'string' ? record.comment : null,
+  //         created_at: record.created_at,
+  //         user: record.user as RatingResponse['user']
+  //       };
+  //     }
+  //   }
+
+  //   return null;
+  // };
+const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null => {
+  console.log("=== extractMyRating called ===");
+  console.log("Input response:", JSON.stringify(response, null, 2));
+  
+  // ✅ NOUVELLE LOGIQUE : Vérifier d'abord si response.rating existe
+  if (response.rating && typeof response.rating === 'object') {
+    const record = response.rating as Record<string, unknown>;
+    
+    console.log("Found response.rating, checking it...");
+    console.log("  record.id:", record.id);
+    console.log("  record.rating:", record.rating);
+    console.log("  record.created_at:", record.created_at);
+    
     if (
-      typeof response.id === 'number' &&
-      typeof response.rating === 'number' &&
-      typeof response.created_at === 'string'
+      typeof record.id === 'number' &&
+      typeof record.rating === 'number' &&
+      typeof record.created_at === 'string'
     ) {
+      console.log("✅ response.rating matches! Returning...");
+      const result = {
+        id: record.id,
+        rating: record.rating,
+        comment: typeof record.comment === 'string' ? record.comment : null,
+        created_at: record.created_at,
+        user: record.user as RatingResponse['user']
+      };
+      console.log("Result:", result);
+      return result;
+    }
+  }
+ 
+  // Ensuite, essayer l'ancienne logique pour les autres formats
+  const candidates = [response, response.data].filter(Boolean) as unknown[];
+  
+  console.log("Fallback: Checking candidates:", candidates.length);
+ 
+  for (let idx = 0; idx < candidates.length; idx++) {
+    const candidate = candidates[idx];
+    console.log(`Candidate ${idx}:`, JSON.stringify(candidate));
+    
+    if (!candidate || typeof candidate !== 'object') continue;
+ 
+    const record = candidate as Record<string, unknown>;
+    const nestedData = record.data;
+ 
+    if (nestedData && nestedData !== candidate) {
+      const nestedRating = extractMyRating(nestedData as MyRatingApiResponse);
+      if (nestedRating) return nestedRating;
+    }
+ 
+    if (
+      typeof record.id === 'number' &&
+      typeof record.rating === 'number' &&
+      typeof record.created_at === 'string'
+    ) {
+      console.log(`✅ Candidate ${idx} matches!`);
       return {
-        id: response.id,
-        rating: response.rating,
-        comment: response.comment ?? null,
-        created_at: response.created_at,
-        user: response.user
+        id: record.id,
+        rating: record.rating,
+        comment: typeof record.comment === 'string' ? record.comment : null,
+        created_at: record.created_at,
+        user: record.user as RatingResponse['user']
       };
     }
-
-    return null;
-  };
-
+  }
+ 
+  console.log("❌ No valid rating found");
+  return null;
+};
   const formatIngredientUnit = (unit: RecipeFull['nutrition']['ingredients'][number]['unit']): string => {
     if (!unit) return '';
     if (typeof unit === 'string') return unit;
@@ -204,21 +289,21 @@ export default function RecipeDetailScreen() {
       const isCookie = session?.token === COOKIE_SESSION_TOKEN;
       const token = isCookie ? undefined : session?.token;
       const userId = (session?.user as any)?.id as number | undefined;
-
+  
       const headers: Record<string, string> = {};
-
+  
       if (userId !== undefined) {
         headers["X-User-Id"] = String(userId);
       }
-
+  
       const response = await apiRequest<MyRatingApiResponse>(`/admin/ratings/recipes/${recipeId}/me`, {
         token,
         credentials: 'include',
         headers
       });
-
+  
       const rating = extractMyRating(response);
-
+  
       if (rating) {
         setUserRating(rating.rating || 0);
         setComment(rating.comment || '');
@@ -229,7 +314,15 @@ export default function RecipeDetailScreen() {
       setHasUserRated(false);
     }
   };
-
+  console.log(hasUserRated)
+  console.log(userRating)
+  useEffect(() => {
+    if (userRating > 0 && hasUserRated) {
+      setShowCommentForm(true);
+      console.log("showing comment form because userRating:", userRating, "hasUserRated:", hasUserRated);
+    }
+  }, [userRating, hasUserRated]);
+ 
   const loadAllRatings = async (recipeId: number) => {
   try {
     const response = await apiRequest<RatingsListApiResponse>(`/admin/ratings/recipes/${recipeId}`, {
@@ -697,7 +790,9 @@ export default function RecipeDetailScreen() {
                   {isLoadingRating ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.submitBtnText}>Valider</Text>
+                    <Text style={styles.submitBtnText}>
+                      {hasUserRated ? 'Modifier mon commentaire' : 'Valider'}
+                    </Text>
                   )}
                 </TouchableOpacity>
               </View>
