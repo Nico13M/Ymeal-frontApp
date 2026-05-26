@@ -1,19 +1,3 @@
-<<<<<<< HEAD
-
-import { Ionicons } from "@expo/vector-icons";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import React, { useState } from "react";
-import {
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-=======
 import useRequireAuth from "@/src/hooks/useRequireAuth";
 import {
   addIngredientToFrigo,
@@ -40,7 +24,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
->>>>>>> origin/Dev
 
 /* ===================== TYPES ===================== */
 type Ingredient = {
@@ -98,16 +81,11 @@ export default function FridgeScreen() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [allSuggestions, setAllSuggestions] = useState<SuggestedIngredient[]>([]);
   const [search, setSearch] = useState("");
-<<<<<<< HEAD
-  const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight ? useBottomTabBarHeight() : 0;
-=======
-  const [loading, setLoading] = useState(false);
+const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [units, setUnits] = useState<BackendUnit[]>([]);
->>>>>>> origin/Dev
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -592,13 +570,12 @@ export default function FridgeScreen() {
             </View>
           </View>
         </View>
-<<<<<<< HEAD
 
         {/* LISTE DU FRIGO */}
         <ScrollView
           contentContainerStyle={{
             padding: 20,
-            paddingBottom: 32 + tabBarHeight + insets.bottom,
+            paddingBottom: 20,
           }}
         >
           {Object.keys(grouped).length === 0 && (
@@ -618,7 +595,7 @@ export default function FridgeScreen() {
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontWeight: "700", fontSize: 16 }}>{i.name}</Text>
                         <Text style={{ color: "#FF9F1C", fontWeight: "600" }}>
-                          {i.quantity} {i.unit}
+                          {i.unit?.symbol || i.unit?.name || ""}
                         </Text>
                       </View>
 
@@ -643,11 +620,10 @@ export default function FridgeScreen() {
               </View>
           ))}
         </ScrollView>
-      </SafeAreaView>
-=======
-      </Modal>
+
+</Modal>
     </SafeAreaView>
->>>>>>> origin/Dev
+
   );
 }
 

@@ -3,21 +3,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router'; // <--- IMPORT IMPORTANT
 import React, { useEffect, useState } from 'react';
-<<<<<<< HEAD
-import { Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-=======
 import {
-    ActivityIndicator,
-    Image,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-
->>>>>>> origin/Dev
 // --- LISTE DES ASTUCES ---
 const TIPS = [
   "Achète tes légumes au marché le samedi après-midi : les prix baissent jusqu'à 50% !",

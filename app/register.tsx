@@ -6,7 +6,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-<<<<<<< HEAD
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -16,17 +15,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-=======
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
->>>>>>> origin/Dev
 } from "react-native";
+
 import { ActivityIndicator } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -140,13 +130,13 @@ if (errors.length > 0) {
     try {
       setLoading(true);
 
-      const maybeSession = await registerRequest({
-        firstname: trimmedFirstname,
-        lastname: trimmedLastname,
-        nickname: trimmedNickname || undefined,
-        email: trimmedEmail,
-        password,
-      });
+const maybeSession = await registerRequest({
+  firstname: trimmedFirstname,
+  lastname: trimmedLastname,
+  ...(trimmedNickname ? { nickname: trimmedNickname } : {}),
+  email: trimmedEmail,
+  password,
+});
 
       const session =
         maybeSession ??
