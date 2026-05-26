@@ -266,7 +266,10 @@ export default function DashboardScreen() {
         </View>
 
         {/* ACTIONS RAPIDES */}
-        <View style={styles.actionsContainer}>
+        <View  style={[
+          styles.actionsContainer,
+          isMobile && { flexDirection: 'column' }
+        ]}>
           {/* Lien vers Frigo */}
           <Link href="/(tabs)/fridge" asChild>
             <TouchableOpacity style={styles.actionCard}>
@@ -392,8 +395,8 @@ const styles = StyleSheet.create({
   brandName: { fontSize: 20, fontWeight: 'bold', color: '#FFF' },
   greetingTitle: { fontSize: 32, fontWeight: 'bold', color: '#FFF', marginBottom: 5 },
   greetingSub: { fontSize: 16, color: 'rgba(255,255,255,0.9)' },
-  actionsContainer: { paddingHorizontal: 20, marginTop: -20, gap: 15 , marginHorizontal: "3.60%"},
-  actionCard: { backgroundColor: '#FFF', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
+  actionsContainer: { paddingHorizontal: 20, marginTop: -20,marginHorizontal: "3.60%", gap: 12,alignItems: 'stretch', flexDirection: 'row',},
+  actionCard: { flex: 1, minWidth: 0, backgroundColor: '#FFF', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   iconBox: { width: 50, height: 50, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
   badge: { backgroundColor: '#FF6B6B', width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', position: 'absolute', right: 0, top: 0 },
