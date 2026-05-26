@@ -69,6 +69,7 @@ function getLoginErrorMessage(error: unknown): string {
 export default function ConnexionScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -132,7 +133,7 @@ export default function ConnexionScreen() {
       if (profileConfigRaw) {
         router.replace("/(tabs)");
       } else {
-        router.replace("/configuration-profil");
+        router.replace("/config-profil");
       }
     } catch (error) {
       setFormError(getLoginErrorMessage(error));
@@ -192,11 +193,22 @@ export default function ConnexionScreen() {
               if (formError) setFormError(null);
             }}
             placeholder="********"
-            secureTextEntry
+            secureTextEntry={!showPassword}
             autoCapitalize="none"
             style={styles.input}
           />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <Ionicons name={showPassword ? "eye-off" : "eye"} size={18} color="#9AA3AF" />
+          </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+  onPress={() => router.push("/mot-de-passe-oublie" as any)}
+>
+  <Text style={styles.forgotPassword}>
+    Mot de passe oublié ?
+  </Text>
+</TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, !canSubmit && styles.buttonDisabled]}
@@ -348,4 +360,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#FF7A00",
   },
+
+forgotPassword: {
+  alignSelf: "flex-end",
+  marginTop: 2,
+  marginBottom: 12,
+  color: "#FF7A00",
+  fontSize: 12,
+  fontWeight: "600",
+},
+
 });

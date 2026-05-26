@@ -1,3 +1,19 @@
+<<<<<<< HEAD
+
+import { Ionicons } from "@expo/vector-icons";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import React, { useState } from "react";
+import {
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+=======
 import useRequireAuth from "@/src/hooks/useRequireAuth";
 import {
   addIngredientToFrigo,
@@ -24,6 +40,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+>>>>>>> origin/Dev
 
 /* ===================== TYPES ===================== */
 type Ingredient = {
@@ -74,17 +91,23 @@ function toSuggested(ing: BackendIngredient): SuggestedIngredient {
 const STORAGE_KEYS = { frigoIngredients: "@ymeal/frigo_ingredients" };
 
 /* ===================== SCREEN ===================== */
+
 export default function FridgeScreen() {
   const { checking } = useRequireAuth();
 
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [allSuggestions, setAllSuggestions] = useState<SuggestedIngredient[]>([]);
   const [search, setSearch] = useState("");
+<<<<<<< HEAD
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight ? useBottomTabBarHeight() : 0;
+=======
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [units, setUnits] = useState<BackendUnit[]>([]);
+>>>>>>> origin/Dev
 
   // Modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -569,8 +592,62 @@ export default function FridgeScreen() {
             </View>
           </View>
         </View>
+<<<<<<< HEAD
+
+        {/* LISTE DU FRIGO */}
+        <ScrollView
+          contentContainerStyle={{
+            padding: 20,
+            paddingBottom: 32 + tabBarHeight + insets.bottom,
+          }}
+        >
+          {Object.keys(grouped).length === 0 && (
+              <Text style={styles.emptyText}>Votre frigo est vide.</Text>
+          )}
+
+          {Object.keys(grouped).map((cat) => (
+              <View key={cat} style={{ marginBottom: 25 }}>
+                <Text style={styles.categoryTitle}>
+                  {CATEGORY_CONFIG[cat]?.emoji} {cat.toUpperCase()}
+                </Text>
+
+                {grouped[cat].map((i) => (
+                    <View key={i.id} style={styles.item}>
+                      <Text style={{ fontSize: 26 }}>{i.emoji}</Text>
+
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontWeight: "700", fontSize: 16 }}>{i.name}</Text>
+                        <Text style={{ color: "#FF9F1C", fontWeight: "600" }}>
+                          {i.quantity} {i.unit}
+                        </Text>
+                      </View>
+
+                      {/* CONTROLES DE QUANTITÉ */}
+                      <View style={styles.controls}>
+                        <TouchableOpacity
+                            style={styles.btnMinus}
+                            onPress={() => updateQuantity(i.id, -i.step)}
+                        >
+                          <Ionicons name="remove" size={20} color="#666" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.btnPlus}
+                            onPress={() => updateQuantity(i.id, i.step)}
+                        >
+                          <Ionicons name="add" size={20} color="#FFF" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                ))}
+              </View>
+          ))}
+        </ScrollView>
+      </SafeAreaView>
+=======
       </Modal>
     </SafeAreaView>
+>>>>>>> origin/Dev
   );
 }
 
