@@ -1,9 +1,10 @@
 import useRequireAuth from "@/src/hooks/useRequireAuth";
 import { getTrendingRecipes, type RecipeMinimal } from "@/src/services/recipes";
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router'; // <--- IMPORT IMPORTANT
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -74,36 +75,33 @@ export default function DashboardScreen() {
     setTodaysTip(TIPS[randomIndex]);
   }, []);
 
-  useEffect(() => {
+  const loadTrending = useCallback(async () => {
     if (checking) return;
 
-   const loadTrending = async () => {
-  setTrendingLoading(true);
-  setTrendingError(null);
+    setTrendingLoading(true);
+    setTrendingError(null);
 
-  try {
-    const result = await getTrendingRecipes();
-    const recipes = (result.recipes ?? []) as TrendingRecipeItem[];
-    recipes.forEach((recipe, index) => {
-    });
-
-    setTrendingRecipes(recipes);
-  } catch (error) {
-
-    setTrendingError(
-      error instanceof Error
-        ? error.message
-        : 'Impossible de charger les recettes tendances'
-    );
-
-    setTrendingRecipes([]);
-  } finally {
-    setTrendingLoading(false);
-  }
-};
-
-    loadTrending();
+    try {
+      const result = await getTrendingRecipes();
+      const recipes = (result.recipes ?? []) as TrendingRecipeItem[];
+      setTrendingRecipes(recipes);
+    } catch (error) {
+      setTrendingError(
+        error instanceof Error
+          ? error.message
+          : 'Impossible de charger les recettes tendances'
+      );
+      setTrendingRecipes([]);
+    } finally {
+      setTrendingLoading(false);
+    }
   }, [checking]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadTrending();
+    }, [loadTrending])
+  );
 
   const getColumnWrapperStyle = () => {
     if (numColumns === 1) return undefined;
@@ -190,10 +188,7 @@ export default function DashboardScreen() {
     const totalTime = (item.timing?.prep_time ?? 0) + (item.timing?.duration ?? 0);
     const reviewCount = getRatingsCount(item as TrendingRecipeItem);
     const averageRating = getAverageRating(item as TrendingRecipeItem);
-    
-console.log("Recipe:", item.name);
-console.log("Average Rating:", averageRating);
-console.log("Formatted:", formatAverageRating(averageRating));
+
     return (
       <Link href={`/recipe/${item.id}`} asChild>
         <TouchableOpacity
