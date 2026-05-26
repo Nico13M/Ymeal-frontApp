@@ -5,12 +5,14 @@ import { Link } from 'expo-router'; // <--- IMPORT IMPORTANT
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 // --- LISTE DES ASTUCES ---
@@ -45,17 +47,71 @@ const TRENDING_RECIPES = [
     time: "10 min",
     price: "1.90€",
     image: { uri: "https://www.themealdb.com/images/media/meals/1529446137.jpg" }
+  },
+  {
+    id: '4',
+    title: "Omelette aux légumes",
+    time: "10 min",
+    price: "1.90€",
+    image: { uri: "https://www.themealdb.com/images/media/meals/1529446137.jpg" }
   }
 ];
 
 export default function DashboardScreen() {
   const { checking } = useRequireAuth();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 1024;
+  const isTablet = width >= 768 && width < 1024;
+  const isMobile = width < 768;
+  const numColumns = isDesktop ? 4 : isTablet ? 2 : 1;
 
   const [todaysTip, setTodaysTip] = useState(TIPS[0]);
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * TIPS.length);
     setTodaysTip(TIPS[randomIndex]);
   }, []);
+
+  const getColumnWrapperStyle = () => {
+    if (numColumns === 1) return undefined;
+    if (isDesktop) return styles.columnWrapperDesktop;
+    return styles.columnWrapperTablet;
+  };
+
+  const renderTrendingRecipe = ({ item }: { item: (typeof TRENDING_RECIPES)[number] }) => {
+    return (
+      <Link href={`/recipe/${item.id}`} asChild>
+        <TouchableOpacity
+          style={StyleSheet.flatten([
+            styles.recipeCard,
+            isDesktop && styles.recipeCardDesktop,
+            isTablet && styles.recipeCardTablet,
+            isMobile && styles.recipeCardMobile,
+          ])}
+        >
+          <Image source={item.image} style={styles.recipeImage} resizeMode="cover" />
+          <View style={styles.recipeContent}>
+            <View style={styles.recipeTitleRow}>
+              <Text numberOfLines={2} style={styles.recipeTitle}>{item.title}</Text>
+              <View style={styles.recipeBadge}>
+                <Ionicons name="star" size={12} color="#FFF" />
+                <Text style={styles.recipeBadgeText}>12</Text>
+              </View>
+            </View>
+            <View style={styles.recipeMeta}>
+              <View style={styles.recipeMetaItem}>
+                <Ionicons name="time-outline" size={14} color="#666" />
+                <Text style={styles.recipeTime}>{item.time}</Text>
+              </View>
+              <Text style={styles.recipePrice}>{item.price}</Text>
+            </View>
+            <View style={styles.recipeFooter}>
+              <Text style={styles.recipeLinkText}>Voir ➔</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Link>
+    );
+  };
 
   if (checking) {
     return (
@@ -117,22 +173,20 @@ export default function DashboardScreen() {
             <Ionicons name="trending-up" size={24} color="#FF9F1C" style={{marginRight: 8}} />
             <Text style={styles.sectionTitle}>Recettes tendances</Text>
           </View>
-          
-          {TRENDING_RECIPES.map((recipe) => (
-            /* 👇 AJOUT DU LIEN ICI 👇 */
-            <Link key={recipe.id} href={`/recipe/${recipe.id}`} asChild>
-              <TouchableOpacity style={styles.recipeCard}>
-                <Image source={recipe.image} style={styles.recipeImage} resizeMode="cover" />
-                <View style={styles.recipeContent}>
-                  <Text style={styles.recipeTitle}>{recipe.title}</Text>
-                  <View style={styles.recipeMeta}>
-                    <Text style={styles.recipeTime}>{recipe.time}</Text>
-                    <Text style={styles.recipePrice}>{recipe.price}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            </Link>
-          ))}
+
+          <FlatList
+            data={TRENDING_RECIPES}
+            keyExtractor={(item) => item.id.toString()}
+            key={numColumns}
+            numColumns={numColumns}
+            columnWrapperStyle={numColumns > 1 ? getColumnWrapperStyle() : undefined}
+            contentContainerStyle={[
+              styles.listContent,
+              !isMobile && styles.listContentDesktop,
+            ]}
+            scrollEnabled={false}
+            renderItem={renderTrendingRecipe}
+          />
         </View>
 
         {/* ASTUCE DU JOUR */}
@@ -160,7 +214,7 @@ const styles = StyleSheet.create({
   brandName: { fontSize: 20, fontWeight: 'bold', color: '#FFF' },
   greetingTitle: { fontSize: 32, fontWeight: 'bold', color: '#FFF', marginBottom: 5 },
   greetingSub: { fontSize: 16, color: 'rgba(255,255,255,0.9)' },
-  actionsContainer: { paddingHorizontal: 20, marginTop: -20, gap: 15 },
+  actionsContainer: { paddingHorizontal: 20, marginTop: -20, gap: 15 , marginHorizontal: "3.60%"},
   actionCard: { backgroundColor: '#FFF', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   iconBox: { width: 50, height: 50, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
@@ -168,18 +222,56 @@ const styles = StyleSheet.create({
   badgeText: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
   actionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A1A2E', marginBottom: 5 },
   actionDesc: { fontSize: 14, color: '#888', lineHeight: 20 },
-  sectionContainer: { paddingHorizontal: 20, marginTop: 25 },
+  sectionContainer: { paddingHorizontal: 20, marginTop: 25, marginHorizontal: "3.60%" },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#1A1A2E' },
-  recipeCard: { backgroundColor: '#FFF', borderRadius: 15, marginBottom: 15, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-  recipeImage: { width: '100%', height: 150 },
-  recipeContent: { padding: 15 },
-  recipeTitle: { fontSize: 16, fontWeight: 'bold', color: '#1A1A2E', marginBottom: 8 },
-  recipeMeta: { flexDirection: 'row', justifyContent: 'space-between' },
-  recipeTime: { color: '#888', fontSize: 14 },
+  listContent: { paddingBottom: 0 },
+  listContentDesktop: { paddingHorizontal: 0 },
+  columnWrapperDesktop: { justifyContent: 'space-between' },
+  columnWrapperTablet: { justifyContent: 'space-between' },
+  recipeCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 15,
+    marginBottom: 15,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  recipeCardMobile: { width: '100%' },
+  recipeCardTablet: { width: '48%' },
+  recipeCardDesktop: {  width: "23.3%",
+    marginRight: "2.2%",
+  },
+  recipeImage: { width: '100%', height: 180 },
+  recipeContent: { padding: 16 },
+  recipeTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 10,
+  },
+  recipeTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A1A2E', flex: 1 },
+  recipeBadge: {
+    flexDirection: 'row',
+    backgroundColor: '#FFC107',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  recipeBadgeText: { fontSize: 12, fontWeight: 'bold', marginLeft: 4, color: '#333' },
+  recipeMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10 },
+  recipeMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  recipeTime: { color: '#666', fontSize: 13 },
   recipePrice: { color: '#FF9F1C', fontWeight: 'bold', fontSize: 16 },
+  recipeFooter: { marginTop: 'auto', paddingTop: 12, alignSelf: 'flex-end'},
+  recipeLinkText: { color: '#FF9F1C', fontWeight: 'bold', fontSize: 14, alignSelf: 'center' },
   tipContainer: {
-    marginHorizontal: 20, marginTop: 10, marginBottom: 30, borderRadius: 20, padding: 20,
+    marginHorizontal: "3.80%", marginTop: 10, marginBottom: 30, borderRadius: 20, padding: 20,
     shadowColor: '#D500F9', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5
   },
   tipHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
