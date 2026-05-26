@@ -1,4 +1,5 @@
 import useRequireAuth from "@/src/hooks/useRequireAuth";
+import { getTrendingRecipes, type RecipeMinimal } from "@/src/services/recipes";
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router'; // <--- IMPORT IMPORTANT
@@ -26,37 +27,6 @@ const TIPS = [
   "Remplace la viande par des lentilles ou des pois chiches une fois par semaine : c'est moins cher et protéiné !"
 ];
 
-const TRENDING_RECIPES = [
-  {
-    id: '1', 
-    title: "Pâtes Carbonara",
-    time: "15 min",
-    price: "2.50€",
-    image: { uri: "https://www.themealdb.com/images/media/meals/llcbn01574260722.jpg" }
-  },
-  {
-    id: '2',
-    title: "Buddha Bowl",
-    time: "20 min",
-    price: "3.80€",
-    image: { uri: "https://www.themealdb.com/images/media/meals/1529444113.jpg" }
-  },
-  {
-    id: '3',
-    title: "Omelette aux légumes",
-    time: "10 min",
-    price: "1.90€",
-    image: { uri: "https://www.themealdb.com/images/media/meals/1529446137.jpg" }
-  },
-  {
-    id: '4',
-    title: "Omelette aux légumes",
-    time: "10 min",
-    price: "1.90€",
-    image: { uri: "https://www.themealdb.com/images/media/meals/1529446137.jpg" }
-  }
-];
-
 export default function DashboardScreen() {
   const { checking } = useRequireAuth();
   const { width } = useWindowDimensions();
@@ -66,10 +36,34 @@ export default function DashboardScreen() {
   const numColumns = isDesktop ? 4 : isTablet ? 2 : 1;
 
   const [todaysTip, setTodaysTip] = useState(TIPS[0]);
+  const [trendingRecipes, setTrendingRecipes] = useState<RecipeMinimal[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const [trendingError, setTrendingError] = useState<string | null>(null);
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * TIPS.length);
     setTodaysTip(TIPS[randomIndex]);
   }, []);
+
+  useEffect(() => {
+    if (checking) return;
+
+    const loadTrending = async () => {
+      setTrendingLoading(true);
+      setTrendingError(null);
+
+      try {
+        const result = await getTrendingRecipes();
+        setTrendingRecipes(result.recipes ?? []);
+      } catch (error) {
+        setTrendingError(error instanceof Error ? error.message : 'Impossible de charger les recettes tendances');
+        setTrendingRecipes([]);
+      } finally {
+        setTrendingLoading(false);
+      }
+    };
+
+    loadTrending();
+  }, [checking]);
 
   const getColumnWrapperStyle = () => {
     if (numColumns === 1) return undefined;
@@ -77,7 +71,18 @@ export default function DashboardScreen() {
     return styles.columnWrapperTablet;
   };
 
-  const renderTrendingRecipe = ({ item }: { item: (typeof TRENDING_RECIPES)[number] }) => {
+  const getDifficultyColors = (difficulty: string | null) => {
+    const normalizedDifficulty = (difficulty || 'Moyen').toLowerCase().trim();
+    if (normalizedDifficulty.includes('débutant')) return { backgroundColor: '#1B5E20', textColor: '#FFFFFF' };
+    if (normalizedDifficulty.includes('moyen')) return { backgroundColor: '#F9A825', textColor: '#1F1F1F' };
+    if (normalizedDifficulty.includes('difficile')) return { backgroundColor: '#C62828', textColor: '#FFFFFF' };
+    return { backgroundColor: '#E8F5E9', textColor: '#2E7D32' };
+  };
+
+  const renderTrendingRecipe = ({ item }: { item: RecipeMinimal }) => {
+    const difficultyColors = getDifficultyColors(item.difficulty);
+    const totalTime = (item.timing?.prep_time ?? 0) + (item.timing?.duration ?? 0);
+
     return (
       <Link href={`/recipe/${item.id}`} asChild>
         <TouchableOpacity
@@ -88,21 +93,26 @@ export default function DashboardScreen() {
             isMobile && styles.recipeCardMobile,
           ])}
         >
-          <Image source={item.image} style={styles.recipeImage} resizeMode="cover" />
+          <Image source={{ uri: item.image || 'https://via.placeholder.com/300' }} style={styles.recipeImage} resizeMode="cover" />
           <View style={styles.recipeContent}>
             <View style={styles.recipeTitleRow}>
-              <Text numberOfLines={2} style={styles.recipeTitle}>{item.title}</Text>
+              <Text numberOfLines={2} style={styles.recipeTitle}>{item.name}</Text>
               <View style={styles.recipeBadge}>
                 <Ionicons name="star" size={12} color="#FFF" />
-                <Text style={styles.recipeBadgeText}>12</Text>
+                <Text style={styles.recipeBadgeText}>{item.favorites_count}</Text>
               </View>
             </View>
             <View style={styles.recipeMeta}>
               <View style={styles.recipeMetaItem}>
                 <Ionicons name="time-outline" size={14} color="#666" />
-                <Text style={styles.recipeTime}>{item.time}</Text>
+                <Text style={styles.recipeTime}>{totalTime} min</Text>
               </View>
-              <Text style={styles.recipePrice}>{item.price}</Text>
+              <Text style={styles.recipePrice}>{item.difficulty || 'Moyen'}</Text>
+            </View>
+            <View style={styles.recipeTagRow}>
+              <View style={[styles.recipeTag, { backgroundColor: difficultyColors.backgroundColor }]}>
+                <Text style={[styles.recipeTagText, { color: difficultyColors.textColor }]}>{item.difficulty || 'Moyen'}</Text>
+              </View>
             </View>
             <View style={styles.recipeFooter}>
               <Text style={styles.recipeLinkText}>Voir ➔</Text>
@@ -174,19 +184,29 @@ export default function DashboardScreen() {
             <Text style={styles.sectionTitle}>Recettes tendances</Text>
           </View>
 
-          <FlatList
-            data={TRENDING_RECIPES}
-            keyExtractor={(item) => item.id.toString()}
-            key={numColumns}
-            numColumns={numColumns}
-            columnWrapperStyle={numColumns > 1 ? getColumnWrapperStyle() : undefined}
-            contentContainerStyle={[
-              styles.listContent,
-              !isMobile && styles.listContentDesktop,
-            ]}
-            scrollEnabled={false}
-            renderItem={renderTrendingRecipe}
-          />
+          {trendingLoading ? (
+            <View style={{ paddingVertical: 30, alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#FF9F1C" />
+            </View>
+          ) : trendingError ? (
+            <View style={{ paddingVertical: 20 }}>
+              <Text style={{ color: '#DC2626' }}>{trendingError}</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={trendingRecipes}
+              keyExtractor={(item) => item.id.toString()}
+              key={numColumns}
+              numColumns={numColumns}
+              columnWrapperStyle={numColumns > 1 ? getColumnWrapperStyle() : undefined}
+              contentContainerStyle={[
+                styles.listContent,
+                !isMobile && styles.listContentDesktop,
+              ]}
+              scrollEnabled={false}
+              renderItem={renderTrendingRecipe}
+            />
+          )}
         </View>
 
         {/* ASTUCE DU JOUR */}
@@ -268,6 +288,14 @@ const styles = StyleSheet.create({
   recipeMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   recipeTime: { color: '#666', fontSize: 13 },
   recipePrice: { color: '#FF9F1C', fontWeight: 'bold', fontSize: 16 },
+  recipeTagRow: { marginTop: 2 },
+  recipeTag: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 5,
+  },
+  recipeTagText: { fontSize: 12, fontWeight: 'bold' },
   recipeFooter: { marginTop: 'auto', paddingTop: 12, alignSelf: 'flex-end'},
   recipeLinkText: { color: '#FF9F1C', fontWeight: 'bold', fontSize: 14, alignSelf: 'center' },
   tipContainer: {

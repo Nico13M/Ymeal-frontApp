@@ -89,6 +89,15 @@ export type SearchResult = {
   };
 };
 
+export type TrendingRecipesResult = {
+  window: {
+    days: number;
+    since: string;
+  };
+  recipes: RecipeMinimal[];
+  total_results: number;
+};
+
 /* ===================== HELPER ===================== */
 
 async function getToken(): Promise<{ token: string | undefined; userId: number | undefined }> {
@@ -165,6 +174,22 @@ export async function searchRecipes(params: {
     return data!;
   } catch (error) {
     console.error("[RECIPES] ❌ searchRecipes:", error instanceof ApiError ? error.message : error);
+    throw error;
+  }
+}
+
+export async function getTrendingRecipes(): Promise<TrendingRecipesResult> {
+  try {
+    const { token, userId } = await getToken();
+    const data = await apiRequest<TrendingRecipesResult>("/admin/recipes/trending", {
+      method: "GET",
+      token,
+      credentials: "include",
+      headers: buildHeaders(userId),
+    });
+    return data;
+  } catch (error) {
+    console.error("[RECIPES] ❌ getTrendingRecipes:", error instanceof ApiError ? error.message : error);
     throw error;
   }
 }
