@@ -130,7 +130,7 @@ export default function ConnexionScreen() {
       if (profileConfigRaw) {
         router.replace("/(tabs)");
       } else {
-        router.replace("/configuration-profil");
+        router.replace("/config-profil");
       }
     } catch (error) {
       setFormError(getLoginErrorMessage(error));

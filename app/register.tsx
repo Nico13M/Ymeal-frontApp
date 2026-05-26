@@ -147,7 +147,7 @@ if (errors.length > 0) {
         () => undefined
       );
 
-      router.replace("/configuration-profil");
+      router.replace("/config-profil");
     } catch (error) {
       setFormError(getRegisterErrorMessage(error));
     } finally {

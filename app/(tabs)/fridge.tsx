@@ -1,14 +1,17 @@
+
+import { Ionicons } from "@expo/vector-icons";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import React, { useState } from "react";
 import {
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /* ===================== TYPES ===================== */
 type Ingredient = {
@@ -45,9 +48,12 @@ const suggestedIngredients = [
 ];
 
 /* ===================== SCREEN ===================== */
+
 export default function FridgeScreen() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [search, setSearch] = useState("");
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight ? useBottomTabBarHeight() : 0;
 
   // 1. AJOUTER UN INGRÉDIENT
   const handleAddIngredient = (item: any) => {
@@ -144,7 +150,12 @@ export default function FridgeScreen() {
         </View>
 
         {/* LISTE DU FRIGO */}
-        <ScrollView contentContainerStyle={{ padding: 20 }}>
+        <ScrollView
+          contentContainerStyle={{
+            padding: 20,
+            paddingBottom: 32 + tabBarHeight + insets.bottom,
+          }}
+        >
           {Object.keys(grouped).length === 0 && (
               <Text style={styles.emptyText}>Votre frigo est vide.</Text>
           )}
