@@ -173,56 +173,15 @@ export default function RecipeDetailScreen() {
     return [];
   };
 
-  // const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null => {
-  //   const candidates = [response, response.data].filter(Boolean) as unknown[];
-
-  //   for (const candidate of candidates) {
-  //     if (!candidate || typeof candidate !== 'object') continue;
-
-  //     const record = candidate as Record<string, unknown>;
-  //     const nestedData = record.data;
-
-  //     if (nestedData && nestedData !== candidate) {
-  //       const nestedRating = extractMyRating(nestedData as MyRatingApiResponse);
-  //       if (nestedRating) return nestedRating;
-  //     }
-
-  //     if (
-  //       typeof record.id === 'number' &&
-  //       typeof record.rating === 'number' &&
-  //       typeof record.created_at === 'string'
-  //     ) {
-  //       return {
-  //         id: record.id,
-  //         rating: record.rating,
-  //         comment: typeof record.comment === 'string' ? record.comment : null,
-  //         created_at: record.created_at,
-  //         user: record.user as RatingResponse['user']
-  //       };
-  //     }
-  //   }
-
-  //   return null;
-  // };
 const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null => {
-  console.log("=== extractMyRating called ===");
-  console.log("Input response:", JSON.stringify(response, null, 2));
-  
-  // ✅ NOUVELLE LOGIQUE : Vérifier d'abord si response.rating existe
   if (response.rating && typeof response.rating === 'object') {
     const record = response.rating as Record<string, unknown>;
-    
-    console.log("Found response.rating, checking it...");
-    console.log("  record.id:", record.id);
-    console.log("  record.rating:", record.rating);
-    console.log("  record.created_at:", record.created_at);
     
     if (
       typeof record.id === 'number' &&
       typeof record.rating === 'number' &&
       typeof record.created_at === 'string'
     ) {
-      console.log("✅ response.rating matches! Returning...");
       const result = {
         id: record.id,
         rating: record.rating,
@@ -230,20 +189,14 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
         created_at: record.created_at,
         user: record.user as RatingResponse['user']
       };
-      console.log("Result:", result);
       return result;
     }
   }
  
   // Ensuite, essayer l'ancienne logique pour les autres formats
   const candidates = [response, response.data].filter(Boolean) as unknown[];
-  
-  console.log("Fallback: Checking candidates:", candidates.length);
- 
   for (let idx = 0; idx < candidates.length; idx++) {
     const candidate = candidates[idx];
-    console.log(`Candidate ${idx}:`, JSON.stringify(candidate));
-    
     if (!candidate || typeof candidate !== 'object') continue;
  
     const record = candidate as Record<string, unknown>;
@@ -259,7 +212,6 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
       typeof record.rating === 'number' &&
       typeof record.created_at === 'string'
     ) {
-      console.log(`✅ Candidate ${idx} matches!`);
       return {
         id: record.id,
         rating: record.rating,
@@ -270,7 +222,6 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
     }
   }
  
-  console.log("❌ No valid rating found");
   return null;
 };
   const formatIngredientUnit = (unit: RecipeFull['nutrition']['ingredients'][number]['unit']): string => {
@@ -307,16 +258,12 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
         setHasUserRated(true);
       }
     } catch (err) {
-      console.log('Erreur lors du chargement du rating:', err);
       setHasUserRated(false);
     }
   };
-  console.log(hasUserRated)
-  console.log(userRating)
   useEffect(() => {
     if (userRating > 0 && hasUserRated) {
       setShowCommentForm(true);
-      console.log("showing comment form because userRating:", userRating, "hasUserRated:", hasUserRated);
     }
   }, [userRating, hasUserRated]);
  
@@ -326,11 +273,8 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
       credentials: 'include'
     });
 
-    console.log('Ratings response:', response);
-
     setAllRatings(extractRatings(response));
   } catch (err) {
-    console.log('Erreur lors du chargement des ratings:', err);
     setAllRatings([]);
   }
 };
@@ -410,7 +354,6 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
           credentials: 'include',
           headers
         });
-        console.log('Delete response:', response);
         setIsFavorite(false);
         // Décrémenter le compteur de favoris
         setRecipe({
@@ -430,7 +373,6 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
           credentials: 'include',
           headers
         });
-        console.log('Post response:', response);
         setIsFavorite(true);
         // Incrémenter le compteur de favoris
         setRecipe({
@@ -443,7 +385,6 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
         showNotification('Recette sauvegardée dans les favoris', 'success');
       }
     } catch (err) {
-      console.log('Error:', err);
       if (err instanceof ApiError && err.status === 400) {
         // Déjà en favoris
         setIsFavorite(true);
@@ -593,7 +534,7 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
         <View style={[styles.section, sectionStyle]}>
           <Text style={styles.sectionTitle}>Informations</Text>
 
-<View style={[styles.grid, isSmallGrid && styles.gridSingle]}>
+            <View style={[styles.grid, isSmallGrid && styles.gridSingle]}>
 
             <View style={[
               styles.infoCard,
