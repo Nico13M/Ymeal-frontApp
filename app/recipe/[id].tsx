@@ -19,7 +19,7 @@ export default function RecipeDetailScreen() {
   
   const recipe = RECIPES.find(r => r.id === id) || RECIPES[0];
 
-  const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
+  const [checkedSteps, setCheckedSteps] = useState({});
   const [userRating, setUserRating] = useState(0);
   
   // État pour l'astuce aléatoire
@@ -31,11 +31,11 @@ export default function RecipeDetailScreen() {
     setRandomTip(RANDOM_TIPS[index]);
   }, []);
 
-  const toggleStep = (index: number) => {
+  const toggleStep = (index) => {
     setCheckedSteps(prev => ({ ...prev, [index]: !prev[index] }));
   };
 
-  const handleRating = (score: number) => {
+  const handleRating = (score) => {
     setUserRating(score);
   };
 

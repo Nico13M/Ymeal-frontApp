@@ -1,84 +1,50 @@
-# Ymeal Front App - README equipe
+# Welcome to your Expo app 👋
 
+This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-## 1) Configuration API
-Le front utilise `src/lib/api.ts`.
+## Get started
 
-- Base URL via variable d'env:
-  - `EXPO_PUBLIC_API_URL`
-- Si non definie, fallback sur:
-  - `https://ymeal-back.osc-fr1.scalingo.io`
+1. Install dependencies
 
-Exemple `.env` local:
+   ```bash
+   npm install
+   ```
+
+2. Start the app
+
+   ```bash
+   npx expo start
+   ```
+
+In the output, you'll find options to open the app in a
+
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+
+## Get a fresh project
+
+When you're ready, run:
+
 ```bash
-EXPO_PUBLIC_API_URL=https://ymeal-back.osc-fr1.scalingo.io
+npm run reset-project
 ```
 
-## 3) Parcours utilisateur actuel
-1. Register:
-   - appel `/admin/auth/register`
-   - login auto si besoin
-   - stockage session + infos compte en local
-   - redirection `/configuration-profil`
-2. Login:
-   - appel `/admin/auth/login`
-   - stockage session + infos compte en local
-   - si config locale existe -> `/(tabs)`
-   - sinon -> `/configuration-profil`
-5. Configuration profil:
-   - sauvegarde locale (AsyncStorage)
-   - tentative de sync back (best effort)
-   - redirection vers `/(tabs)` meme si sync back echoue
-6. Profil:
-   - affiche infos compte + config depuis AsyncStorage
-   - bouton settings:
-     - modifier configuration (retour vers `/configuration-profil`)
-     - se deconnecter (clear session + clear storage + `/connexion`)
+This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
-## 4) Endpoints back deja relies
-### Auth
-- `POST /admin/auth/register`
-- `POST /admin/auth/login`
+## Learn more
 
-### Profil utilisateur / preferences
-- `GET /admin/security/csrf-token`
-- `POST /admin/recipes/user/data/send`
+To learn more about developing your project with Expo, look at the following resources:
 
-Notes:
-- Le service `src/services/profile-config.ts` gere `X-CSRF-TOKEN`.
-- S'il n'y a pas de vrai token session, la sync back echoue (normal), mais l'UX n'est plus bloquee.
+- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
+- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
-## 5) Stockage local utilise
-Cles `constants/storage.ts`:
-- `accountProfile`
-- `profileConfig`
+## Join the community
 
-Session auth:
-- `@ymeal/session` (dans `src/services/auth.ts`)
+Join our community of developers creating universal apps.
 
-## 8) Etat actuel par ecran
-### Fait
-- `onboarding.tsx`: flux visuel complet, navigation vers register.
-- `register.tsx`: validations, erreurs utilisateur, appel API, login auto, redirection config.
-- `connexion.tsx`: validations, erreurs, appel API, redirection conditionnelle.
-- `configuration-profil.tsx`:
-  - parcours multi-etapes,
-  - pre-remplissage depuis config locale,
-  - autocomplete ville,
-  - sauvegarde locale + sync back non bloquante,
-  - redirection vers tabs.
-- `app/(tabs)/profile.tsx`:
-  - affichage infos locales,
-  - modal settings,
-  - logout.
-
-### A brancher
-- `app/(tabs)/fridge.tsx`
-- `app/(tabs)/recipes.tsx`: base UI locale (data constants), non branchee API.
-- `app/recipe/[id].tsx`: details recette locales, non branche API.
-
-## 10) Priorites recommandees (prochain sprint)
-3. Brancher Frigo et Recettes sur les endpoints back reels.
-4. Recuperer les infos profil depuis back (pas seulement AsyncStorage).
-
-
+- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
+- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.

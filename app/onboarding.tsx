@@ -6,12 +6,11 @@ import React, { useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
-  Image,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -25,27 +24,7 @@ const COLORS = {
   white: '#FFFFFF',
 };
 
-type Slide = {
-  type: 'welcome' | 'features' | 'steps' | 'final';
-  title: string;
-  subtitle?: string;
-  description?: string;
-
-  items?: {
-    icon: keyof typeof Ionicons.glyphMap;
-    title: string;
-    desc: string;
-  }[];
-
-  steps?: {
-    num: string;
-    title: string;
-    desc: string;
-  }[];
-};
-
-
-const SLIDES: Slide[] = [
+const SLIDES = [
   {
     type: 'welcome',
     title: "Mange mieux,\nDépense moins 🎓",
@@ -81,7 +60,7 @@ const SLIDES: Slide[] = [
 
 export default function OnboardingScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
-const slidesRef = useRef<FlatList<Slide>>(null);
+  const slidesRef = useRef(null);
 
   const finishOnboarding = async () => {
     try {
@@ -98,26 +77,25 @@ const slidesRef = useRef<FlatList<Slide>>(null);
     }
   };
 
-const renderItem = ({ item }: { item: Slide }) => {
+  const renderItem = ({ item }) => {
     
     if (item.type === 'welcome') {
       return (
         <View style={{ width, height }}>
           <LinearGradient colors={[COLORS.primary, COLORS.secondary]} style={styles.gradientContainer}>
-            <View style={[styles.contentContainer]}> 
+            <View style={[styles.contentContainer, { marginTop: -50 }]}> 
               <Text style={styles.mainTitle}>{item.title}</Text>
               <Text style={styles.mainDesc}>{item.description}</Text>
               
-              <Image
-  source={require('@/assets/images/logo_ymeal.png')}
-  style={styles.logoImage}
-  resizeMode="contain"
-/>
+              <View style={styles.imagePlaceholder}>
+                <Ionicons name="restaurant-outline" size={80} color={COLORS.primary} />
+                <Text style={{color: '#aaa', marginTop: 10}}>Image Cuisine ici</Text>
+              </View>
 
-              {/* <View style={styles.statsContainer}>
+              <View style={styles.statsContainer}>
                  <Text style={styles.statText}>✨ 10K+ Étudiants</Text>
                  <Text style={styles.statText}>🍲 500+ Recettes</Text>
-              </View> */}
+              </View>
             </View>
           </LinearGradient>
         </View>
@@ -131,7 +109,7 @@ const renderItem = ({ item }: { item: Slide }) => {
           <Text style={styles.darkSubtitle}>{item.subtitle}</Text>
           
           <View style={styles.cardsWrapper}>
-            {item.items?.map((feature, index) => (
+            {item.items.map((feature, index) => (
               <View key={index} style={styles.featureCard}>
                 <View style={styles.iconBox}>
                   <Ionicons name={feature.icon} size={28} color="#FFF" />
@@ -154,7 +132,7 @@ const renderItem = ({ item }: { item: Slide }) => {
            <Text style={styles.darkSubtitle}>{item.subtitle}</Text>
 
            <View style={styles.stepsWrapper}>
-              {item.steps?.map((step, index) => (
+              {item.steps.map((step, index) => (
                 <View key={index} style={styles.stepItem}>
                   <View style={styles.stepCircle}>
                     <Text style={styles.stepNum}>{step.num}</Text>
@@ -175,11 +153,7 @@ const renderItem = ({ item }: { item: Slide }) => {
         <View style={{ width, height }}>
           <LinearGradient colors={[COLORS.primary, COLORS.secondary]} style={styles.gradientContainer}>
              <View style={styles.contentContainer}>
-<Image
-  source={require('@/assets/images/logo_ymeal.png')}
-  style={styles.finalLogo}
-  resizeMode="contain"
-/>
+                <Ionicons name="happy-outline" size={100} color="white" style={{marginBottom: 30}} />
                 <Text style={styles.mainTitle}>{item.title}</Text>
                 <Text style={styles.mainDesc}>{item.description}</Text>
                 
@@ -191,29 +165,25 @@ const renderItem = ({ item }: { item: Slide }) => {
         </View>
       );
     }
-    return null;
   };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle={currentIndex === 1 || currentIndex === 2 ? "dark-content" : "light-content"} />
       
-<FlatList<Slide>
-  ref={slidesRef}
-  data={SLIDES}
-  horizontal
-  pagingEnabled
-  showsHorizontalScrollIndicator={false}
-  bounces={false}
-  keyExtractor={(_, index) => index.toString()}
-  renderItem={renderItem}
-  onMomentumScrollEnd={(e) => {
-    const index = Math.round(
-      e.nativeEvent.contentOffset.x / width
-    );
-    setCurrentIndex(index);
-  }}
-/>
+      <FlatList
+        ref={slidesRef}
+        data={SLIDES}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        bounces={false}
+        renderItem={renderItem}
+        onMomentumScrollEnd={(e) => {
+          const index = Math.round(e.nativeEvent.contentOffset.x / width);
+          setCurrentIndex(index);
+        }}
+      />
 
       {currentIndex < SLIDES.length - 1 && (
         <View style={styles.footer}>
@@ -250,25 +220,12 @@ const renderItem = ({ item }: { item: Slide }) => {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   
-gradientContainer: {
-  flex: 1,
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: 20,
-  paddingTop: 60,
-},
+  gradientContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   creamContainer: { flex: 1, backgroundColor: COLORS.cream, padding: 20, paddingTop: 80, alignItems: 'center' },
   
-contentContainer: {
-  flex: 1,
-  justifyContent: 'center',
-  alignItems: 'center',
-  width: '100%',
-  paddingBottom: 80,
-},
+  contentContainer: { alignItems: 'center', width: '100%' },
 
-  mainTitle: {
-  fontSize: width < 380 ? 28 : 34, fontWeight: '800', color: '#FFF', textAlign: 'center', marginBottom: 20 },
+  mainTitle: { fontSize: 34, fontWeight: '800', color: '#FFF', textAlign: 'center', marginBottom: 20 },
   mainDesc: { fontSize: 17, color: '#FFF', textAlign: 'center', opacity: 0.95, lineHeight: 26, paddingHorizontal: 10 },
   
   darkTitle: { fontSize: 26, fontWeight: 'bold', color: COLORS.dark, marginBottom: 8, textAlign: 'center' },
@@ -318,7 +275,7 @@ contentContainer: {
   stepDesc: { fontSize: 15, color: '#666', textAlign: 'center', lineHeight: 22 },
 
   // --- FOOTER ---
-  footer: { position: 'absolute', bottom: 35, left: 25, right: 25, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  footer: { position: 'absolute', bottom: 50, left: 25, right: 25, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   indicatorContainer: { flexDirection: 'row' },
   indicator: { height: 8, width: 8, borderRadius: 4, marginHorizontal: 4 },
   activeIndicator: { width: 22 },
@@ -327,20 +284,8 @@ contentContainer: {
 
   whiteBtn: { 
     backgroundColor: '#FFF', paddingVertical: 18, paddingHorizontal: 35, 
-    borderRadius: 35, marginTop: 35, width: '90%', alignItems: 'center',
+    borderRadius: 35, marginTop: 50, width: '90%', alignItems: 'center',
     shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 5
   },
-logoImage: {
-  width: width * 0.58,
-  height: 150,
-  marginTop: 10,
-  marginBottom: 0,
-},
-
-finalLogo: {
-  width: 170,
-  height: 120,
-  marginBottom: 10,
-},
   whiteBtnText: { color: COLORS.primary, fontSize: 18, fontWeight: 'bold' }
 });

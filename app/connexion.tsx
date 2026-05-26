@@ -1,177 +1,71 @@
-import { STORAGE_KEYS } from "@/constants/storage";
-import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
-import { loginRequest, saveSession } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { STORAGE_KEYS } from "@/constants/storage";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
-  KeyboardAvoidingView,
+  Alert,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
-type StoredAccount = {
-  firstName?: string;
-  lastName?: string;
-  nickname?: string;
-  email?: string;
-};
-
-function toStringOrUndefined(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function parseStoredAccount(raw: string | null): StoredAccount {
-  if (!raw) return {};
-
-  try {
-    const parsed = JSON.parse(raw) as StoredAccount;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function getLoginErrorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.status === 401 || error.status === 403) {
-      return "Email ou mot de passe incorrect.";
-    }
-    if (error.status === 429) {
-      return "Trop de tentatives. Reessaie dans quelques minutes.";
-    }
-  }
-
-  const fallback = getHumanErrorMessage(error, "Connexion impossible pour le moment.");
-  const normalized = fallback.toLowerCase();
-  if (
-    normalized.includes("invalid") ||
-    normalized.includes("credential") ||
-    normalized.includes("mot de passe") ||
-    normalized.includes("email")
-  ) {
-    return "Email ou mot de passe incorrect.";
-  }
-
-  return fallback;
-}
 
 export default function ConnexionScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   const canSubmit = useMemo(() => {
-    return !isSubmitting && email.trim().length > 3 && password.length >= 6;
-  }, [email, isSubmitting, password]);
+    return email.trim().length > 3 && password.length >= 6;
+  }, [email, password]);
 
   const onLogin = async () => {
-    const trimmedEmail = email.trim();
-    setFormError(null);
+    if (!email.trim()) return Alert.alert("Erreur", "Renseigne ton email.");
+    if (password.length < 6)
+      return Alert.alert("Erreur", "Mot de passe trop court (min 6).");
 
-    if (!trimmedEmail) {
-      setFormError("Renseigne ton email.");
-      return;
-    }
-
-    if (password.length < 6) {
-      setFormError("Mot de passe trop court (min 6).");
-      return;
-    }
-
+    // TODO: appel API / firebase / whatever
+    // Pour l’instant on simule un login OK et on envoie vers les tabs
     try {
-      setIsSubmitting(true);
-
-      const session = await loginRequest({
-        email: trimmedEmail,
-        password,
-      });
-
-      await saveSession(session).catch(() => undefined);
-
-      const existing = parseStoredAccount(await AsyncStorage.getItem(STORAGE_KEYS.accountProfile));
-      const sessionUser = (session.user ?? {}) as Record<string, unknown>;
-
-      const merged: StoredAccount = {
-        firstName:
-          toStringOrUndefined(sessionUser.firstName) ??
-          toStringOrUndefined(sessionUser.firstname) ??
-          existing.firstName,
-        lastName:
-          toStringOrUndefined(sessionUser.lastName) ??
-          toStringOrUndefined(sessionUser.lastname) ??
-          existing.lastName,
-        nickname:
-          toStringOrUndefined(sessionUser.nickname) ??
-          toStringOrUndefined(sessionUser.username) ??
-          existing.nickname,
-        email:
-          toStringOrUndefined(sessionUser.email) ??
-          trimmedEmail.toLowerCase() ??
-          existing.email,
-      };
-
-      await AsyncStorage.setItem(STORAGE_KEYS.accountProfile, JSON.stringify(merged)).catch(
-        () => undefined
+      const existingRaw = await AsyncStorage.getItem(STORAGE_KEYS.accountProfile);
+      const existing = existingRaw ? JSON.parse(existingRaw) : {};
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.accountProfile,
+        JSON.stringify({
+          ...existing,
+          email: email.trim().toLowerCase(),
+        })
       );
-
-      const profileConfigRaw = await AsyncStorage.getItem(STORAGE_KEYS.profileConfig);
-      if (profileConfigRaw) {
-        router.replace("/(tabs)");
-      } else {
-        router.replace("/config-profil");
-      }
-    } catch (error) {
-      setFormError(getLoginErrorMessage(error));
-    } finally {
-      setIsSubmitting(false);
+    } catch {
     }
+
+    router.replace("/(tabs)");
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.keyboard}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
-      >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.content}
-        >
-          <View style={styles.header}>
-            <View style={styles.logoCircle}>
-              <Ionicons name="restaurant" size={22} color="#fff" />
-            </View>
+    <View style={styles.container}>
+      {/* Header logo */}
+      <View style={styles.header}>
+        <View style={styles.logoCircle}>
+          <Ionicons name="restaurant" size={22} color="#fff" />
+        </View>
 
-            <Text style={styles.brand}>Ymeal</Text>
-            <Text style={styles.tagline}>Des recettes adaptees a ton budget etudiant</Text>
-          </View>
+        <Text style={styles.brand}>Ymeal</Text>
+        <Text style={styles.tagline}>Des recettes adaptées à ton budget étudiant</Text>
+      </View>
 
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Se connecter</Text>
+      {/* Card */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Se connecter</Text>
 
         <Text style={styles.label}>Adresse email</Text>
         <View style={styles.inputWrap}>
           <Ionicons name="mail-outline" size={18} color="#9AA3AF" />
           <TextInput
             value={email}
-            onChangeText={(value) => {
-              setEmail(value);
-              if (formError) setFormError(null);
-            }}
+            onChangeText={setEmail}
             placeholder="ton.email@etudiant.fr"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -185,27 +79,13 @@ export default function ConnexionScreen() {
           <Ionicons name="lock-closed-outline" size={18} color="#9AA3AF" />
           <TextInput
             value={password}
-            onChangeText={(value) => {
-              setPassword(value);
-              if (formError) setFormError(null);
-            }}
-            placeholder="********"
-            secureTextEntry={!showPassword}
+            onChangeText={setPassword}
+            placeholder="••••••••"
+            secureTextEntry
             autoCapitalize="none"
             style={styles.input}
           />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-            <Ionicons name={showPassword ? "eye-off" : "eye"} size={18} color="#9AA3AF" />
-          </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-  onPress={() => router.push("/mot-de-passe-oublie" as any)}
->
-  <Text style={styles.forgotPassword}>
-    Mot de passe oublié ?
-  </Text>
-</TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, !canSubmit && styles.buttonDisabled]}
@@ -213,20 +93,17 @@ export default function ConnexionScreen() {
           activeOpacity={0.85}
           disabled={!canSubmit}
         >
-          <Text style={styles.buttonText}>{isSubmitting ? "Connexion..." : "Continuer"}</Text>
+          <Text style={styles.buttonText}>Continuer</Text>
         </TouchableOpacity>
-        {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
 
-            <View style={styles.linksRow}>
-              <Text style={styles.linkText}>Pas de compte ? </Text>
-              <Link href="/register" style={styles.linkAccent}>
-                Creer un compte
-              </Link>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <View style={styles.linksRow}>
+          <Text style={styles.linkText}>Pas de compte ? </Text>
+          <Link href="/register" style={styles.linkAccent}>
+            Créer un compte
+          </Link>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -234,14 +111,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFF7EC",
-  },
-  keyboard: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
     paddingHorizontal: 24,
-    paddingVertical: 18,
     justifyContent: "center",
   },
 
@@ -335,13 +205,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 14,
   },
-  errorText: {
-    marginTop: 10,
-    fontSize: 12,
-    color: "#DC2626",
-    textAlign: "center",
-    fontWeight: "600",
-  },
 
   linksRow: {
     flexDirection: "row",
@@ -358,13 +221,14 @@ const styles = StyleSheet.create({
     color: "#FF7A00",
   },
 
-forgotPassword: {
-  alignSelf: "flex-end",
-  marginTop: 2,
-  marginBottom: 12,
-  color: "#FF7A00",
-  fontSize: 12,
-  fontWeight: "600",
-},
-
+  forgotWrap: {
+    alignItems: "center",
+    marginTop: 10,
+  },
+  forgot: {
+    fontSize: 12,
+    color: "#64748B",
+    textDecorationLine: "underline",
+  },
 });
+
