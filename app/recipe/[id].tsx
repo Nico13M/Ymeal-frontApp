@@ -1096,22 +1096,26 @@ infoCardFull: {
 
   commentForm: {
     marginTop: 16,
-    width: '100%'
+    width: '100%',
+    alignItems: 'center'
   },
 
   commentInput: {
     backgroundColor: '#F3F4F6',
     borderRadius: 12,
     padding: 12,
-    minHeight: 80
+    minHeight: 80,
+    width: '100%',
   },
 
   submitBtn: {
     marginTop: 12,
+    marginBottom: 8,
     backgroundColor: '#FF9F1C',
     padding: 12,
     borderRadius: 12,
-    alignItems: 'center'
+    alignItems: 'center',
+    width: '25%',
   },
 
   submitBtnText: {
@@ -1123,7 +1127,8 @@ infoCardFull: {
     backgroundColor: '#EF4444',
     padding: 12,
     borderRadius: 12,
-    alignItems: 'center'
+    alignItems: 'center',
+    width: '25%'
   },
 
   deleteBtnText: {

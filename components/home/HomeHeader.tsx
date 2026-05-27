@@ -1,18 +1,30 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
-export default function HomeHeader() {
+type HomeHeaderProps = {
+  displayName?: string;
+};
+
+export default function HomeHeader({ displayName }: HomeHeaderProps) {
+  const greeting = displayName?.trim()
+    ? `Bonjour ${displayName.trim()} !`
+    : 'Bonjour !';
+
   return (
     <View style={styles.headerContainer}>
       <View style={styles.headerTop}>
         <View style={styles.brandRow}>
-          <Text style={styles.brandName}>Ymeal</Text>
+          <Image
+            source={require('@/assets/images/text_logo.svg')}
+            style={styles.brandLogo}
+            resizeMode="contain"
+          />
         </View>
       </View>
-      <Text style={styles.greetingTitle}>Bonjour ! 👋</Text>
-      <Text style={styles.greetingSub}>Prêt à cuisiner quelque chose de délicieux ?</Text>
+      <Text style={styles.greetingTitle}>{greeting}</Text>
+      <Text style={styles.greetingSub}>Prêt cuisiner quelque chose de délicieux ?</Text>
     </View>
-  );
+  );  
 }
 
 const styles = StyleSheet.create({
@@ -33,10 +45,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'flex-end',
   },
-  brandName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFF',
+  brandLogo: {
+    marginTop: 5,
+    marginLeft: 10,
+    width: 150,
+    height: 30,
   },
   greetingTitle: {
     fontSize: 32,
@@ -49,3 +62,4 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.9)',
   },
 });
+

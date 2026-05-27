@@ -9,6 +9,7 @@ import {
   updateIngredientQuantity,
   type BackendIngredient,
 } from "@/src/services/fridge";
+import { STORAGE_KEYS } from "@/constants/storage";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
@@ -69,9 +70,6 @@ function toSuggested(ing: BackendIngredient): SuggestedIngredient {
     emoji: getConfig(ing.name).emoji,
   };
 }
-
-/* ===================== STORAGE ===================== */
-const STORAGE_KEYS = { frigoIngredients: "@ymeal/frigo_ingredients" };
 
 /* ===================== SCREEN ===================== */
 

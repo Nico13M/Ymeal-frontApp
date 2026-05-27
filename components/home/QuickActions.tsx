@@ -5,9 +5,10 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type QuickActionsProps = {
   isMobile: boolean;
+  fridgeCount: number;
 };
 
-export default function QuickActions({ isMobile }: QuickActionsProps) {
+export default function QuickActions({ isMobile, fridgeCount }: QuickActionsProps) {
   return (
     <View style={[styles.actionsContainer, isMobile && styles.actionsContainerMobile]}>
       <Link href="/(tabs)/fridge" asChild>
@@ -16,9 +17,11 @@ export default function QuickActions({ isMobile }: QuickActionsProps) {
             <View style={[styles.iconBox, { backgroundColor: '#E3F2FD' }]}>
               <Ionicons name="cube-outline" size={24} color="#2196F3" />
             </View>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>3</Text>
-            </View>
+            {fridgeCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{fridgeCount}</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.actionTitle}>Mon Frigo</Text>
           <Text style={styles.actionDesc}>Gère ton inventaire et génère des recettes</Text>
