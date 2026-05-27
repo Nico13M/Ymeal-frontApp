@@ -141,11 +141,32 @@ export default function ConnexionScreen() {
         () => undefined
       );
 
-      const profileConfigRaw = await AsyncStorage.getItem(STORAGE_KEYS.profileConfig);
+      const profileConfigRaw = await AsyncStorage.getItem(
+  STORAGE_KEYS.profileConfig
+);
+
       if (profileConfigRaw) {
         router.replace("/(tabs)");
       } else {
-        router.replace("/config-profil");
+        const createdAt = session?.user?.createdAt;
+
+        if (!createdAt) {
+          router.replace("/(tabs)");
+          return;
+        }
+
+        const createdDate = new Date((createdAt as string) || "").getTime();
+        const now = Date.now();
+
+        const ONE_HOUR = 60 * 60 * 1000;
+
+        const isNewUser = now - createdDate < ONE_HOUR;
+
+        if (isNewUser) {
+          router.replace("/config-profil");
+        } else {
+          router.replace("/(tabs)");
+        }
       }
     } catch (error) {
       setFormError(getLoginErrorMessage(error));

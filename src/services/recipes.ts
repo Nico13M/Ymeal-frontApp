@@ -1,5 +1,5 @@
 import { ApiError, apiRequest } from "@/src/lib/api";
-import { getSession } from "./auth";
+import { getCsrfToken, getSession } from "./auth";
 
 const COOKIE_SESSION_TOKEN = "__cookie_session__";
 
@@ -7,11 +7,14 @@ export type RecipeIngredient = {
   id: number;
   name: string;
   quantity: number;
-  unit: string | {
-    id: number;
-    name: string;
-    symbol: string;
-  } | null;
+  unit:
+    | string
+    | {
+        id: number;
+        name: string;
+        symbol: string;
+      }
+    | null;
 };
 
 export type RecipeDiet = {
@@ -61,7 +64,18 @@ export type RecipeFull = {
   author: RecipeAuthor | null;
   nutrition: RecipeNutrition;
   engagement: RecipeEngagement;
-  steps?: string[]; // Pour les étapes de préparation (si disponibles)
+  steps?: string[];
+  created_at: string | null;
+
+  // Statistiques d'avis et d'engagement ajoutées
+  favorites_count?: number;
+  ratings?: any;
+  ratings_count?: number;
+  reviews_count?: number;
+  comments_count?: number;
+  average_rating?: number;
+  avg_rating?: number;
+  rating_average?: number;
 };
 
 export type RecipeMinimal = {
@@ -72,11 +86,18 @@ export type RecipeMinimal = {
   description: string;
   servings: number;
   difficulty: string | null;
+  created_at: string | null;
   timing: {
     duration: number | null;
     prep_time: number | null;
   };
   author: string;
+  ratings?: {
+    stats?: {
+      average?: number | null;
+      count?: number | null;
+    } | null;
+  } | null;
   favorites_count: number;
 };
 
@@ -89,9 +110,43 @@ export type SearchResult = {
   };
 };
 
+
+/* ===================== TYPES IA ===================== */
+
+export type RecipePredictionRequest = {
+  ingredient_search?: string;
+  ingredients_selected?: string[];
+  frigo?: boolean;
+  nombre_personne?: number;
+  difficulte?: string;
+  type_plat?: string;
+  temps_minutes?: number;
+  contexte_personnel?: string;
+  regime?: string;
+  ingredients_interdits?: string[];
+};
+
+export type RecipePredictionResponse = {
+  recipe: string;
+  model: string; 
+};
+
+export type TrendingRecipesResult = {
+  window: {
+    days: number;
+    since: string;
+  };
+  recipes: RecipeMinimal[];
+  total_results: number;
+
+};
+
 /* ===================== HELPER ===================== */
 
-async function getToken(): Promise<{ token: string | undefined; userId: number | undefined }> {
+async function getToken(): Promise<{
+  token: string | undefined;
+  userId: number | undefined;
+}> {
   const session = await getSession();
   if (!session?.token) throw new Error("Session utilisateur introuvable.");
   const isCookie = session.token === COOKIE_SESSION_TOKEN;
@@ -116,10 +171,13 @@ export async function getRecipes(): Promise<RecipeFull[]> {
       credentials: "include",
       headers: buildHeaders(userId),
     });
-    console.log(data)
+    console.log(data);
     return data ?? [];
   } catch (error) {
-    console.error("[RECIPES] getRecipes:", error instanceof ApiError ? error.message : error);
+    console.error(
+      "[RECIPES] getRecipes:",
+      error instanceof ApiError ? error.message : error,
+    );
     throw error;
   }
 }
@@ -135,7 +193,10 @@ export async function getRecipe(recipeId: number): Promise<RecipeFull> {
     });
     return data!;
   } catch (error) {
-    console.error("[RECIPES] ❌ getRecipe:", error instanceof ApiError ? error.message : error);
+    console.error(
+      "[RECIPES] ❌ getRecipe:",
+      error instanceof ApiError ? error.message : error,
+    );
     throw error;
   }
 }
@@ -152,7 +213,8 @@ export async function searchRecipes(params: {
     const queryParams = new URLSearchParams();
     if (params.query) queryParams.append("query", params.query);
     if (params.difficulty) queryParams.append("difficulty", params.difficulty);
-    if (params.servings) queryParams.append("servings", params.servings.toString());
+    if (params.servings)
+      queryParams.append("servings", params.servings.toString());
     if (params.frigo) queryParams.append("frigo", "true");
 
     const url = `/admin/recipes/search?${queryParams.toString()}`;
@@ -164,8 +226,136 @@ export async function searchRecipes(params: {
     });
     return data!;
   } catch (error) {
-    console.error("[RECIPES] ❌ searchRecipes:", error instanceof ApiError ? error.message : error);
+    console.error(
+      "[RECIPES] ❌ searchRecipes:",
+      error instanceof ApiError ? error.message : error,
+    );
     throw error;
+  }
+}
+
+export async function getTrendingRecipes(): Promise<TrendingRecipesResult> {
+  try {
+    const { token, userId } = await getToken();
+    const data = await apiRequest<TrendingRecipesResult>("/admin/recipes/trending", {
+      method: "GET",
+      token,
+      credentials: "include",
+      headers: buildHeaders(userId),
+    });
+    return data;
+  } catch (error) {
+    console.error("[RECIPES] ❌ getTrendingRecipes:", error instanceof ApiError ? error.message : error);
+    throw error;
+  }
+}
+
+export async function getRecipeRatingsCount(recipeId: number): Promise<number> {
+  try {
+    const { token, userId } = await getToken();
+    const response = await apiRequest<unknown>(`/admin/ratings/recipes/${recipeId}`, {
+      method: "GET",
+      token,
+      credentials: "include",
+      headers: buildHeaders(userId),
+    });
+
+    if (Array.isArray(response)) {
+      return response.length;
+    }
+
+    if (response && typeof response === "object") {
+      const payload = response as {
+        data?: { ratings?: unknown[] } | unknown[];
+        ratings?: unknown[];
+        stats?: { count?: number };
+      };
+
+      if (typeof payload.stats?.count === "number") {
+        return payload.stats.count;
+      }
+
+      if (Array.isArray(payload.data)) {
+        return payload.data.length;
+      }
+
+      if (payload.data && typeof payload.data === "object" && Array.isArray((payload.data as { ratings?: unknown[] }).ratings)) {
+        return (payload.data as { ratings: unknown[] }).ratings.length;
+      }
+
+      if (Array.isArray(payload.ratings)) {
+        return payload.ratings.length;
+      }
+    }
+
+    return 0;
+  } catch (error) {
+    console.error("[RECIPES] ❌ getRecipeRatingsCount:", error instanceof ApiError ? error.message : error);
+    return 0;
+  }
+}
+
+export async function getRecipeRatingsStats(recipeId: number): Promise<{ count: number; average: number }> {
+  try {
+    const { token, userId } = await getToken();
+    const response = await apiRequest<unknown>(`/admin/ratings/recipes/${recipeId}`, {
+      method: "GET",
+      token,
+      credentials: "include",
+      headers: buildHeaders(userId),
+    });
+
+    const extractRatings = (payload: unknown): Array<{ rating?: number }> => {
+      if (Array.isArray(payload)) return payload as Array<{ rating?: number }>;
+
+      if (!payload || typeof payload !== "object") return [];
+
+      const record = payload as {
+        data?: { ratings?: Array<{ rating?: number }> } | Array<{ rating?: number }>;
+        ratings?: Array<{ rating?: number }>;
+        stats?: {
+          average?: number | null;
+          count?: number | null;
+        };
+      };
+
+      if (typeof record.stats?.average === "number" || typeof record.stats?.count === "number") {
+        return [];
+      }
+
+      if (Array.isArray(record.data)) return record.data;
+      if (record.data && typeof record.data === "object" && Array.isArray((record.data as { ratings?: Array<{ rating?: number }> }).ratings)) {
+        return (record.data as { ratings: Array<{ rating?: number }> }).ratings;
+      }
+      if (Array.isArray(record.ratings)) return record.ratings;
+
+      return [];
+    };
+
+    if (response && typeof response === "object") {
+      const payload = response as {
+        stats?: {
+          average?: number | null;
+          count?: number | null;
+        };
+      };
+
+      if (typeof payload.stats?.count === "number") {
+        return {
+          count: payload.stats.count,
+          average: typeof payload.stats.average === "number" ? payload.stats.average : 0,
+        };
+      }
+    }
+
+    const ratings = extractRatings(response).filter((item) => typeof item.rating === "number");
+    const count = ratings.length;
+    const average = count > 0 ? ratings.reduce((sum, item) => sum + (item.rating as number), 0) / count : 0;
+
+    return { count, average };
+  } catch (error) {
+    console.error("[RECIPES] ❌ getRecipeRatingsStats:", error instanceof ApiError ? error.message : error);
+    return { count: 0, average: 0 };
   }
 }
 
@@ -180,7 +370,10 @@ export async function getFavorites(): Promise<RecipeMinimal[]> {
     });
     return data ?? [];
   } catch (error) {
-    console.error("[RECIPES] ❌ getFavorites:", error instanceof ApiError ? error.message : error);
+    console.error(
+      "[RECIPES] ❌ getFavorites:",
+      error instanceof ApiError ? error.message : error,
+    );
     throw error;
   }
 }
@@ -195,7 +388,10 @@ export async function addToFavorites(recipeId: number): Promise<void> {
       headers: buildHeaders(userId),
     });
   } catch (error) {
-    console.error("[RECIPES] ❌ addToFavorites:", error instanceof ApiError ? error.message : error);
+    console.error(
+      "[RECIPES] ❌ addToFavorites:",
+      error instanceof ApiError ? error.message : error,
+    );
     throw error;
   }
 }
@@ -210,7 +406,10 @@ export async function removeFromFavorites(recipeId: number): Promise<void> {
       headers: buildHeaders(userId),
     });
   } catch (error) {
-    console.error("[RECIPES] ❌ removeFromFavorites:", error instanceof ApiError ? error.message : error);
+    console.error(
+      "[RECIPES] ❌ removeFromFavorites:",
+      error instanceof ApiError ? error.message : error,
+    );
     throw error;
   }
 }
@@ -226,7 +425,11 @@ export async function createRecipe(payload: {
   dish_type?: string;
   image?: string;
   diet_ids?: number[];
-  ingredients?: Array<{ ingredient_id: number; quantity: number; unit?: string }>;
+  ingredients?: Array<{
+    ingredient_id: number;
+    quantity: number;
+    unit?: string;
+  }>;
 }): Promise<RecipeFull> {
   try {
     const { token, userId } = await getToken();
@@ -239,7 +442,41 @@ export async function createRecipe(payload: {
     });
     return data!;
   } catch (error) {
-    console.error("[RECIPES] ❌ createRecipe:", error instanceof ApiError ? error.message : error);
+    console.error(
+      "[RECIPES] ❌ createRecipe:",
+      error instanceof ApiError ? error.message : error,
+    );
+    throw error;
+  }
+}
+
+/* ===================== API CALLS IA ===================== */
+export async function generateAiRecipe(
+  payload: RecipePredictionRequest,
+): Promise<RecipePredictionResponse> {
+  try {
+    const { token, userId } = await getToken();
+
+    // Récupération du jeton CSRF
+    const csrfToken = await getCsrfToken();
+
+    const data = await apiRequest<RecipePredictionResponse>(
+      "/admin/recipes/generate",
+      {
+        method: "POST",
+        token,
+        credentials: "include",
+        headers: {
+          ...buildHeaders(userId),
+          "X-CSRF-TOKEN": csrfToken,
+        },
+        body: payload, // ✅ C'est ici que j'ai enlevé le JSON.stringify !
+      },
+    );
+
+    return data!;
+  } catch (error) {
+    console.error("[RECIPES] ❌ generateAiRecipe:", error);
     throw error;
   }
 }

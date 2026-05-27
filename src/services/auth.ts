@@ -40,7 +40,9 @@ function getTokenFromPayload(payload: unknown): string | null {
 
   const data = payload as Record<string, unknown>;
   const nestedData =
-    data.data && typeof data.data === "object" ? (data.data as Record<string, unknown>) : null;
+    data.data && typeof data.data === "object"
+      ? (data.data as Record<string, unknown>)
+      : null;
 
   const candidates = [
     data.token,
@@ -67,7 +69,9 @@ function getUserFromPayload(payload: unknown): UserProfile | null {
 
   const data = payload as Record<string, unknown>;
   const nestedData =
-    data.data && typeof data.data === "object" ? (data.data as Record<string, unknown>) : null;
+    data.data && typeof data.data === "object"
+      ? (data.data as Record<string, unknown>)
+      : null;
 
   const candidates = [data.user, nestedData?.user, nestedData, data];
 
@@ -83,7 +87,9 @@ function getUserFromPayload(payload: unknown): UserProfile | null {
   return null;
 }
 
-export function resolveUserId(user: UserProfile | null | undefined): string | number | null {
+export function resolveUserId(
+  user: UserProfile | null | undefined,
+): string | number | null {
   if (!user || typeof user !== "object") return null;
 
   const candidates = [
@@ -121,7 +127,9 @@ function extractCsrfToken(payload: unknown): string | null {
 
   const data = payload as Record<string, unknown>;
   const nestedData =
-    data.data && typeof data.data === "object" ? (data.data as Record<string, unknown>) : null;
+    data.data && typeof data.data === "object"
+      ? (data.data as Record<string, unknown>)
+      : null;
 
   const candidates = [
     data.csrfToken,
@@ -141,7 +149,7 @@ function extractCsrfToken(payload: unknown): string | null {
   return null;
 }
 
-async function getCsrfToken(): Promise<string> {
+export async function getCsrfToken(): Promise<string> {
   const payload = await apiRequest<unknown>("/admin/security/csrf-token", {
     method: "GET",
     credentials: "include",
@@ -156,7 +164,9 @@ async function getCsrfToken(): Promise<string> {
   return token;
 }
 
-export async function loginRequest(credentials: AuthCredentials): Promise<AuthSession> {
+export async function loginRequest(
+  credentials: AuthCredentials,
+): Promise<AuthSession> {
   const payload = await apiRequest<unknown>("/admin/auth/login", {
     method: "POST",
     credentials: "include",
@@ -172,7 +182,9 @@ export async function loginRequest(credentials: AuthCredentials): Promise<AuthSe
   };
 }
 
-export async function registerRequest(credentials: RegisterPayload): Promise<AuthSession | null> {
+export async function registerRequest(
+  credentials: RegisterPayload,
+): Promise<AuthSession | null> {
   const registerBody = {
     firstname: credentials.firstname,
     lastname: credentials.lastname,
@@ -202,7 +214,11 @@ export async function getSession(): Promise<AuthSession | null> {
 
   try {
     const parsed = JSON.parse(raw) as AuthSession;
-    if (!parsed || typeof parsed.token !== "string" || parsed.token.trim().length === 0) {
+    if (
+      !parsed ||
+      typeof parsed.token !== "string" ||
+      parsed.token.trim().length === 0
+    ) {
       return null;
     }
     return parsed;
@@ -220,15 +236,15 @@ export async function updateUserRequest(
   payload: UpdateUserPayload,
   options?: {
     onDebug?: (message: string) => void;
-  }
+  },
 ): Promise<void> {
-  
   const session = await getSession();
   if (!session?.token) {
     console.error("[UPDATE_USER] No session token found");
-    throw new Error("Session utilisateur introuvable. Reconnecte-toi puis reessaie.");
+    throw new Error(
+      "Session utilisateur introuvable. Reconnecte-toi puis reessaie.",
+    );
   }
-
 
   const normalizedUserId = String(userId).trim();
   if (!normalizedUserId) {
@@ -236,12 +252,12 @@ export async function updateUserRequest(
     throw new Error("Identifiant utilisateur manquant.");
   }
 
-
   let csrfToken: string;
   try {
     csrfToken = await getCsrfToken();
   } catch (csrfError) {
-    const csrfErrorMsg = csrfError instanceof Error ? csrfError.message : String(csrfError);
+    const csrfErrorMsg =
+      csrfError instanceof Error ? csrfError.message : String(csrfError);
     console.error("[UPDATE_USER] CSRF fetch error:", csrfErrorMsg);
     throw csrfError;
   }
@@ -260,7 +276,6 @@ export async function updateUserRequest(
         pseudo: (payload as any).pseudo,
       },
     });
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("[UPDATE_USER] PATCH error:", errorMessage);
@@ -275,5 +290,3 @@ export async function updateUserRequest(
     throw new Error(errorMessage);
   }
 }
-
-
