@@ -791,6 +791,15 @@ export default function OnboardingScreen() {
         barStyle="dark-content"
       />
 
+      <TouchableOpacity
+  style={styles.skipButton}
+  onPress={finishOnboarding}
+>
+  <Text style={styles.skipButtonText}>
+    Passer
+  </Text>
+</TouchableOpacity>
+
 {isWebDesktop ? (
 
 <FlatList
@@ -798,7 +807,18 @@ export default function OnboardingScreen() {
   keyExtractor={() => 'web'}
   showsVerticalScrollIndicator={false}
 
-  renderItem={() => (
+renderItem={() => (
+
+  <View style={{ flex: 1 }}>
+
+    {/* <TouchableOpacity
+      style={styles.skipButton}
+      onPress={finishOnboarding}
+    >
+      <Text style={styles.skipButtonText}>
+        Passer
+      </Text>
+    </TouchableOpacity> */}
 
     <View style={styles.webContainer}>
 
@@ -931,7 +951,7 @@ export default function OnboardingScreen() {
       </LinearGradient>
 
     </View>
-
+  </View>
   )}
 />
 
@@ -1020,21 +1040,20 @@ webContainer: {
   flexWrap: 'wrap',
 
   justifyContent: 'center',
-  alignItems: 'flex-start',
 
-  gap: 40,
+columnGap: 50,
+rowGap: 80,
+paddingBottom: 80,
 
   paddingVertical: 60,
   paddingHorizontal: 40,
 
   backgroundColor: COLORS.cream,
-
-  minHeight: '100%',
 },
 
   webCard: {
-    width: 500,
-    minHeight: 420,
+  width: 500,
+  height: 420,
     backgroundColor: COLORS.cream,
     borderRadius: 28,
     padding: 30,
@@ -1043,7 +1062,7 @@ webContainer: {
 
   webGradientCard: {
     width: 500,
-    minHeight: 420,
+    height: 420,
     borderRadius: 28,
     padding: 30,
     justifyContent: 'center',
@@ -1275,6 +1294,35 @@ webContainer: {
     height: 150,
     marginTop: 10,
   },
+
+skipButton: {
+  position: 'absolute',
+
+  top: Platform.OS === 'web' ? 30 : 60,
+  right: Platform.OS === 'web' ? 40 : 24,
+
+  zIndex: 999,
+
+  paddingVertical: 10,
+  paddingHorizontal: 18,
+
+  borderRadius: 999,
+
+  backgroundColor: 'rgba(255,255,255,0.92)',
+
+  shadowColor: '#000',
+  shadowOpacity: 0.08,
+  shadowRadius: 10,
+  elevation: 5,
+},
+
+skipButtonText: {
+  color: COLORS.dark,
+  fontSize: 14,
+  fontWeight: '700',
+},
+
+
 
   finalLogo: {
     width: 170,

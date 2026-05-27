@@ -11,6 +11,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -398,7 +399,12 @@ export default function ProfileScreen() {
           </View>
         </LinearGradient>
 
-        <View style={styles.sheet}>
+        <View
+  style={[
+    styles.sheet,
+    Platform.OS === "web" && styles.webSheet,
+  ]}
+>
           <Text style={styles.sheetTitle}>{"Infos d'inscription"}</Text>
 
           <InfoRow
@@ -623,6 +629,13 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 34,
     borderBottomRightRadius: 34,
   },
+
+  webSheet: {
+  width: "100%",
+  maxWidth: 1100,
+  alignSelf: "center",
+},
+
   settingsIconButton: {
     width: 40,
     height: 40,
