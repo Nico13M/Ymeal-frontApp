@@ -87,7 +87,6 @@ export default function RecipesScreen() {
   const numColumns = isDesktop ? 4 : isTablet ? 2 : 1;
 
   const inputRef = useRef<any>(null);
-
   const getRatingsCount = useCallback((recipe: any): number => {
     if (typeof recipe.ratings?.stats?.count === "number") return recipe.ratings.stats.count;
     if (typeof recipe.ratings_count === "number") return recipe.ratings_count;
@@ -118,26 +117,26 @@ export default function RecipesScreen() {
       try {
         const data = await getRecipes();
         setRecipes(
-          data.map((r) => ({
-            id: r.id,
-            name: r.name,
-            slug: r.slug,
-            image: r.image,
-            description: r.description,
-            servings: r.servings,
-            difficulty: r.difficulty,
-            timing: r.timing,
-            author: r.author?.name || "Inconnu",
-            created_at: r.created_at,
-            favorites_count: r.engagement?.favorites_count ?? r.favorites_count ?? 0,
-            ratings: r.ratings,
-            ratings_count: r.ratings_count,
-            reviews_count: r.reviews_count,
-            comments_count: r.comments_count,
-            average_rating: r.average_rating,
-            avg_rating: r.avg_rating,
-            rating_average: r.rating_average,
-          }))
+            data.map((r) => ({
+              id: r.id,
+              name: r.name,
+              slug: r.slug,
+              image: r.image,
+              description: r.description,
+              servings: r.servings,
+              difficulty: r.difficulty,
+              timing: r.timing,
+              author: r.author?.name || "Inconnu",
+              favorites_count: r.engagement?.favorites_count ?? r.favorites_count ?? 0,
+              created_at: r.created_at,
+              ratings: r.ratings,
+              ratings_count: r.ratings_count,
+              reviews_count: r.reviews_count,
+              comments_count: r.comments_count,
+              average_rating: r.average_rating,
+              avg_rating: r.avg_rating,
+              rating_average: r.rating_average,
+            })),
         );
       } catch (err) {
         setError(
@@ -332,6 +331,8 @@ export default function RecipesScreen() {
 
   const renderRecipeItem = ({ item }: { item: any }) => {
     const difficultyColors = getDifficultyColors(item.difficulty || "");
+    const avgRating = getAverageRating(item);
+    const reviewsCount = getRatingsCount(item);
 
     return (
       <TouchableOpacity
@@ -349,11 +350,15 @@ export default function RecipesScreen() {
             </Text>
           </View>
 
-          <View style={[styles.rowBetween, styles.metaContainer]}>
-            <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={14} color="#666" />
-              <Text style={styles.metaText}>
-                {(item.timing?.prep_time ?? 0) + (item.timing?.duration ?? 0)} min
+            {/* LIGNE 1 : Titre */}
+            <View style={styles.rowBetween}>
+              <Text numberOfLines={2} style={styles.cardTitle}>
+                {item.name}
+//           <View style={[styles.rowBetween, styles.metaContainer]}>
+//             <View style={styles.metaItem}>
+//               <Ionicons name="time-outline" size={14} color="#666" />
+//               <Text style={styles.metaText}>
+//                 {(item.timing?.prep_time ?? 0) + (item.timing?.duration ?? 0)} min
               </Text>
             </View>
             <View
@@ -365,18 +370,67 @@ export default function RecipesScreen() {
             </View>
           </View>
 
-          <View style={[styles.rowBetween, styles.cardFooter]}>
+            {/* LIGNE 2 : Durée (gauche) et Difficulté (droite) */}
+            <View style={[styles.rowBetween, styles.metaContainer]}>
+              <View style={styles.metaItem}>
+                <Ionicons name="time-outline" size={14} color="#666" />
+                <Text style={styles.metaText}>
+                  {(item.timing?.prep_time ?? 0) + (item.timing?.duration ?? 0)} min
+                </Text>
+              </View>
+
+              <View
+                  style={[
+                    styles.tag,
+                    { backgroundColor: difficultyColors.backgroundColor },
+                  ]}
+              >
+                <Text style={[styles.tagText, { color: difficultyColors.textColor }]}>
+                  {item.difficulty || "Moyen"}
+                </Text>
+              </View>
+            </View>
+
+            {/* LIGNE 3 : Bloc d'avis/étoiles/favoris (gauche) et lien d'action (droite) */}
+            <View style={[styles.rowBetween, styles.cardFooter]}>
+              <View style={styles.statsContainer}>
+                {/* Étoiles & Avis */}
+                <View style={styles.ratingInlineRow}>
+                  <Ionicons name="star" size={14} color="#FF9F1C" />
+                  <Text style={styles.ratingValueText}>
+                    {formatAverageRating(avgRating)}
+                  </Text>
+                  <Text style={styles.reviewsCountText}>
+                    ({reviewsCount})
+                  </Text>
+                </View>
+
+                {/* Séparateur visuel discret entre notes et favoris */}
+                <View style={styles.bulletSeparator} />
+
+                {/* Favoris */}
+                <View style={styles.favInlineRow}>
+                  <Ionicons name="heart" size={14} color="#E63946" />
+                  <Text style={styles.favCountText}>
+                    {item.favorites_count}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.linkText}>Voir ➔</Text>
+
+<!--           <View style={[styles.rowBetween, styles.cardFooter]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <View style={styles.ratingBadge}>
                 <Ionicons name="star" size={12} color="#FFF" />
                 <Text style={styles.ratingText}>
-                  {formatAverageRating(getAverageRating(item))} ({getRatingsCount(item)})
+//                   {formatAverageRating(getAverageRating(item))} ({getRatingsCount(item)})
                 </Text>
               </View>
               <View style={styles.favBadge}>
                 <Ionicons name="heart" size={12} color="#E63946" />
                 <Text style={styles.favText}>{item.favorites_count}</Text>
-              </View>
+              </View> -->
             </View>
             <Text style={styles.linkText}>Voir ➔</Text>
           </View>
@@ -907,13 +961,16 @@ const styles = StyleSheet.create({
   cardDesktop: { width: "23.3%", flexGrow: 0, flexShrink: 0, marginRight: "2.2%" },
   cardImage: { width: "100%", height: 180 },
   cardContent: { flex: 1, padding: 16, justifyContent: "space-between" },
-  cardFooter: { marginTop: 12, alignItems: "center" },
+  cardFooter: { marginTop: 12, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   cardTitle: { fontSize: 18, fontWeight: "bold", color: "#333", width: "100%", marginBottom: 4 },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  ratingBadge: { flexDirection: "row", backgroundColor: "#FFC107", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignItems: "center" },
-  ratingText: { fontSize: 12, fontWeight: "bold", marginLeft: 4, color: "#FFF" },
-  favBadge: { flexDirection: "row", backgroundColor: "#FFEBEB", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignItems: "center" },
-  favText: { fontSize: 12, fontWeight: "bold", marginLeft: 4, color: "#E63946" },
+  statsContainer: { flexDirection: "row", alignItems: "center" },
+  ratingInlineRow: { flexDirection: "row", alignItems: "center" },
+  ratingValueText: { fontSize: 13, fontWeight: "700", color: "#333", marginLeft: 4 },
+  reviewsCountText: { fontSize: 12, color: "#888", marginLeft: 2 },
+  bulletSeparator: { width: 4, height: 4, borderRadius: 2, backgroundColor: "#CCC", marginHorizontal: 8 },
+  favInlineRow: { flexDirection: "row", alignItems: "center" },
+  favCountText: { fontSize: 13, fontWeight: "600", color: "#666", marginLeft: 4 },
   metaContainer: { width: "100%", marginTop: 4, marginBottom: 4 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 5 },
   metaText: { color: "#666", fontSize: 13 },
