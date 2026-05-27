@@ -12,12 +12,16 @@ export type BackendUnit = {
 export type BackendIngredient = {
   id: number;
   name: string;
+  image: string;
+  category: string;
   slug: string;
 };
 
 export type BackendFrigoIngredient = {
   id: number;
   name: string;
+  image: string;
+  category: string;
   slug: string;
   quantity: number;
   unit: BackendUnit | null;
@@ -35,7 +39,7 @@ export async function getUnits(): Promise<BackendUnit[]> {
       credentials: "include",
       headers: buildHeaders(userId),
     });
-    
+
     return data ?? [];
   } catch (error) {
     console.error("[UNITS] ❌ getUnits:", error instanceof ApiError ? error.message : error);
@@ -92,9 +96,9 @@ export async function getFrigoIngredients(): Promise<BackendFrigoIngredient[]> {
 }
 
 export async function addIngredientToFrigo(
-  ingredientId: number,
-  quantity: number = 1,
-  unitId?: number
+    ingredientId: number,
+    quantity: number = 1,
+    unitId?: number
 ): Promise<BackendFrigoIngredient> {
   try {
     const { token, userId } = await getToken();
@@ -113,9 +117,9 @@ export async function addIngredientToFrigo(
 }
 
 export async function updateIngredientQuantity(
-  ingredientId: number,
-  quantity: number,
-  unitId?: number
+    ingredientId: number,
+    quantity: number,
+    unitId?: number
 ): Promise<BackendFrigoIngredient> {
   try {
     const { token, userId } = await getToken();

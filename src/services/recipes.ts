@@ -64,7 +64,18 @@ export type RecipeFull = {
   author: RecipeAuthor | null;
   nutrition: RecipeNutrition;
   engagement: RecipeEngagement;
-  steps?: string[]; // Pour les étapes de préparation (si disponibles)
+  steps?: string[];
+  created_at: string | null;
+
+  // Statistiques d'avis et d'engagement ajoutées
+  favorites_count?: number;
+  ratings?: any;
+  ratings_count?: number;
+  reviews_count?: number;
+  comments_count?: number;
+  average_rating?: number;
+  avg_rating?: number;
+  rating_average?: number;
 };
 
 export type RecipeMinimal = {
