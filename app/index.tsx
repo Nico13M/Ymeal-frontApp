@@ -1,7 +1,5 @@
 // app/index.tsx
-import { STORAGE_KEYS } from "@/constants/storage";
 import { getSession } from "@/src/services/auth";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Redirect } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -20,10 +18,8 @@ export default function StartPage() {
           if (mounted) setHref("/onboarding");
           return;
         }
-
-        const profileConfig = await AsyncStorage.getItem(STORAGE_KEYS.profileConfig);
         if (mounted) {
-          setHref(profileConfig ? "/(tabs)" : "/config-profil");
+          setHref("/(tabs)");
         }
       } catch {
         if (mounted) setHref("/onboarding");
