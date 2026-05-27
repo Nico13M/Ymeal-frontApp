@@ -1,3 +1,4 @@
+import { STORAGE_KEYS } from "@/constants/storage";
 import useRequireAuth from "@/src/hooks/useRequireAuth";
 import {
   addIngredientToFrigo,
@@ -6,14 +7,14 @@ import {
   getFrigoIngredients,
   getUnits,
   removeIngredientFromFrigo,
+  searchAvailableIngredients,
   updateIngredientQuantity,
   type BackendIngredient,
 } from "@/src/services/fridge";
-import { STORAGE_KEYS } from "@/constants/storage";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -23,8 +24,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
   useWindowDimensions,
+  View,
 } from "react-native";
 
 /* ===================== TYPES ===================== */
@@ -84,6 +85,7 @@ export default function FridgeScreen() {
 
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [allSuggestions, setAllSuggestions] = useState<SuggestedIngredient[]>([]);
+  const [searchResults, setSearchResults] = useState<SuggestedIngredient[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +106,8 @@ export default function FridgeScreen() {
   const dynamicCategories = Array.from(
       new Set(allSuggestions.map((s) => s.category).filter(Boolean))
   );
+  const normalizedSearch = search.replace(/\s+/g, "");
+  const canSearch = normalizedSearch.length >= 3;
 
   // Configuration de la grille adaptative
   const containerPadding = 40;
@@ -195,6 +199,38 @@ export default function FridgeScreen() {
   useFocusEffect(
       useCallback(() => { loadFrigo(); }, [loadFrigo])
   );
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!canSearch) {
+      setSearchResults([]);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        const results = await searchAvailableIngredients(search);
+        if (!isActive) {
+          return;
+        }
+        setSearchResults(results.map(toSuggested));
+      } catch (err) {
+        if (!isActive) {
+          return;
+        }
+        setSearchResults([]);
+        setError(err instanceof Error ? err.message : "Erreur lors de la recherche des ingrédients");
+      }
+    }, 250);
+
+    return () => {
+      isActive = false;
+      clearTimeout(timeoutId);
+    };
+  }, [canSearch, search]);
 
   if (checking) {
     return (
@@ -343,13 +379,11 @@ export default function FridgeScreen() {
       .filter((s) => !ingredients.find((i) => i.name.toLowerCase() === s.name.toLowerCase()))
       .slice(0, 6);
 
-  const filteredResults = allSuggestions.filter(
-      (s) =>
-          s.name.toLowerCase().includes(search.toLowerCase()) &&
-          !ingredients.find((i) => i.name.toLowerCase() === s.name.toLowerCase())
-  );
+    const filteredResults = searchResults.filter(
+      (s) => !ingredients.find((i) => i.name.toLowerCase() === s.name.toLowerCase())
+    );
 
-  const isSearching = search.length > 0;
+    const isSearching = canSearch;
 
   return (
       <SafeAreaView style={styles.container}>
@@ -389,7 +423,7 @@ export default function FridgeScreen() {
           </View>
 
           {/* SUGGESTIONS */}
-          {search.length === 0 && quickSuggestions.length > 0 && (
+          {!isSearching && quickSuggestions.length > 0 && (
               <View style={{ marginTop: 15 }}>
                 <Text style={styles.sectionLabel}>Suggestions rapides</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -412,7 +446,7 @@ export default function FridgeScreen() {
               <View style={[styles.searchResults, { maxHeight: screenHeight * 0.4 }]}>
                 <ScrollView keyboardShouldPersistTaps="handled">
                   {filteredResults.length === 0 ? (
-                      <Text style={{ padding: 15, color: "#ADB5BD" }}>Aucun résultat dans la base</Text>
+                  <Text style={{ padding: 15, color: "#ADB5BD" }}>Aucun résultat dans la base</Text>
                   ) : (
                       filteredResults.map((s) => (
                           <TouchableOpacity
@@ -429,6 +463,11 @@ export default function FridgeScreen() {
                   )}
                 </ScrollView>
               </View>
+          )}
+          {!isSearching && search.length > 0 && (
+              <Text style={{ marginTop: 10, color: "#ADB5BD", fontSize: 13 }}>
+                Tapez au moins 3 caractères sans compter les espaces pour lancer la recherche.
+              </Text>
           )}
         </View>
 
