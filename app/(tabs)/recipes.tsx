@@ -3,7 +3,7 @@ import { getFrigoIngredients } from "@/src/services/fridge";
 import {
   generateAiRecipe,
   getRecipes,
-  type RecipeMinimal,
+  saveAiRecipe
 } from "@/src/services/recipes";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -63,10 +63,10 @@ export default function RecipesScreen() {
   const [useFrigo, setUseFrigo] = useState(false);
   const [ingredientInput, setIngredientInput] = useState("");
   const [addedIngredients, setAddedIngredients] = useState<
-      { name: string; emoji: string }[]
+    { name: string; emoji: string }[]
   >([]);
   const [fridgeItems, setFridgeItems] = useState<
-      { name: string; emoji: string; selected?: boolean }[]
+    { name: string; emoji: string; selected?: boolean }[]
   >([]);
 
   const [recipes, setRecipes] = useState<any[]>([]);
@@ -74,9 +74,10 @@ export default function RecipesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
 
-  const [generatedRecipeText, setGeneratedRecipeText] = useState<string | null>(
-      null,
-  );
+  const [generatedRecipeText, setGeneratedRecipeText] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedRecipeId, setSavedRecipeId] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
@@ -86,34 +87,24 @@ export default function RecipesScreen() {
   const numColumns = isDesktop ? 4 : isTablet ? 2 : 1;
 
   const inputRef = useRef<any>(null);
-
-  // Méthodes de calcul des notes et avis identiques à index.tsx
   const getRatingsCount = useCallback((recipe: any): number => {
-    if (typeof recipe.ratings?.stats?.count === 'number') return recipe.ratings.stats.count;
-    if (typeof recipe.ratings_count === 'number') return recipe.ratings_count;
-    if (typeof recipe.reviews_count === 'number') return recipe.reviews_count;
-    if (typeof recipe.comments_count === 'number') return recipe.comments_count;
+    if (typeof recipe.ratings?.stats?.count === "number") return recipe.ratings.stats.count;
+    if (typeof recipe.ratings_count === "number") return recipe.ratings_count;
+    if (typeof recipe.reviews_count === "number") return recipe.reviews_count;
+    if (typeof recipe.comments_count === "number") return recipe.comments_count;
     return 0;
   }, []);
 
   const getAverageRating = useCallback((recipe: any): number => {
-    if (typeof recipe.ratings?.stats?.average === 'number') {
-      return recipe.ratings.stats.average;
-    }
-    if (typeof recipe.average_rating === 'number') {
-      return recipe.average_rating;
-    }
-    if (typeof recipe.avg_rating === 'number') {
-      return recipe.avg_rating;
-    }
-    if (typeof recipe.rating_average === 'number') {
-      return recipe.rating_average;
-    }
+    if (typeof recipe.ratings?.stats?.average === "number") return recipe.ratings.stats.average;
+    if (typeof recipe.average_rating === "number") return recipe.average_rating;
+    if (typeof recipe.avg_rating === "number") return recipe.avg_rating;
+    if (typeof recipe.rating_average === "number") return recipe.rating_average;
     return 0;
   }, []);
 
   const formatAverageRating = useCallback((average: number): string => {
-    if (!Number.isFinite(average) || average <= 0) return '0.0';
+    if (!Number.isFinite(average) || average <= 0) return "0.0";
     return average.toFixed(1);
   }, []);
 
@@ -149,9 +140,7 @@ export default function RecipesScreen() {
         );
       } catch (err) {
         setError(
-            err instanceof Error
-                ? err.message
-                : "Erreur lors du chargement des recettes",
+          err instanceof Error ? err.message : "Erreur lors du chargement des recettes"
         );
       } finally {
         setLoading(false);
@@ -162,18 +151,15 @@ export default function RecipesScreen() {
   }, [checking]);
 
   const filteredRecipes = recipes.filter(
-      (recipe) =>
-          recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          recipe.description.toLowerCase().includes(searchQuery.toLowerCase()),
+    (recipe) =>
+      recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      recipe.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const recipesPerPage = isDesktop ? 32 : isTablet ? 16 : 8;
   const totalPages = Math.ceil(filteredRecipes.length / recipesPerPage);
   const startIndex = (currentPage - 1) * recipesPerPage;
-  const paginatedRecipes = filteredRecipes.slice(
-      startIndex,
-      startIndex + recipesPerPage,
-  );
+  const paginatedRecipes = filteredRecipes.slice(startIndex, startIndex + recipesPerPage);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -194,10 +180,7 @@ export default function RecipesScreen() {
     if (ingredientInput.trim() === "" || useFrigo) return;
     const name = ingredientInput.toLowerCase().trim();
     const emoji = EMOJI_MAP[name] || "🍲";
-    setAddedIngredients([
-      ...addedIngredients,
-      { name: ingredientInput, emoji },
-    ]);
+    setAddedIngredients([...addedIngredients, { name: ingredientInput, emoji }]);
     setIngredientInput("");
   };
 
@@ -227,10 +210,10 @@ export default function RecipesScreen() {
 
   if (checking || loading) {
     return (
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <ActivityIndicator size="large" color="#00C853" />
-          <Text style={{ marginTop: 10, color: "#666" }}>Chargement...</Text>
-        </View>
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#00C853" />
+        <Text style={{ marginTop: 10, color: "#666" }}>Chargement...</Text>
+      </View>
     );
   }
 
@@ -241,7 +224,7 @@ export default function RecipesScreen() {
 
       if (copy[index].selected) {
         const exists = addedIngredients.some(
-            (a) => a.name.toLowerCase() === copy[index].name.toLowerCase(),
+          (a) => a.name.toLowerCase() === copy[index].name.toLowerCase()
         );
         if (!exists)
           setAddedIngredients((s) => [
@@ -250,9 +233,7 @@ export default function RecipesScreen() {
           ]);
       } else {
         setAddedIngredients((s) =>
-            s.filter(
-                (a) => a.name.toLowerCase() !== copy[index].name.toLowerCase(),
-            ),
+          s.filter((a) => a.name.toLowerCase() !== copy[index].name.toLowerCase())
         );
       }
 
@@ -261,34 +242,45 @@ export default function RecipesScreen() {
   };
 
   const Selector = ({ label, options, current, setter }: any) => (
-      <View style={styles.selectorContainer}>
-        <Text style={styles.selectorLabel}>{label}</Text>
-        <View style={styles.chipRow}>
-          {options.map((opt: string) => (
-              <TouchableOpacity
-                  key={opt}
-                  onPress={() => setter(opt)}
-                  style={[styles.chip, current === opt && styles.chipActive]}
-              >
-                <Text
-                    style={[
-                      styles.chipText,
-                      current === opt && styles.chipTextActive,
-                    ]}
-                >
-                  {opt}
-                </Text>
-              </TouchableOpacity>
-          ))}
-        </View>
+    <View style={styles.selectorContainer}>
+      <Text style={styles.selectorLabel}>{label}</Text>
+      <View style={styles.chipRow}>
+        {options.map((opt: string) => (
+          <TouchableOpacity
+            key={opt}
+            onPress={() => setter(opt)}
+            style={[styles.chip, current === opt && styles.chipActive]}
+          >
+            <Text style={[styles.chipText, current === opt && styles.chipTextActive]}>
+              {opt}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
+    </View>
   );
+
+  const handleSaveRecipe = async () => {
+    if (!generatedRecipeText) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const saved = await saveAiRecipe(generatedRecipeText, { dishType: type });
+      setSavedRecipeId(saved.id);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Erreur lors de la sauvegarde");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleGenerate = async () => {
     try {
       setSearching(true);
       setError(null);
       setGeneratedRecipeText(null);
+      setSavedRecipeId(null);
+      setSaveError(null);
 
       let tempsMinutes = 45;
       if (time === "Express") tempsMinutes = 15;
@@ -311,9 +303,9 @@ export default function RecipesScreen() {
       }
     } catch (err) {
       setError(
-          err instanceof Error
-              ? err.message
-              : "Erreur lors de la génération. As-tu bien lancé l'IA ?",
+        err instanceof Error
+          ? err.message
+          : "Erreur lors de la génération. As-tu bien lancé l'IA ?"
       );
     } finally {
       setSearching(false);
@@ -343,22 +335,40 @@ export default function RecipesScreen() {
     const reviewsCount = getRatingsCount(item);
 
     return (
-        <TouchableOpacity
-            style={getCardStyle()}
-            onPress={() => router.push(`/recipe/${item.id}`)}
-        >
-          <Image
-              source={{ uri: item.image || "https://via.placeholder.com/300" }}
-              style={styles.cardImage}
-          />
-          <View style={styles.cardContent}>
+      <TouchableOpacity
+        style={getCardStyle()}
+        onPress={() => router.push(`/recipe/${item.id}`)}
+      >
+        <Image
+          source={{ uri: item.image || "https://via.placeholder.com/300" }}
+          style={styles.cardImage}
+        />
+        <View style={styles.cardContent}>
+          <View style={styles.rowBetween}>
+            <Text numberOfLines={2} style={styles.cardTitle}>
+              {item.name}
+            </Text>
+          </View>
 
             {/* LIGNE 1 : Titre */}
             <View style={styles.rowBetween}>
               <Text numberOfLines={2} style={styles.cardTitle}>
                 {item.name}
+//           <View style={[styles.rowBetween, styles.metaContainer]}>
+//             <View style={styles.metaItem}>
+//               <Ionicons name="time-outline" size={14} color="#666" />
+//               <Text style={styles.metaText}>
+//                 {(item.timing?.prep_time ?? 0) + (item.timing?.duration ?? 0)} min
               </Text>
             </View>
+            <View
+              style={[styles.tag, { backgroundColor: difficultyColors.backgroundColor }]}
+            >
+              <Text style={[styles.tagText, { color: difficultyColors.textColor }]}>
+                {item.difficulty || "Moyen"}
+              </Text>
+            </View>
+          </View>
 
             {/* LIGNE 2 : Durée (gauche) et Difficulté (droite) */}
             <View style={[styles.rowBetween, styles.metaContainer]}>
@@ -408,10 +418,24 @@ export default function RecipesScreen() {
               </View>
 
               <Text style={styles.linkText}>Voir ➔</Text>
-            </View>
 
+<!--           <View style={[styles.rowBetween, styles.cardFooter]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <View style={styles.ratingBadge}>
+                <Ionicons name="star" size={12} color="#FFF" />
+                <Text style={styles.ratingText}>
+//                   {formatAverageRating(getAverageRating(item))} ({getRatingsCount(item)})
+                </Text>
+              </View>
+              <View style={styles.favBadge}>
+                <Ionicons name="heart" size={12} color="#E63946" />
+                <Text style={styles.favText}>{item.favorites_count}</Text>
+              </View> -->
+            </View>
+            <Text style={styles.linkText}>Voir ➔</Text>
           </View>
-        </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -422,454 +446,440 @@ export default function RecipesScreen() {
   };
 
   return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor="#00C853" barStyle="light-content" />
+    <View style={styles.container}>
+      <StatusBar backgroundColor="#00C853" barStyle="light-content" />
 
-        {/* HEADER */}
-        <View style={[styles.header, !isMobile && styles.headerDesktop]}>
-          {!showGenerator && isSearchActive ? (
-              <View style={styles.searchBarContainer}>
-                <Ionicons
-                    name="search"
-                    size={20}
-                    color="#00C853"
-                    style={{ marginRight: 10 }}
-                />
-                <TextInput
-                    ref={inputRef}
-                    style={styles.searchInput}
-                    placeholder="Chercher une recette..."
-                    placeholderTextColor="#888"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    returnKeyType="search"
-                    onSubmitEditing={toggleSearch}
-                />
-                <TouchableOpacity onPress={toggleSearch}>
-                  <Ionicons name="close-circle" size={24} color="#888" />
-                </TouchableOpacity>
-              </View>
-          ) : !showGenerator ? (
-              <View style={styles.headerRow}>
-                <Text style={styles.headerTitle} numberOfLines={1}>
-                  Recettes pour vous
-                </Text>
-                <View style={styles.headerActions}>
-                  <TouchableOpacity
-                      onPress={toggleSearch}
-                      style={styles.headerIconBtn}
-                  >
-                    <Ionicons name="search" size={22} color="#FFF" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                      onPress={() => setShowGenerator(true)}
-                      style={styles.generatorBtn}
-                  >
-                    <Ionicons name="sparkles" size={16} color="#00C853" />
-                    <Text style={styles.generatorBtnText}>Générateur</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-          ) : (
-              <View style={styles.headerRow}>
-                <Text style={styles.headerTitle} numberOfLines={1}>
-                  Générateur
-                </Text>
-                <TouchableOpacity
-                    onPress={() => setShowGenerator(false)}
-                    style={styles.generatorBtn}
-                >
-                  <Ionicons name="list" size={16} color="#00C853" />
-                  <Text style={styles.generatorBtnText}>Toutes les recettes</Text>
-                </TouchableOpacity>
-              </View>
-          )}
-        </View>
-
-        {showGenerator ? (
-            <ScrollView contentContainerStyle={styles.scrollForm}>
-              {error && (
-                  <View
-                      style={{
-                        backgroundColor: "#FFEBEE",
-                        padding: 10,
-                        borderRadius: 8,
-                        marginBottom: 15,
-                      }}
-                  >
-                    <Text style={{ color: "#DC2626" }}>{error}</Text>
-                  </View>
-              )}
-              <View style={styles.inputGroup}>
-                <Text style={styles.selectorLabel}>Ingrédients spécifiques</Text>
-                <View style={styles.row}>
-                  <View
-                      style={[
-                        styles.searchBarContainer,
-                        { flex: 1, marginRight: 10 },
-                        useFrigo && { backgroundColor: "#F0F0F0", opacity: 0.6 },
-                      ]}
-                  >
-                    <TextInput
-                        placeholder={
-                          useFrigo
-                              ? "Désactivé (Mode Frigo)"
-                              : "Ajouter un ingrédient..."
-                        }
-                        style={{ flex: 1 }}
-                        value={ingredientInput}
-                        onChangeText={setSearchQuery}
-                        editable={!useFrigo}
-                        onSubmitEditing={handleAddIngredient}
-                    />
-                    <TouchableOpacity
-                        onPress={handleAddIngredient}
-                        disabled={useFrigo}
-                    >
-                      <Ionicons
-                          name="add-circle"
-                          size={24}
-                          color={useFrigo ? "#CCC" : "#00C853"}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity
-                      onPress={() => setUseFrigo(!useFrigo)}
-                      style={[styles.frigoBtn, useFrigo && styles.frigoBtnActive]}
-                  >
-                    <Ionicons
-                        name="fast-food"
-                        size={20}
-                        color={useFrigo ? "#FFF" : "#00C853"}
-                    />
-                    <Text
-                        style={[styles.frigoBtnText, useFrigo && { color: "#FFF" }]}
-                    >
-                      Frigo
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {useFrigo ? (
-                    <View style={{ marginTop: 10 }}>
-                      <Text style={styles.selectorLabel}>Ingrédients du frigo</Text>
-                      <View
-                          style={[styles.chipRow, { flexWrap: "wrap", marginTop: 10 }]}
-                      >
-                        {fridgeItems.map((fi, i) => (
-                            <TouchableOpacity
-                                key={fi.name + i}
-                                onPress={() => toggleFridgeSelection(i)}
-                                style={[
-                                  styles.chip,
-                                  {
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    marginBottom: 8,
-                                  },
-                                  fi.selected && { backgroundColor: "#C8E6C9" },
-                                ]}
-                            >
-                              <Text>
-                                {fi.emoji} {fi.name}
-                              </Text>
-                            </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                ) : (
-                    addedIngredients.length > 0 && (
-                        <View
-                            style={[styles.chipRow, { flexWrap: "wrap", marginTop: 10 }]}
-                        >
-                          {addedIngredients.map((ing, index) => (
-                              <View
-                                  key={index}
-                                  style={[
-                                    styles.chip,
-                                    {
-                                      flexDirection: "row",
-                                      alignItems: "center",
-                                      backgroundColor: "#E8F5E9",
-                                    },
-                                  ]}
-                              >
-                                <Text>
-                                  {ing.emoji} {ing.name}
-                                </Text>
-                                <TouchableOpacity
-                                    onPress={() => removeIngredient(index)}
-                                    style={{ marginLeft: 8 }}
-                                >
-                                  <Ionicons name="close-circle" size={16} color="#666" />
-                                </TouchableOpacity>
-                              </View>
-                          ))}
-                        </View>
-                    )
-                )}
-              </View>
-
-              <View style={styles.counterGroup}>
-                <Text style={styles.selectorLabel}>Nombre de personnes</Text>
-                <View style={styles.counter}>
-                  <TouchableOpacity
-                      onPress={() => setNbPers(Math.max(1, nbPers - 1))}
-                  >
-                    <Ionicons
-                        name="remove-circle-outline"
-                        size={32}
-                        color="#00C853"
-                    />
-                  </TouchableOpacity>
-                  <Text style={styles.counterText}>{nbPers}</Text>
-                  <TouchableOpacity onPress={() => setNbPers(nbPers + 1)}>
-                    <Ionicons name="add-circle-outline" size={32} color="#00C853" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <Selector
-                  label="Difficulté"
-                  options={["Débutant", "Moyen", "Difficile"]}
-                  current={difficulty}
-                  setter={setDifficulty}
-              />
-              <Selector
-                  label="Type de plat"
-                  options={["Entrée", "Plat", "Dessert"]}
-                  current={type}
-                  setter={setType}
-              />
-              <Selector
-                  label="Temps"
-                  options={["Express", "Moyen", "Mijoté"]}
-                  current={time}
-                  setter={setTime}
-              />
-              <Selector
-                  label="Budget"
-                  options={["Éco", "Équilibré", "Gourmet"]}
-                  current={price}
-                  setter={setPrice}
-              />
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.selectorLabel}>
-                  Contexte / Régime (Optionnel)
-                </Text>
-                <TextInput
-                    style={styles.textArea}
-                    multiline
-                    placeholder="Ex: Pas de lait, Sans gluten, Halal..."
-                    value={context}
-                    onChangeText={setContext}
-                />
-              </View>
-
-              <TouchableOpacity
-                  style={styles.generateBtn}
-                  onPress={handleGenerate}
-                  disabled={searching}
-              >
-                <LinearGradient
-                    colors={["#FF9F1C", "#FF7E05"]}
-                    style={styles.gradientBtn}
-                >
-                  {searching ? (
-                      <ActivityIndicator size="small" color="#FFF" />
-                  ) : (
-                      <>
-                        <Text style={styles.generateBtnText}>Générer la recette</Text>
-                        <Ionicons name="color-wand" size={20} color="#FFF" />
-                      </>
-                  )}
-                </LinearGradient>
+      {/* HEADER */}
+      <View style={[styles.header, !isMobile && styles.headerDesktop]}>
+        {!showGenerator && isSearchActive ? (
+          <View style={styles.searchBarContainer}>
+            <Ionicons name="search" size={20} color="#00C853" style={{ marginRight: 10 }} />
+            <TextInput
+              ref={inputRef}
+              style={styles.searchInput}
+              placeholder="Chercher une recette..."
+              placeholderTextColor="#888"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              onSubmitEditing={toggleSearch}
+            />
+            <TouchableOpacity onPress={toggleSearch}>
+              <Ionicons name="close-circle" size={24} color="#888" />
+            </TouchableOpacity>
+          </View>
+        ) : !showGenerator ? (
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              Recettes pour vous
+            </Text>
+            <View style={styles.headerActions}>
+              <TouchableOpacity onPress={toggleSearch} style={styles.headerIconBtn}>
+                <Ionicons name="search" size={22} color="#FFF" />
               </TouchableOpacity>
-
-              {/* AFFICHAGE DU RESULTAT DE L'IA */}
-              {generatedRecipeText && (
-                  <View
-                      style={{
-                        marginTop: 25,
-                        backgroundColor: "#FFF",
-                        padding: 20,
-                        borderRadius: 15,
-                        borderWidth: 2,
-                        borderColor: "#FF9F1C",
-                      }}
-                  >
-                    <Text
-                        style={{
-                          fontSize: 18,
-                          fontWeight: "bold",
-                          color: "#FF9F1C",
-                          marginBottom: 15,
-                        }}
-                    >
-                      ✨ Ta recette sur mesure :
-                    </Text>
-                    <Text style={{ fontSize: 15, lineHeight: 24, color: "#333" }}>
-                      {generatedRecipeText}
-                    </Text>
-                    <TouchableOpacity
-                        style={{
-                          marginTop: 15,
-                          alignSelf: "center",
-                          padding: 10,
-                          backgroundColor: "#F5F5F5",
-                          borderRadius: 8,
-                        }}
-                        onPress={() => setGeneratedRecipeText(null)}
-                    >
-                      <Text style={{ color: "#666", fontWeight: "bold" }}>
-                        Fermer la recette
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-              )}
-            </ScrollView>
+              <TouchableOpacity
+                onPress={() => setShowGenerator(true)}
+                style={styles.generatorBtn}
+              >
+                <Ionicons name="sparkles" size={16} color="#00C853" />
+                <Text style={styles.generatorBtnText}>Générateur</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         ) : (
-            <>
-              {loading && (
-                  <View
-                      style={{
-                        flex: 1,
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                  >
-                    <ActivityIndicator size="large" color="#00C853" />
-                    <Text style={{ marginTop: 10, color: "#666" }}>
-                      Chargement des recettes...
-                    </Text>
-                  </View>
-              )}
-
-              {error && (
-                  <View
-                      style={{
-                        flex: 1,
-                        justifyContent: "center",
-                        alignItems: "center",
-                        padding: 20,
-                      }}
-                  >
-                    <Text
-                        style={{ color: "#DC2626", fontSize: 16, textAlign: "center" }}
-                    >
-                      {error}
-                    </Text>
-                  </View>
-              )}
-
-              {!loading && !error && (
-                  <View style={{ flex: 1 }}>
-                    <FlatList
-                        data={paginatedRecipes}
-                        keyExtractor={(item) => item.id.toString()}
-                        key={numColumns}
-                        numColumns={numColumns}
-                        columnWrapperStyle={
-                          numColumns > 1 ? getColumnWrapperStyle() : undefined
-                        }
-                        contentContainerStyle={[
-                          styles.listContent,
-                          !isMobile && styles.listContentDesktop,
-                        ]}
-                        renderItem={renderRecipeItem}
-                        ListEmptyComponent={
-                          <View style={{ alignItems: "center", marginTop: 50 }}>
-                            <Text style={{ color: "#888" }}>
-                              Aucune recette trouvée pour {searchQuery} 😕
-                            </Text>
-                          </View>
-                        }
-                        ListHeaderComponent={() =>
-                            !isSearchActive && searchQuery === "" ? (
-                                <LinearGradient
-                                    colors={["#FF9F1C", "#FFC107"]}
-                                    style={
-                                      !isMobile ? styles.promoCardDesktop : styles.promoCard
-                                    }
-                                    start={{ x: 0, y: 0 }}
-                                    end={{ x: 1, y: 1 }}
-                                >
-                                  <View style={{ flexDirection: "row", marginBottom: 10 }}>
-                                    <Ionicons name="trending-up" size={24} color="#FFF" />
-                                    <Text style={styles.promoTitle}>
-                                      Recommandations personnalisées
-                                    </Text>
-                                  </View>
-                                  <Text style={styles.promoDesc}>
-                                    Ces recettes utilisent au maximum les ingrédients de ton
-                                    frigo pour éviter le gaspillage !
-                                  </Text>
-                                </LinearGradient>
-                            ) : null
-                        }
-                    />
-                    {filteredRecipes.length > recipesPerPage && (
-                        <View style={styles.paginationContainer}>
-                          <TouchableOpacity
-                              style={[
-                                styles.paginationBtn,
-                                currentPage === 1 && styles.paginationBtnDisabled,
-                              ]}
-                              onPress={() => setCurrentPage(currentPage - 1)}
-                              disabled={currentPage === 1}
-                          >
-                            <Ionicons
-                                name="chevron-back"
-                                size={20}
-                                color={currentPage === 1 ? "#CCC" : "#00C853"}
-                            />
-                          </TouchableOpacity>
-
-                          <View style={styles.paginationInfo}>
-                            {Array.from({ length: totalPages }).map((_, i) => (
-                                <TouchableOpacity
-                                    key={i + 1}
-                                    onPress={() => setCurrentPage(i + 1)}
-                                    style={[
-                                      styles.pageBtn,
-                                      currentPage === i + 1 && styles.pageBtnActive,
-                                    ]}
-                                >
-                                  <Text
-                                      style={[
-                                        styles.pageText,
-                                        currentPage === i + 1 && styles.pageTextActive,
-                                      ]}
-                                  >
-                                    {i + 1}
-                                  </Text>
-                                </TouchableOpacity>
-                            ))}
-                          </View>
-
-                          <TouchableOpacity
-                              style={[
-                                styles.paginationBtn,
-                                currentPage === totalPages &&
-                                styles.paginationBtnDisabled,
-                              ]}
-                              onPress={() => setCurrentPage(currentPage + 1)}
-                              disabled={currentPage === totalPages}
-                          >
-                            <Ionicons
-                                name="chevron-forward"
-                                size={20}
-                                color={currentPage === totalPages ? "#CCC" : "#00C853"}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                    )}
-                  </View>
-              )}
-            </>
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              Générateur
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowGenerator(false)}
+              style={styles.generatorBtn}
+            >
+              <Ionicons name="list" size={16} color="#00C853" />
+              <Text style={styles.generatorBtnText}>Toutes les recettes</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
+
+      {showGenerator ? (
+        <ScrollView contentContainerStyle={styles.scrollForm}>
+          {error && (
+            <View
+              style={{
+                backgroundColor: "#FFEBEE",
+                padding: 10,
+                borderRadius: 8,
+                marginBottom: 15,
+              }}
+            >
+              <Text style={{ color: "#DC2626" }}>{error}</Text>
+            </View>
+          )}
+
+          {/* Ingrédients */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.selectorLabel}>Ingrédients spécifiques</Text>
+            <View style={styles.row}>
+              <View
+                style={[
+                  styles.searchBarContainer,
+                  { flex: 1, marginRight: 10 },
+                  useFrigo && { backgroundColor: "#F0F0F0", opacity: 0.6 },
+                ]}
+              >
+                <TextInput
+                  placeholder={
+                    useFrigo ? "Désactivé (Mode Frigo)" : "Ajouter un ingrédient..."
+                  }
+                  style={{ flex: 1 }}
+                  value={ingredientInput}
+                  onChangeText={setIngredientInput}
+                  editable={!useFrigo}
+                  onSubmitEditing={handleAddIngredient}
+                />
+                <TouchableOpacity onPress={handleAddIngredient} disabled={useFrigo}>
+                  <Ionicons
+                    name="add-circle"
+                    size={24}
+                    color={useFrigo ? "#CCC" : "#00C853"}
+                  />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                onPress={() => setUseFrigo(!useFrigo)}
+                style={[styles.frigoBtn, useFrigo && styles.frigoBtnActive]}
+              >
+                <Ionicons
+                  name="fast-food"
+                  size={20}
+                  color={useFrigo ? "#FFF" : "#00C853"}
+                />
+                <Text style={[styles.frigoBtnText, useFrigo && { color: "#FFF" }]}>
+                  Frigo
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {useFrigo ? (
+              <View style={{ marginTop: 10 }}>
+                <Text style={styles.selectorLabel}>Ingrédients du frigo</Text>
+                <View style={[styles.chipRow, { flexWrap: "wrap", marginTop: 10 }]}>
+                  {fridgeItems.map((fi, i) => (
+                    <TouchableOpacity
+                      key={fi.name + i}
+                      onPress={() => toggleFridgeSelection(i)}
+                      style={[
+                        styles.chip,
+                        { flexDirection: "row", alignItems: "center", marginBottom: 8 },
+                        fi.selected && { backgroundColor: "#C8E6C9" },
+                      ]}
+                    >
+                      <Text>
+                        {fi.emoji} {fi.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              addedIngredients.length > 0 && (
+                <View style={[styles.chipRow, { flexWrap: "wrap", marginTop: 10 }]}>
+                  {addedIngredients.map((ing, index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.chip,
+                        {
+                          flexDirection: "row",
+                          alignItems: "center",
+                          backgroundColor: "#E8F5E9",
+                        },
+                      ]}
+                    >
+                      <Text>
+                        {ing.emoji} {ing.name}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => removeIngredient(index)}
+                        style={{ marginLeft: 8 }}
+                      >
+                        <Ionicons name="close-circle" size={16} color="#666" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              )
+            )}
+          </View>
+
+          {/* Nombre de personnes */}
+          <View style={styles.counterGroup}>
+            <Text style={styles.selectorLabel}>Nombre de personnes</Text>
+            <View style={styles.counter}>
+              <TouchableOpacity onPress={() => setNbPers(Math.max(1, nbPers - 1))}>
+                <Ionicons name="remove-circle-outline" size={32} color="#00C853" />
+              </TouchableOpacity>
+              <Text style={styles.counterText}>{nbPers}</Text>
+              <TouchableOpacity onPress={() => setNbPers(nbPers + 1)}>
+                <Ionicons name="add-circle-outline" size={32} color="#00C853" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <Selector
+            label="Difficulté"
+            options={["Débutant", "Moyen", "Difficile"]}
+            current={difficulty}
+            setter={setDifficulty}
+          />
+          <Selector
+            label="Type de plat"
+            options={["Entrée", "Plat", "Dessert"]}
+            current={type}
+            setter={setType}
+          />
+          <Selector
+            label="Temps"
+            options={["Express", "Moyen", "Mijoté"]}
+            current={time}
+            setter={setTime}
+          />
+          <Selector
+            label="Budget"
+            options={["Éco", "Équilibré", "Gourmet"]}
+            current={price}
+            setter={setPrice}
+          />
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.selectorLabel}>Contexte / Régime (Optionnel)</Text>
+            <TextInput
+              style={styles.textArea}
+              multiline
+              placeholder="Ex: Pas de lait, Sans gluten, Halal..."
+              value={context}
+              onChangeText={setContext}
+            />
+          </View>
+
+          {/* Bouton Générer */}
+          <TouchableOpacity
+            style={[styles.generateBtn, searching && { opacity: 0.6 }]}
+            onPress={handleGenerate}
+            disabled={searching}
+          >
+            <LinearGradient
+              colors={["#FF9F1C", "#FFC107"]}
+              style={styles.gradientBtn}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              {searching ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={20} color="#FFF" />
+                  <Text style={styles.generateBtnText}>Générer ma recette</Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* Résultat de l'IA */}
+          {generatedRecipeText && (
+            <View
+              style={{
+                marginTop: 25,
+                backgroundColor: "#FFF",
+                padding: 20,
+                borderRadius: 15,
+                borderWidth: 2,
+                borderColor: "#FF9F1C",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  color: "#FF9F1C",
+                  marginBottom: 15,
+                }}
+              >
+                ✨ Ta recette sur mesure :
+              </Text>
+              <Text style={{ fontSize: 15, lineHeight: 24, color: "#333" }}>
+                {generatedRecipeText}
+              </Text>
+
+              {savedRecipeId ? (
+                <View style={styles.savedContainer}>
+                  <View style={styles.savedBadge}>
+                    <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
+                    <Text style={styles.savedText}>Recette sauvegardée !</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.viewRecipeBtn}
+                    onPress={() => router.push(`/recipe/${savedRecipeId}`)}
+                  >
+                    <Text style={styles.viewRecipeBtnText}>Voir la recette →</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.saveBtn, isSaving && { opacity: 0.6 }]}
+                  onPress={handleSaveRecipe}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="bookmark" size={18} color="#FFF" />
+                      <Text style={styles.saveBtnText}>Sauvegarder cette recette</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {saveError && (
+                <Text style={styles.saveErrorText}>{saveError}</Text>
+              )}
+
+              <TouchableOpacity
+                style={styles.closeRecipeBtn}
+                onPress={() => setGeneratedRecipeText(null)}
+              >
+                <Text style={styles.closeRecipeBtnText}>Fermer la recette</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
+      ) : (
+        <>
+          {loading && (
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+              <ActivityIndicator size="large" color="#00C853" />
+              <Text style={{ marginTop: 10, color: "#666" }}>
+                Chargement des recettes...
+              </Text>
+            </View>
+          )}
+
+          {error && (
+            <View
+              style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 20 }}
+            >
+              <Text style={{ color: "#DC2626", fontSize: 16, textAlign: "center" }}>
+                {error}
+              </Text>
+            </View>
+          )}
+
+          {!loading && !error && (
+            <View style={{ flex: 1 }}>
+              <FlatList
+                data={paginatedRecipes}
+                keyExtractor={(item) => item.id.toString()}
+                key={numColumns}
+                numColumns={numColumns}
+                columnWrapperStyle={
+                  numColumns > 1 ? getColumnWrapperStyle() : undefined
+                }
+                contentContainerStyle={[
+                  styles.listContent,
+                  !isMobile && styles.listContentDesktop,
+                ]}
+                renderItem={renderRecipeItem}
+                ListEmptyComponent={
+                  <View style={{ alignItems: "center", marginTop: 50 }}>
+                    <Text style={{ color: "#888" }}>
+                      Aucune recette trouvée pour {searchQuery} 😕
+                    </Text>
+                  </View>
+                }
+                ListHeaderComponent={() =>
+                  !isSearchActive && searchQuery === "" ? (
+                    <LinearGradient
+                      colors={["#FF9F1C", "#FFC107"]}
+                      style={!isMobile ? styles.promoCardDesktop : styles.promoCard}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      <View style={{ flexDirection: "row", marginBottom: 10 }}>
+                        <Ionicons name="trending-up" size={24} color="#FFF" />
+                        <Text style={styles.promoTitle}>
+                          Recommandations personnalisées
+                        </Text>
+                      </View>
+                      <Text style={styles.promoDesc}>
+                        Ces recettes utilisent au maximum les ingrédients de ton frigo
+                        pour éviter le gaspillage !
+                      </Text>
+                    </LinearGradient>
+                  ) : null
+                }
+              />
+              {filteredRecipes.length > recipesPerPage && (
+                <View style={styles.paginationContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.paginationBtn,
+                      currentPage === 1 && styles.paginationBtnDisabled,
+                    ]}
+                    onPress={() => setCurrentPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                  >
+                    <Ionicons
+                      name="chevron-back"
+                      size={20}
+                      color={currentPage === 1 ? "#CCC" : "#00C853"}
+                    />
+                  </TouchableOpacity>
+
+                  <View style={styles.paginationInfo}>
+                    {Array.from({ length: totalPages }).map((_, i) => (
+                      <TouchableOpacity
+                        key={i + 1}
+                        onPress={() => setCurrentPage(i + 1)}
+                        style={[
+                          styles.pageBtn,
+                          currentPage === i + 1 && styles.pageBtnActive,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.pageText,
+                            currentPage === i + 1 && styles.pageTextActive,
+                          ]}
+                        >
+                          {i + 1}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.paginationBtn,
+                      currentPage === totalPages && styles.paginationBtnDisabled,
+                    ]}
+                    onPress={() => setCurrentPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                  >
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={currentPage === totalPages ? "#CCC" : "#00C853"}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+        </>
+      )}
+    </View>
   );
 }
 
@@ -975,4 +985,23 @@ const styles = StyleSheet.create({
   pageBtnActive: { backgroundColor: "#00C853", borderColor: "#00C853" },
   pageText: { fontSize: 14, fontWeight: "600", color: "#666" },
   pageTextActive: { color: "#FFF" },
+  saveBtn: {
+    marginTop: 15,
+    backgroundColor: "#FF9F1C",
+    paddingVertical: 14,
+    borderRadius: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
+  saveBtnText: { color: "#FFF", fontWeight: "700", fontSize: 16 },
+  savedContainer: { marginTop: 15, gap: 10 },
+  savedBadge: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  savedText: { color: "#22C55E", fontWeight: "700", fontSize: 15 },
+  viewRecipeBtn: { backgroundColor: "#00C853", paddingVertical: 12, borderRadius: 12, alignItems: "center" },
+  viewRecipeBtnText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
+  saveErrorText: { color: "#DC2626", marginTop: 8, fontSize: 13, textAlign: "center" },
+  closeRecipeBtn: { marginTop: 15, alignSelf: "center", padding: 10, backgroundColor: "#F5F5F5", borderRadius: 8 },
+  closeRecipeBtnText: { color: "#666", fontWeight: "bold" },
 });
