@@ -1,5 +1,5 @@
 import useRequireAuth from "@/src/hooks/useRequireAuth";
-import { getFrigoIngredients } from "@/src/services/fridge"; // Importation du vrai backend du frigo
+import { getFrigoIngredients } from "@/src/services/fridge";
 import {
   generateAiRecipe,
   getRecipes,
@@ -8,7 +8,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react"; // Ajout de useCallback ici
 import {
   ActivityIndicator,
   FlatList,
@@ -69,7 +69,7 @@ export default function RecipesScreen() {
       { name: string; emoji: string; selected?: boolean }[]
   >([]);
 
-  const [recipes, setRecipes] = useState<RecipeMinimal[]>([]);
+  const [recipes, setRecipes] = useState<any[]>([]); // Changé en any[] pour supporter les propriétés dynamiques de notation
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
@@ -86,6 +86,36 @@ export default function RecipesScreen() {
   const numColumns = isDesktop ? 4 : isTablet ? 2 : 1;
 
   const inputRef = useRef<any>(null);
+
+  // Fonctions de notation identiques à index.tsx
+  const getRatingsCount = useCallback((recipe: any): number => {
+    if (typeof recipe.ratings?.stats?.count === 'number') return recipe.ratings.stats.count;
+    if (typeof recipe.ratings_count === 'number') return recipe.ratings_count;
+    if (typeof recipe.reviews_count === 'number') return recipe.reviews_count;
+    if (typeof recipe.comments_count === 'number') return recipe.comments_count;
+    return 0;
+  }, []);
+
+  const getAverageRating = useCallback((recipe: any): number => {
+    if (typeof recipe.ratings?.stats?.average === 'number') {
+      return recipe.ratings.stats.average;
+    }
+    if (typeof recipe.average_rating === 'number') {
+      return recipe.average_rating;
+    }
+    if (typeof recipe.avg_rating === 'number') {
+      return recipe.avg_rating;
+    }
+    if (typeof recipe.rating_average === 'number') {
+      return recipe.rating_average;
+    }
+    return 0;
+  }, []);
+
+  const formatAverageRating = useCallback((average: number): string => {
+    if (!Number.isFinite(average) || average <= 0) return '0.0';
+    return average.toFixed(1);
+  }, []);
 
   useEffect(() => {
     if (checking) return;
@@ -106,8 +136,15 @@ export default function RecipesScreen() {
               difficulty: r.difficulty,
               timing: r.timing,
               author: r.author?.name || "Inconnu",
-              favorites_count: r.engagement.favorites_count,
               created_at: r.created_at,
+              favorites_count: r.engagement?.favorites_count ?? r.favorites_count ?? 0,
+              ratings: r.ratings,
+              ratings_count: r.ratings_count,
+              reviews_count: r.reviews_count,
+              comments_count: r.comments_count,
+              average_rating: r.average_rating,
+              avg_rating: r.avg_rating,
+              rating_average: r.rating_average,
             })),
         );
       } catch (err) {
@@ -168,7 +205,6 @@ export default function RecipesScreen() {
     setAddedIngredients(addedIngredients.filter((_, i) => i !== index));
   };
 
-  // Correction : Branchement sur le VRAI backend du frigo
   useEffect(() => {
     if (!useFrigo) return;
 
@@ -301,7 +337,7 @@ export default function RecipesScreen() {
     return [styles.card, styles.cardMobile];
   };
 
-  const renderRecipeItem = ({ item }: { item: RecipeMinimal }) => {
+  const renderRecipeItem = ({ item }: { item: any }) => {
     const difficultyColors = getDifficultyColors(item.difficulty || "");
 
     return (
@@ -343,11 +379,21 @@ export default function RecipesScreen() {
               </View>
             </View>
 
-            {/* LIGNE 3 : Avis (en bas à gauche) et bouton voir (à droite) */}
+            {/* LIGNE 3 MODIFIÉE : Étoiles, Nombre d'avis & Favoris à gauche, Voir à droite */}
             <View style={[styles.rowBetween, styles.cardFooter]}>
-              <View style={styles.ratingBadge}>
-                <Ionicons name="star" size={12} color="#FFF" />
-                <Text style={styles.ratingText}>{item.favorites_count}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                {/* Badge Étoiles + Nombre d'avis */}
+                <View style={styles.ratingBadge}>
+                  <Ionicons name="star" size={12} color="#FFF" />
+                  <Text style={styles.ratingText}>
+                    {formatAverageRating(getAverageRating(item))} ({getRatingsCount(item)})
+                  </Text>
+                </View>
+                {/* Badge Favoris */}
+                <View style={styles.favBadge}>
+                  <Ionicons name="heart" size={12} color="#E63946" />
+                  <Text style={styles.favText}>{item.favorites_count}</Text>
+                </View>
               </View>
               <Text style={styles.linkText}>Voir ➔</Text>
             </View>
@@ -460,7 +506,7 @@ export default function RecipesScreen() {
                         }
                         style={{ flex: 1 }}
                         value={ingredientInput}
-                        onChangeText={setIngredientInput}
+                        onChangeText={setSearchQuery}
                         editable={!useFrigo}
                         onSubmitEditing={handleAddIngredient}
                     />
@@ -898,6 +944,8 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   ratingBadge: { flexDirection: "row", backgroundColor: "#FFC107", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignItems: "center" },
   ratingText: { fontSize: 12, fontWeight: "bold", marginLeft: 4, color: "#FFF" },
+  favBadge: { flexDirection: "row", backgroundColor: "#FFEBEB", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignItems: "center" },
+  favText: { fontSize: 12, fontWeight: "bold", marginLeft: 4, color: "#E63946" },
   metaContainer: { width: "100%", marginTop: 4, marginBottom: 4 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 5 },
   metaText: { color: "#666", fontSize: 13 },
