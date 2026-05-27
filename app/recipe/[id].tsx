@@ -721,7 +721,7 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
                 />
 
                 <TouchableOpacity
-                  style={styles.submitBtn}
+                  style={[styles.submitBtn, styles.actionBtnFixed]}
                   onPress={submitRating}
                   disabled={isLoadingRating}
                 >
@@ -738,7 +738,7 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
 
             {hasUserRated && (
               <TouchableOpacity
-                style={styles.deleteBtn}
+                style={[styles.deleteBtn, styles.actionBtnFixed]}
                 onPress={deleteMyRating}
                 disabled={isLoadingRating}
               >
@@ -1097,7 +1097,7 @@ infoCardFull: {
   commentForm: {
     marginTop: 16,
     width: '100%',
-    alignItems: 'center'
+    alignItems: 'stretch'
   },
 
   commentInput: {
@@ -1112,28 +1112,43 @@ infoCardFull: {
     marginTop: 12,
     marginBottom: 8,
     backgroundColor: '#FF9F1C',
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
     width: '25%',
+    minHeight: 48,
   },
 
   submitBtnText: {
     color: '#fff',
-    fontWeight: '800'
+    fontWeight: '800',
+    textAlign: 'center'
   },
 
   deleteBtn: {
     backgroundColor: '#EF4444',
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: 'center',
-    width: '25%'
+    justifyContent: 'center',
+    width: '25%',
+    minHeight: 48,
   },
 
   deleteBtnText: {
     color: '#fff',
-    fontWeight: '800'
+    fontWeight: '800',
+    textAlign: 'center'
+  },
+
+  actionBtnFixed: {
+    width: 231,
+    height: 42,
+    paddingVertical: 0,
+    alignSelf: 'center',
   },
 
   ratingItem: {

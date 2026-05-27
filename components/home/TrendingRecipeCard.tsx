@@ -54,7 +54,6 @@ export default function TrendingRecipeCard({
               <Ionicons name="time-outline" size={14} color="#666" />
               <Text style={styles.recipeTime}>{totalTime} min</Text>
             </View>
-            <Text style={styles.recipePrice}>{item.difficulty || 'Moyen'}</Text>
           </View>
           <View style={styles.recipeTagRow}>
             <View style={[styles.recipeTag, { backgroundColor: difficultyColors.backgroundColor }]}>
@@ -117,7 +116,6 @@ const styles = StyleSheet.create({
   recipeMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10 },
   recipeMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   recipeTime: { color: '#666', fontSize: 13 },
-  recipePrice: { color: '#FF9F1C', fontWeight: 'bold', fontSize: 16 },
   recipeTagRow: { marginTop: 2 },
   recipeTag: {
     alignSelf: 'flex-start',
