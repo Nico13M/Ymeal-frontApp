@@ -79,6 +79,36 @@ export async function getAvailableIngredients(): Promise<BackendIngredient[]> {
   }
 }
 
+export async function searchAvailableIngredients(
+  query: string,
+): Promise<BackendIngredient[]> {
+  const trimmedQuery = query.trim();
+
+  if (trimmedQuery.length === 0) {
+    return [];
+  }
+
+  try {
+    const { token, userId } = await getToken();
+    const data = await apiRequest<BackendIngredient[]>(
+      `/admin/frigo/ingredients/search?query=${encodeURIComponent(trimmedQuery)}`,
+      {
+        method: "GET",
+        token,
+        credentials: "include",
+        headers: buildHeaders(userId),
+      },
+    );
+    return data ?? [];
+  } catch (error) {
+    console.error(
+      "[FRIGO] ❌ searchAvailableIngredients:",
+      error instanceof ApiError ? error.message : error,
+    );
+    throw error;
+  }
+}
+
 export async function getFrigoIngredients(): Promise<BackendFrigoIngredient[]> {
   try {
     const { token, userId } = await getToken();
