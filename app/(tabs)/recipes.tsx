@@ -677,7 +677,29 @@ export default function RecipesScreen() {
                 />
               </View>
           
-          {/* 👇 AFFICHAGE DU RESULTAT DE L'IA 👇 */}
+          <TouchableOpacity
+              style={styles.generateBtn}
+              onPress={handleGenerate}
+              disabled={searching}
+          >
+            <LinearGradient
+                colors={["#00C853", "#00E676"]}
+                style={styles.gradientBtn}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+            >
+              {searching ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                  <>
+                    <Ionicons name="sparkles" size={20} color="#FFF" />
+                    <Text style={styles.generateBtnText}>Générer ma recette</Text>
+                  </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {/* AFFICHAGE DU RESULTAT DE L'IA */}
           {generatedRecipeText && (
             <View
               style={{
