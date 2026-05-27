@@ -8,6 +8,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 
 import {
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -66,6 +67,10 @@ function sanitizeStringList(value: unknown): string[] {
 
 // ─── Composant ────────────────────────────────────────────────────────────────
 export default function ConfigProfilScreen() {
+  // ── Desktop detection ────────────────────────────────────
+  const { width } = Dimensions.get("window");
+  const isWebDesktop = Platform.OS === "web" && width > 900;
+
   // ── Lecture du paramètre step transmis depuis le profil ──
   const params = useLocalSearchParams<{ step?: string; editMode?: string }>();
   const initialStep = Math.min(Math.max(Number(params.step ?? 0) || 0, 0), 8) as StepIndex;
@@ -345,27 +350,31 @@ export default function ConfigProfilScreen() {
         enabled={Platform.OS === "ios"}
       >
         <ScrollView
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={[
+            { paddingBottom: 100 },
+            isWebDesktop && styles.desktopScrollContent,
+          ]}
           keyboardShouldPersistTaps="always"
           scrollEventThrottle={16}
         >
-          <View style={styles.screen}>
+          <View style={[styles.screen, isWebDesktop && styles.screenDesktop]}>
             <StepHeader
               step={step}
               totalSteps={TOTAL_STEPS}
               onBack={goBack}
             />
 
-            <ProgressBar progress={progress} />
+            <ProgressBar progress={progress} isWebDesktop={isWebDesktop} />
 
-            <ProfilCard>
-              {step === 0 && <WelcomeStep styles={styles} />}
+            <ProfilCard isWebDesktop={isWebDesktop}>
+              {step === 0 && <WelcomeStep styles={styles} isWebDesktop={isWebDesktop} />}
 
               {step === 1 && (
                 <DietStep
                   diets={diets}
                   toggleDiet={toggleDiet}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
@@ -380,11 +389,12 @@ export default function ConfigProfilScreen() {
                   setCitySuggestions={setCitySuggestions}
                   setCityLookupError={setCityLookupError}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
               {step === 3 && (
-                <BudgetStep budget={budget} setBudget={setBudget} styles={styles} />
+                <BudgetStep budget={budget} setBudget={setBudget} styles={styles} isWebDesktop={isWebDesktop} />
               )}
 
               {step === 4 && (
@@ -392,6 +402,7 @@ export default function ConfigProfilScreen() {
                   cuisines={cuisines}
                   toggleCuisine={toggleCuisine}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
@@ -406,6 +417,7 @@ export default function ConfigProfilScreen() {
                   removeAt={removeAt}
                   setAvoidVeg={setAvoidVeg}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
@@ -420,11 +432,12 @@ export default function ConfigProfilScreen() {
                   removeAt={removeAt}
                   setAllergies={setAllergies}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
               {step === 7 && (
-                <PeopleStep people={people} setPeople={setPeople} styles={styles} />
+                <PeopleStep people={people} setPeople={setPeople} styles={styles} isWebDesktop={isWebDesktop} />
               )}
 
               {step === 8 && (
@@ -432,11 +445,12 @@ export default function ConfigProfilScreen() {
                   isSavingConfig={isSavingConfig}
                   next={next}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
               {step <= 7 && (
-                <View style={styles.actions}>
+                <View style={[styles.actions, isWebDesktop && styles.actionsDesktop]}>
                   <PrimaryButton
                     onPress={next}
                     loading={isSavingConfig}
@@ -469,16 +483,74 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 10,
   },
+
+  locationContainerDesktop: {
+  width: 420,
+  alignSelf: "center",
+  position: "relative",
+  zIndex: 9999,
+},
+
+inputWrapDesktopFixed: {
+  width: 420,
+  alignSelf: "center",
+},
+
+suggestionsDesktop: {
+  width: 420,
+  left: "50%",
+  transform: [{ translateX: -210 }],
+  top: 58,
+
+  maxHeight: 260,
+
+  shadowColor: "#000",
+  shadowOffset: {
+    width: 0,
+    height: 4,
+  },
+  shadowOpacity: 0.08,
+  shadowRadius: 12,
+
+  elevation: 10,
+},
+
+screenDesktop: {
+  maxWidth: 1200,
+  alignSelf: "center",
+  width: "100%",
+  paddingHorizontal: 40,
+  paddingBottom: 80,
+  paddingTop: 20,
+},
+
+desktopScrollContent: {
+  flexGrow: 1,
+  justifyContent: "center",
+  alignItems: "center",
+  paddingVertical: 40,
+    },
+
+
   safe: {
     flex: 1,
     backgroundColor: COLORS.bg,
   },
+
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 18,
     gap: 12,
   },
+
+actionsDesktop: {
+  justifyContent: "center",
+  maxWidth: 280,
+  alignSelf: "center",
+  marginTop: 60,
+},
+
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -486,11 +558,28 @@ const styles = StyleSheet.create({
     marginTop: 14,
     rowGap: 12,
   },
+
+gridDesktop: {
+  flexDirection: "row",
+  flexWrap: "wrap",
+  justifyContent: "center",
+  gap: 20,
+  width: "100%",
+  marginTop: 24,
+},
+
   chipsWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
     marginTop: 12,
     gap: 10,
+  },
+
+  chipsWrapDesktop: {
+    justifyContent: "center",
+    maxWidth: 800,
+    alignSelf: "center",
+    gap: 12,
   },
   inputWrap: {
     borderWidth: 1,
@@ -502,6 +591,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#FAFAFA",
     marginTop: 10,
+  },
+  inputWrapDesktop: {
+    maxWidth: 420,
+    alignSelf: "center",
   },
   input: {
     flex: 1,
@@ -516,11 +609,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.sub,
   },
+  labelDesktop: {
+    fontSize: 13,
+  },
   helper: {
     marginTop: 6,
     color: COLORS.sub,
     fontSize: 13,
     lineHeight: 18,
+  },
+  helperDesktop: {
+    fontSize: 13,
   },
   questionRow: {
     flexDirection: "row",
@@ -533,6 +632,10 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: COLORS.text,
     flex: 1,
+  },
+  questionDesktop: {
+    fontSize: 18,
+    lineHeight: 24,
   },
   note: {
     marginTop: 10,
@@ -585,5 +688,210 @@ const styles = StyleSheet.create({
     color: "#DC2626",
     textAlign: "center",
     fontWeight: "700",
+  },
+  welcomeContainer: {
+    paddingVertical: 20,
+  },
+  welcomeContainerDesktop: {
+    paddingVertical: 32,
+  },
+  welcomeHero: {
+    alignItems: "center",
+  },
+  welcomeHeroDesktop: {
+    paddingVertical: 16,
+  },
+  welcomeLogo: {
+    width: 80,
+    height: 80,
+    marginBottom: 16,
+  },
+  welcomeLogoDesktop: {
+    width: 100,
+    height: 100,
+    marginBottom: 24,
+  },
+  welcomeIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.orange,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  welcomeIconDesktop: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    marginBottom: 24,
+  },
+  welcomeTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: COLORS.text,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  welcomeTitleDesktop: {
+    fontSize: 28,
+    lineHeight: 36,
+    marginBottom: 14,
+  },
+  welcomeSubtitle: {
+    fontSize: 14,
+    color: COLORS.sub,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  welcomeSubtitleDesktop: {
+    fontSize: 15,
+    lineHeight: 24,
+  },
+  finalLogo: {
+    width: 80,
+    height: 80,
+    marginBottom: 16,
+  },
+  bigIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.orange,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: COLORS.sub,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+  btn: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  btnPrimary: {
+    backgroundColor: COLORS.orange,
+  },
+  btnPrimaryText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  btnBig: {
+    paddingVertical: 16,
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
+
+tile: {
+  width: Platform.OS === "web" ? 120 : "45%",
+  minHeight: Platform.OS === "web" ? 120 : 100,
+
+  paddingVertical: 18,
+  paddingHorizontal: 12,
+
+  borderRadius: 18,
+  borderWidth: 2,
+  borderColor: "rgba(15,23,42,0.08)",
+
+  alignItems: "center",
+  justifyContent: "center",
+
+  backgroundColor: "#FFFFFF",
+
+  shadowColor: "#000",
+  shadowOffset: {
+    width: 0,
+    height: 2,
+  },
+  shadowOpacity: 0.05,
+  shadowRadius: 8,
+
+  elevation: 2,
+},
+
+tileSelected: {
+  backgroundColor: "#FFF7ED",
+  borderColor: COLORS.orange,
+  transform: [{ scale: 1.03 }],
+},
+
+tileEmoji: {
+  fontSize: 34,
+  marginBottom: 10,
+},
+
+tileText: {
+  fontSize: 15,
+  fontWeight: "700",
+  color: COLORS.text,
+  textAlign: "center",
+  lineHeight: 20,
+},
+
+  tileTextSelected: {
+    color: COLORS.orange,
+    fontWeight: "700",
+  },
+
+  choiceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderWidth: 2,
+    borderColor: "rgba(15,23,42,0.08)",
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  choiceRowSelected: {
+    backgroundColor: COLORS.orangeSoft,
+    borderColor: COLORS.orange,
+  },
+  choiceIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  choiceTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+  choiceSub: {
+    fontSize: 12,
+    color: COLORS.sub,
+    marginTop: 2,
+  },
+  chip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(15,23,42,0.1)",
+    backgroundColor: "#FAFAFA",
+  },
+  chipSelected: {
+    backgroundColor: COLORS.orange,
+    borderColor: COLORS.orange,
+  },
+  chipDisabled: {
+    opacity: 0.5,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.text,
+  },
+  chipTextSelected: {
+    color: "#fff",
+  },
+  chipTextDisabled: {
+    color: COLORS.muted,
   },
 });

@@ -1,11 +1,13 @@
 import { STORAGE_KEYS } from "@/constants/storage";
 import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
-import { loginRequest, saveSession } from "@/src/services/auth";
+import { loginRequest, resolveUserId, saveSession } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+  Dimensions,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -17,7 +19,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+
+const { width } = Dimensions.get("window");
+
+const isWebDesktop =
+  Platform.OS === "web" && width > 900;
+
+const authCardWidth =
+  isWebDesktop ? 520 : "100%";
+
+
 type StoredAccount = {
+  id?: string | number;
   firstName?: string;
   lastName?: string;
   nickname?: string;
@@ -102,8 +115,10 @@ export default function ConnexionScreen() {
 
       const existing = parseStoredAccount(await AsyncStorage.getItem(STORAGE_KEYS.accountProfile));
       const sessionUser = (session.user ?? {}) as Record<string, unknown>;
+      const sessionUserId = resolveUserId(session.user);
 
       const merged: StoredAccount = {
+        id: sessionUserId ?? existing.id,
         firstName:
           toStringOrUndefined(sessionUser.firstName) ??
           toStringOrUndefined(sessionUser.firstname) ??
@@ -126,11 +141,32 @@ export default function ConnexionScreen() {
         () => undefined
       );
 
-      const profileConfigRaw = await AsyncStorage.getItem(STORAGE_KEYS.profileConfig);
+      const profileConfigRaw = await AsyncStorage.getItem(
+  STORAGE_KEYS.profileConfig
+);
+
       if (profileConfigRaw) {
         router.replace("/(tabs)");
       } else {
-        router.replace("/config-profil");
+        const createdAt = session?.user?.createdAt;
+
+        if (!createdAt) {
+          router.replace("/(tabs)");
+          return;
+        }
+
+        const createdDate = new Date((createdAt as string) || "").getTime();
+        const now = Date.now();
+
+        const ONE_HOUR = 60 * 60 * 1000;
+
+        const isNewUser = now - createdDate < ONE_HOUR;
+
+        if (isNewUser) {
+          router.replace("/config-profil");
+        } else {
+          router.replace("/(tabs)");
+        }
       }
     } catch (error) {
       setFormError(getLoginErrorMessage(error));
@@ -152,11 +188,13 @@ export default function ConnexionScreen() {
           contentContainerStyle={styles.content}
         >
           <View style={styles.header}>
-            <View style={styles.logoCircle}>
-              <Ionicons name="restaurant" size={22} color="#fff" />
-            </View>
+            <Image
+  source={require('@/assets/images/logo_ymeal.png')}
+  style={styles.authLogo}
+  resizeMode="contain"
+/>
 
-            <Text style={styles.brand}>Ymeal</Text>
+            {/* <Text style={styles.brand}>Ymeal</Text> */}
             <Text style={styles.tagline}>Des recettes adaptees a ton budget etudiant</Text>
           </View>
 
@@ -238,28 +276,33 @@ const styles = StyleSheet.create({
   keyboard: {
     flex: 1,
   },
+
   content: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    justifyContent: "center",
-  },
+  flexGrow: 1,
+
+  paddingHorizontal: 24,
+  paddingVertical: 40,
+
+  justifyContent: "center",
+
+  width: "100%",
+},
 
   header: {
     alignItems: "center",
     marginBottom: 22,
   },
-  logoCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#FF7A00",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
+  // logoCircle: {
+  //   width: 56,
+  //   height: 56,
+  //   borderRadius: 28,
+  //   backgroundColor: "#FF7A00",
+  //   alignItems: "center",
+  //   justifyContent: "center",
+  //   marginBottom: 12,
+  // },
   brand: {
-    fontSize: 34,
+    fontSize: isWebDesktop ? 52 : 34,
     fontWeight: "800",
     color: "#0F172A",
     letterSpacing: 0.2,
@@ -271,28 +314,49 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 18,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 8 },
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
+card: {
+  width: "100%",
+
+  maxWidth: isWebDesktop ? 520 : "100%",
+
+  alignSelf: "center",
+
+  backgroundColor: "#FFFFFF",
+
+  borderRadius: isWebDesktop ? 24 : 16,
+
+  padding: isWebDesktop ? 32 : 18,
+
+  ...Platform.select({
+    ios: {
+      shadowColor: "#000",
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 8 },
+    },
+
+    android: {
+      elevation: 6,
+    },
+
+    web: {
+      boxShadow: "0px 8px 24px rgba(0,0,0,0.08)",
+    },
+  }),
+},
+
   cardTitle: {
     fontSize: 20,
     fontWeight: "800",
     color: "#0F172A",
     marginBottom: 16,
   },
+
+  authLogo: {
+  width: isWebDesktop ? 180 : 120,
+  height: isWebDesktop ? 180 : 120,
+  marginBottom: 10,
+},
 
   label: {
     fontSize: 12,

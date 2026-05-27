@@ -1,75 +1,127 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+
+import {
+  Pressable,
+  Text,
+  View,
+} from "react-native";
+
 import { Ionicons } from "@expo/vector-icons";
+
 import { COLORS } from "@/constants/profileConfig";
+
 import { BudgetChoice } from "@/types/profil";
-import ChoiceCard from "@/components/ui/ChoiceCard";
 
-interface BudgetStepProps {
+type Props = {
   budget: BudgetChoice | null;
-  setBudget: (value: BudgetChoice) => void;
-  styles?: any;
-}
 
-export default function BudgetStep({ budget, setBudget, styles: passedStyles }: BudgetStepProps) {
+  setBudget: (
+    value: BudgetChoice
+  ) => void;
+
+  styles: any;
+  isWebDesktop?: boolean;
+};
+
+export default function BudgetStep({
+  budget,
+  setBudget,
+  styles,
+  isWebDesktop,
+}: Props) {
   return (
-    <View style={styles.container}>
-      <View style={styles.questionRow}>
-        <Ionicons name="wallet-outline" size={18} color={COLORS.orange} />
-        <Text style={styles.question}>Quel est ton budget mensuel ?</Text>
+    <>
+      <View style={[styles.questionRow, isWebDesktop && styles.questionRowDesktop]}>
+        <Ionicons
+          name="wallet-outline"
+          size={18}
+          color={COLORS.orange}
+        />
+
+        <Text style={[styles.question, isWebDesktop && styles.questionDesktop]}>
+          Quel est ton budget mensuel ?
+        </Text>
       </View>
-      <Text style={styles.helper}>Cela nous permet de te proposer des recettes adaptées.</Text>
-      <View style={styles.choicesContainer}>
-        <ChoiceCard
-          onPress={() => setBudget("PETIT")}
-          selected={budget === "PETIT"}
-          icon="💰"
-          title="Petit budget"
-          subtitle="Moins de 100€ / mois"
-        />
-        <ChoiceCard
-          onPress={() => setBudget("MOYEN")}
-          selected={budget === "MOYEN"}
-          icon="💵"
-          title="Budget moyen"
-          subtitle="Entre 100€ et 200€ / mois"
-        />
-        <ChoiceCard
-          onPress={() => setBudget("LARGE")}
-          selected={budget === "LARGE"}
-          icon="💸"
-          title="Budget large"
-          subtitle="Plus de 200€ / mois"
-        />
+
+      <View style={[{ marginTop: 8 }, isWebDesktop && { maxWidth: 600, alignSelf: "center", width: "100%" }]}>
+        <Pressable
+          onPress={() =>
+            setBudget("PETIT")
+          }
+          style={[
+            styles.choiceRow,
+
+            budget === "PETIT" &&
+              styles.choiceRowSelected,
+          ]}
+        >
+          <Text style={styles.choiceIcon}>
+            💰
+          </Text>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.choiceTitle}>
+              Petit budget
+            </Text>
+
+            <Text style={styles.choiceSub}>
+              &lt; 100€/mois
+            </Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          onPress={() =>
+            setBudget("MOYEN")
+          }
+          style={[
+            styles.choiceRow,
+
+            budget === "MOYEN" &&
+              styles.choiceRowSelected,
+          ]}
+        >
+          <Text style={styles.choiceIcon}>
+            💵
+          </Text>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.choiceTitle}>
+              Budget moyen
+            </Text>
+
+            <Text style={styles.choiceSub}>
+              100-200€/mois
+            </Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          onPress={() =>
+            setBudget("LARGE")
+          }
+          style={[
+            styles.choiceRow,
+
+            budget === "LARGE" &&
+              styles.choiceRowSelected,
+          ]}
+        >
+          <Text style={styles.choiceIcon}>
+            💸
+          </Text>
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.choiceTitle}>
+              Budget large
+            </Text>
+
+            <Text style={styles.choiceSub}>
+              &gt; 200€/mois
+            </Text>
+          </View>
+        </Pressable>
       </View>
-    </View>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: "100%",
-  },
-  questionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 4,
-  },
-  question: {
-    fontSize: 17,
-    fontWeight: "900",
-    color: COLORS.text,
-    flex: 1,
-  },
-  helper: {
-    marginTop: 6,
-    color: COLORS.sub,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  choicesContainer: {
-    marginTop: 8,
-  },
-});

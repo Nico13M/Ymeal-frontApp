@@ -1,11 +1,12 @@
 import { STORAGE_KEYS } from "@/constants/storage";
 import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
-import { loginRequest, registerRequest, saveSession } from "@/src/services/auth";
+import { loginRequest, registerRequest, resolveUserId, saveSession } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
+  Dimensions,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -16,8 +17,15 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
 import { ActivityIndicator } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+
+const { width } = Dimensions.get("window");
+
+const isWebDesktop =
+  Platform.OS === "web" && width > 900;
 
 
 function getRegisterErrorMessage(error: unknown): string {
@@ -129,13 +137,13 @@ if (errors.length > 0) {
     try {
       setLoading(true);
 
-      const maybeSession = await registerRequest({
-        firstname: trimmedFirstname,
-        lastname: trimmedLastname,
-        nickname: trimmedNickname || undefined,
-        email: trimmedEmail,
-        password,
-      });
+const maybeSession = await registerRequest({
+  firstname: trimmedFirstname,
+  lastname: trimmedLastname,
+  ...(trimmedNickname ? { nickname: trimmedNickname } : {}),
+  email: trimmedEmail,
+  password,
+});
 
       const session =
         maybeSession ??
@@ -147,6 +155,7 @@ if (errors.length > 0) {
       await saveSession(session).catch(() => undefined);
 
       const accountPayload = {
+        id: resolveUserId(session.user),
         firstName: trimmedFirstname,
         lastName: trimmedLastname,
         nickname: trimmedNickname || undefined,
@@ -409,17 +418,22 @@ const styles = StyleSheet.create({
   keyboard: {
     flex: 1,
   },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 18,
-    justifyContent: "center",
-  },
 
-  header: {
-    alignItems: "center",
-    marginBottom: 22,
-  },
+  content: {
+  flexGrow: 1,
+
+  paddingHorizontal: 24,
+  paddingVertical: 40,
+
+  justifyContent: "center",
+
+  width: "100%",
+},
+
+header: {
+  alignItems: "center",
+  marginBottom: isWebDesktop ? 40 : 22,
+},
   // logoCircle: {
   //   width: 56,
   //   height: 56,
@@ -442,22 +456,39 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 18,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 8 },
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
+card: {
+  width: "100%",
+
+  maxWidth: isWebDesktop ? 620 : "100%",
+
+  alignSelf: "center",
+
+  backgroundColor: "#FFFFFF",
+
+  borderRadius: isWebDesktop ? 24 : 16,
+
+  padding: isWebDesktop ? 32 : 18,
+
+  ...Platform.select({
+    ios: {
+      shadowColor: "#000",
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 8 },
+    },
+
+    android: {
+      elevation: 6,
+    },
+
+    web: {
+      boxShadow: "0px 8px 24px rgba(0,0,0,0.08)",
+    },
+  }),
+},
+
+
+
   cardTitle: {
     fontSize: 20,
     fontWeight: "800",
@@ -544,8 +575,8 @@ buttonDisabled: {
 },
 
 logo: {
-  width: 180,
-  height: 120,
+  width: isWebDesktop ? 180 : 120,
+  height: isWebDesktop ? 180 : 120,
   marginBottom: 10,
 },
 
