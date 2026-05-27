@@ -118,6 +118,7 @@ export type RecipePredictionRequest = {
 export type RecipePredictionResponse = {
   recipe: string;
   model: string;
+};
 
 export type TrendingRecipesResult = {
   window: {
@@ -439,6 +440,25 @@ export async function createRecipe(payload: {
 }
 
 /* ===================== API CALLS IA ===================== */
+export async function saveAiRecipe(
+  recipeText: string,
+  options?: { isPublic?: boolean; dishType?: string },
+): Promise<RecipeFull> {
+  const { token, userId } = await getToken();
+  const data = await apiRequest<{ recipe: RecipeFull }>('/admin/recipes/ai/save', {
+    method: 'POST',
+    token,
+    credentials: 'include',
+    headers: buildHeaders(userId),
+    body: {
+      recipe_text: recipeText,
+      is_public: options?.isPublic ?? false,
+      dish_type: options?.dishType,
+    },
+  });
+  return data.recipe;
+}
+
 export async function generateAiRecipe(
   payload: RecipePredictionRequest,
 ): Promise<RecipePredictionResponse> {
