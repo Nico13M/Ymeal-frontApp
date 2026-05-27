@@ -28,7 +28,7 @@ import {
 
 /* ===================== TYPES ===================== */
 type Ingredient = {
-  id: number;
+  id: number | string;
   name: string;
   category: string;
   emoji: string;
@@ -44,22 +44,11 @@ type SuggestedIngredient = {
   emoji: string;
 };
 
-/* ===================== CONFIGURATION DES CATÉGORIES ===================== */
-const CATEGORY_CONFIG: Record<string, { emoji: string; unit: string; step: number; defaultQty: number }> = {
-  "Légumes":            { emoji: "🥬", unit: "pièce(s)", step: 1,   defaultQty: 1   },
-  "Fruits":             { emoji: "🍎", unit: "pièce(s)", step: 1,   defaultQty: 1   },
-  "Produits laitiers":  { emoji: "🧀", unit: "g",        step: 1,  defaultQty: 200 },
-  "Viandes":            { emoji: "🥩", unit: "g",        step: 1, defaultQty: 250 },
-  "Céréales & Féculents": { emoji: "🍞", unit: "g",      step: 1, defaultQty: 500 },
-  "Liquides":           { emoji: "💧", unit: "cl",       step: 1,  defaultQty: 100 },
-  "Matières grasses":   { emoji: "🧴", unit: "ml",       step: 1,   defaultQty: 50  },
-  "Produits sucrés":    { emoji: "🍦", unit: "g",        step: 1,  defaultQty: 100 },
-};
-
+/* ===================== CONFIGURATION PAR DÉFAUT ===================== */
 const DEFAULT_CONFIG = { emoji: "🥗", unit: "g", step: 1, defaultQty: 20 };
 
-function getConfig(name: string) {
-  return CATEGORY_CONFIG[name] ?? DEFAULT_CONFIG;
+function getConfig() {
+  return DEFAULT_CONFIG;
 }
 
 function toSuggested(ing: BackendIngredient): SuggestedIngredient {
@@ -67,7 +56,7 @@ function toSuggested(ing: BackendIngredient): SuggestedIngredient {
     id: ing.id,
     name: ing.name,
     category: ing.name,
-    emoji: getConfig(ing.name).emoji,
+    emoji: DEFAULT_CONFIG.emoji,
   };
 }
 
@@ -86,38 +75,40 @@ export default function FridgeScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [updatingId, setUpdatingId] = useState<number | string | null>(null);
   const [units, setUnits] = useState<BackendUnit[]>([]);
 
-  // Modal state
+  // Modal states
   const [modalVisible, setModalVisible] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<SuggestedIngredient | null>(null);
+  const [editName, setEditName] = useState("");
   const [editQuantity, setEditQuantity] = useState("1");
   const [editUnitId, setEditUnitId] = useState<number | null>(null);
-  const [editingExistingId, setEditingExistingId] = useState<number | null>(null);
+  const [editingExistingId, setEditingExistingId] = useState<number | string | null>(null);
 
-  // Calcul du responsive pour la grille
-  const containerPadding = 40; // 20 à gauche + 20 à droite
+  // Configuration de la grille adaptative
+  const containerPadding = 40;
   const columnGap = 12;
 
   let numColumns = 1;
   if (screenWidth >= 1024) {
-    numColumns = 4; // Ordinateur
+    numColumns = 4;
   } else if (screenWidth >= 768) {
-    numColumns = 2; // Tablette
+    numColumns = 2;
   } else {
-    numColumns = 1; // Mobile
+    numColumns = 1;
   }
 
   const itemWidth = (screenWidth - containerPadding - (columnGap * (numColumns - 1))) / numColumns;
 
   const persistQuantities = useCallback(async (ings: Ingredient[]) => {
-    const qtys: Record<string, { quantity: number; unitId: number | null; step: number }> = {};
+    const qtys: Record<string, { quantity: number; unitId: number | null; step: number; name: string }> = {};
     ings.forEach((ing) => {
       qtys[String(ing.id)] = {
         quantity: ing.quantity,
         unitId: ing.unit?.id ?? null,
         step: ing.step,
+        name: ing.name,
       };
     });
     await AsyncStorage.setItem(STORAGE_KEYS.frigoIngredients, JSON.stringify(qtys));
@@ -137,17 +128,17 @@ export default function FridgeScreen() {
       setAllSuggestions(available.map(toSuggested));
 
       const storedQtyRaw = await AsyncStorage.getItem(STORAGE_KEYS.frigoIngredients);
-      const storedQty: Record<string, { quantity: number; unitId: number | null; step: number }> =
+      const storedQty: Record<string, { quantity: number; unitId: number | null; step: number; name?: string }> =
           storedQtyRaw ? JSON.parse(storedQtyRaw) : {};
 
       const mapped: Ingredient[] = backendIngredients.map((ing) => {
-        const config = getConfig(ing.name);
+        const config = getConfig();
         const stored = storedQty[String(ing.id)];
         const unit = allUnits.find((u) => u.id === (stored?.unitId ?? ing.unit?.id)) || ing.unit || null;
 
         return {
           id: ing.id,
-          name: ing.name,
+          name: stored?.name || ing.name,
           category: ing.name,
           emoji: config.emoji,
           quantity: stored?.quantity ?? ing.quantity ?? config.defaultQty,
@@ -156,9 +147,26 @@ export default function FridgeScreen() {
         };
       });
 
-      setIngredients(mapped);
+      const localItems: Ingredient[] = [];
+      Object.keys(storedQty).forEach((key) => {
+        if (!backendIngredients.find(b => String(b.id) === key) && key.startsWith("local_")) {
+          const stored = storedQty[key];
+          const unit = allUnits.find((u) => u.id === stored.unitId) || null;
+          localItems.push({
+            id: key,
+            name: stored.name || "Produit",
+            category: "Autre",
+            emoji: "🛒",
+            quantity: stored.quantity,
+            unit,
+            step: stored.step || 1,
+          });
+        }
+      });
+
+      setIngredients([...mapped, ...localItems]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur lors du chargement du frigo");
+      setError(err instanceof Error ? err.message : "Erreur lors du chargement de l'inventaire du frigo");
     } finally {
       setLoading(false);
     }
@@ -169,7 +177,7 @@ export default function FridgeScreen() {
   );
 
   const updateQuantity = useCallback(
-      async (id: number, delta: number) => {
+      async (id: number | string, delta: number) => {
         setUpdatingId(id);
         try {
           setError(null);
@@ -179,14 +187,16 @@ export default function FridgeScreen() {
 
           const newQuantity = ingredient.quantity + delta;
           if (newQuantity <= 0) {
-            await removeIngredientFromFrigo(id);
+            if (typeof id === 'number') await removeIngredientFromFrigo(id);
             const updated = ingredients.filter((i) => i.id !== id);
             setIngredients(updated);
             persistQuantities(updated);
             return;
           }
 
-          await updateIngredientQuantity(id, newQuantity, ingredient.unit?.id);
+          if (typeof id === 'number') {
+            await updateIngredientQuantity(id, newQuantity, ingredient.unit?.id);
+          }
 
           setIngredients((prev) => {
             const updated = prev.map((i) =>
@@ -212,9 +222,19 @@ export default function FridgeScreen() {
     );
   }
 
+  const handleOpenAddModal = () => {
+    setEditingExistingId(null);
+    setEditingIngredient(null);
+    setEditName("");
+    setEditQuantity("1");
+    setEditUnitId(null);
+    setModalVisible(true);
+  };
+
   const handleEditIngredient = (ing: Ingredient) => {
     setEditingExistingId(ing.id);
-    setEditingIngredient({ id: ing.id, name: ing.name, category: ing.category, emoji: ing.emoji });
+    setEditingIngredient(typeof ing.id === 'number' ? { id: ing.id, name: ing.name, category: ing.category, emoji: ing.emoji } : null);
+    setEditName(ing.name);
     setEditQuantity(ing.quantity.toString());
     setEditUnitId(ing.unit?.id ?? null);
     setModalVisible(true);
@@ -223,56 +243,65 @@ export default function FridgeScreen() {
   const handleAddIngredient = (item: SuggestedIngredient) => {
     const existing = ingredients.find((i) => i.name.toLowerCase() === item.name.toLowerCase());
     if (existing) {
-      setError("Cet ingrédient est déjà dans votre frigo");
+      setError("Ce produit est déjà dans votre frigo");
       return;
     }
     setEditingExistingId(null);
     setEditingIngredient(item);
+    setEditName(item.name);
     setEditQuantity("1");
     setEditUnitId(null);
     setModalVisible(true);
   };
 
   const handleConfirmAdd = async () => {
-    if (!editingIngredient) return;
-
     const qty = parseFloat(editQuantity) || 1;
     if (qty <= 0) {
       setError("La quantité doit être positive");
       return;
     }
 
+    const finalName = editName.trim();
+    if (!finalName) {
+      setError("Le nom du produit est obligatoire");
+      return;
+    }
+
     try {
       setSyncing(true);
       setError(null);
+      const selectedUnit = editUnitId ? units.find((u) => u.id === editUnitId) || null : null;
 
       if (editingExistingId !== null) {
-        const selectedUnit = editUnitId ? units.find((u) => u.id === editUnitId) || null : null;
-        await updateIngredientQuantity(editingExistingId, qty, editUnitId ?? undefined);
+        if (typeof editingExistingId === 'number') {
+          await updateIngredientQuantity(editingExistingId, qty, editUnitId ?? undefined);
+        }
 
         setIngredients((prev) => {
           const updated = prev.map((i) =>
               i.id === editingExistingId
-                  ? { ...i, quantity: qty, unit: selectedUnit }
+                  ? { ...i, name: finalName, quantity: qty, unit: selectedUnit }
                   : i
           );
           persistQuantities(updated);
           return updated;
         });
       } else {
-        await addIngredientToFrigo(editingIngredient.id, qty, editUnitId ?? undefined);
+        let newId: string | number = `local_${Date.now()}`;
 
-        const config = getConfig(editingIngredient.category);
-        const selectedUnit = editUnitId ? units.find((u) => u.id === editUnitId) || null : null;
+        if (editingIngredient) {
+          await addIngredientToFrigo(editingIngredient.id, qty, editUnitId ?? undefined);
+          newId = editingIngredient.id;
+        }
 
         const newIng: Ingredient = {
-          id: editingIngredient.id,
-          name: editingIngredient.name,
-          category: editingIngredient.category,
-          emoji: editingIngredient.emoji,
+          id: newId,
+          name: finalName,
+          category: editingIngredient?.category || "Autres",
+          emoji: editingIngredient?.emoji || "🛒",
           quantity: qty,
           unit: selectedUnit,
-          step: config.step,
+          step: 1,
         };
 
         const updated = [...ingredients, newIng];
@@ -283,18 +312,21 @@ export default function FridgeScreen() {
       setModalVisible(false);
       setSearch("");
       setEditingExistingId(null);
+      setEditingIngredient(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'ajout");
+      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement");
     } finally {
       setSyncing(false);
     }
   };
 
-  const handleRemoveIngredient = async (id: number) => {
+  const handleRemoveIngredient = async (id: number | string) => {
     setUpdatingId(id);
     try {
       setError(null);
-      await removeIngredientFromFrigo(id);
+      if (typeof id === 'number') {
+        await removeIngredientFromFrigo(id);
+      }
       const updated = ingredients.filter((i) => i.id !== id);
       setIngredients(updated);
       persistQuantities(updated);
@@ -319,9 +351,18 @@ export default function FridgeScreen() {
 
   return (
       <SafeAreaView style={styles.container}>
-        {/* HEADER & ZONE DE SELECTION */}
+        {/* HEADER */}
         <View style={[styles.header, isSearching && styles.selectionStateBg]}>
-          <Text style={styles.headerTitle}>Mon Frigo 🧊</Text>
+          <View style={styles.titleRow}>
+            <View style={{ flex: 1, paddingRight: 10 }}>
+              <Text style={styles.headerTitle}>Mon Frigo</Text>
+              <Text style={styles.headerSubtitle}>Gérez vos produits et évitez le gaspillage</Text>
+            </View>
+            <TouchableOpacity style={styles.btnAddProduct} onPress={handleOpenAddModal}>
+              <Ionicons name="add" size={20} color="#FFF" />
+              {screenWidth > 350 && <Text style={styles.btnAddProductText}>Ajouter un produit</Text>}
+            </TouchableOpacity>
+          </View>
 
           {error && (
               <View style={styles.errorBanner}>
@@ -334,7 +375,7 @@ export default function FridgeScreen() {
             <TextInput
                 value={search}
                 onChangeText={setSearch}
-                placeholder="Chercher un ingrédient..."
+                placeholder="Rechercher un produit dans la base..."
                 style={styles.input}
                 editable={!syncing}
             />
@@ -345,7 +386,7 @@ export default function FridgeScreen() {
             )}
           </View>
 
-          {/* SUGGESTIONS RAPIDES */}
+          {/* SUGGESTIONS */}
           {search.length === 0 && quickSuggestions.length > 0 && (
               <View style={{ marginTop: 15 }}>
                 <Text style={styles.sectionLabel}>Suggestions rapides</Text>
@@ -364,12 +405,12 @@ export default function FridgeScreen() {
               </View>
           )}
 
-          {/* RESULTATS DE LA RECHERCHE */}
+          {/* RÉSULTATS DE LA RECHERCHE */}
           {isSearching && (
               <View style={[styles.searchResults, { maxHeight: screenHeight * 0.4 }]}>
                 <ScrollView keyboardShouldPersistTaps="handled">
                   {filteredResults.length === 0 ? (
-                      <Text style={{ padding: 15, color: "#ADB5BD" }}>Aucun résultat</Text>
+                      <Text style={{ padding: 15, color: "#ADB5BD" }}>Aucun résultat dans la base</Text>
                   ) : (
                       filteredResults.map((s) => (
                           <TouchableOpacity
@@ -389,7 +430,7 @@ export default function FridgeScreen() {
           )}
         </View>
 
-        {/* DASHBOARD DU FRIGO EN GRILLE RESPONSIVE SANS CATÉGORIES */}
+        {/* GRILLE DU FRIGO */}
         <ScrollView contentContainerStyle={styles.frigoGridContainer}>
           {loading && (
               <View style={{ justifyContent: "center", alignItems: "center", width: "100%", marginTop: 40 }}>
@@ -411,12 +452,12 @@ export default function FridgeScreen() {
                       <Text style={{ fontWeight: "700", fontSize: 15 }} numberOfLines={1}>
                         {i.name}
                       </Text>
-                      <Text style={{ color: "#FF9F1C", fontWeight: "600", fontSize: 13 }}>
+                      <Text style={{ color: "#FF9F1C", fontWeight: "600", fontSize: 13, marginTop: 2 }}>
                         {i.quantity} {i.unit?.symbol || i.unit?.name || ""}
                       </Text>
                     </View>
 
-                    {/* BOUTONS D'ACTIONS RAPPROCHÉS */}
+                    {/* BOUTONS D'ACTIONS SÉPARÉS POUR CLIQUER FACILEMENT */}
                     <View style={styles.controls}>
                       <TouchableOpacity
                           style={styles.btnMinus}
@@ -466,18 +507,18 @@ export default function FridgeScreen() {
               ))}
         </ScrollView>
 
-        {/* MODAL ÉDITION QUANTITÉ & UNITÉ */}
+        {/* MODAL CONFIGURATION PRODUIT (CENTRÉ SUR TOUS ÉCRANS) */}
         <Modal
             visible={modalVisible}
             transparent
-            animationType="slide"
+            animationType="fade"
             onRequestClose={() => setModalVisible(false)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { maxHeight: screenHeight * 0.75, width: screenWidth > 600 ? 550 : "100%", alignSelf: "center" }]}>
+          <View style={styles.modalOverlayCentered}>
+            <View style={[styles.modalContentCentered, { maxHeight: screenHeight * 0.85, width: screenWidth > 600 ? 500 : "90%" }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
-                  {editingIngredient?.emoji} {editingIngredient?.name}
+                  {editingIngredient?.emoji || "🛒"} {editingExistingId !== null ? "Modifier" : "Ajouter un produit"}
                 </Text>
                 <TouchableOpacity onPress={() => setModalVisible(false)}>
                   <Ionicons name="close" size={24} color="#333" />
@@ -485,6 +526,18 @@ export default function FridgeScreen() {
               </View>
 
               <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
+                {/* NOM DU PRODUIT */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Nom du produit</Text>
+                  <TextInput
+                      style={styles.nameInput}
+                      value={editName}
+                      onChangeText={setEditName}
+                      placeholder="Ex: Lait, Tomates..."
+                      placeholderTextColor="#ADB5BD"
+                  />
+                </View>
+
                 {/* QUANTITÉ */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Quantité</Text>
@@ -522,26 +575,14 @@ export default function FridgeScreen() {
                 {/* UNITÉ */}
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Unité</Text>
-                  <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      style={styles.unitScroll}
-                  >
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
                     {units.map((u) => (
                         <TouchableOpacity
                             key={u.id}
-                            style={[
-                              styles.unitChip,
-                              editUnitId === u.id && styles.unitChipActive,
-                            ]}
+                            style={[styles.unitChip, editUnitId === u.id && styles.unitChipActive]}
                             onPress={() => setEditUnitId(u.id)}
                         >
-                          <Text
-                              style={[
-                                styles.unitChipText,
-                                editUnitId === u.id && styles.unitChipTextActive,
-                              ]}
-                          >
+                          <Text style={[styles.unitChipText, editUnitId === u.id && styles.unitChipTextActive]}>
                             {u.symbol || u.name}
                           </Text>
                         </TouchableOpacity>
@@ -551,17 +592,10 @@ export default function FridgeScreen() {
               </ScrollView>
 
               <View style={styles.modalFooter}>
-                <TouchableOpacity
-                    style={styles.btnCancel}
-                    onPress={() => setModalVisible(false)}
-                >
+                <TouchableOpacity style={styles.btnCancel} onPress={() => setModalVisible(false)}>
                   <Text style={styles.btnCancelText}>Annuler</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.btnConfirm}
-                    onPress={handleConfirmAdd}
-                    disabled={syncing}
-                >
+                <TouchableOpacity style={styles.btnConfirm} onPress={handleConfirmAdd} disabled={syncing}>
                   {syncing ? (
                       <ActivityIndicator size="small" color="#FFF" />
                   ) : (
@@ -582,7 +616,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
   header: { backgroundColor: "#FFF", padding: 20, borderBottomWidth: 1, borderBottomColor: "#EEE", zIndex: 10 },
   selectionStateBg: { backgroundColor: "#FFF8F2", borderBottomColor: "#FFEAD9" },
-  headerTitle: { fontSize: 26, fontWeight: "bold", color: "#FF9F1C", marginBottom: 15 },
+
+  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
+  headerTitle: { fontSize: 26, fontWeight: "bold", color: "#1F2937" },
+  headerSubtitle: { fontSize: 13, color: "#4B5563", marginTop: 4 },
+  btnAddProduct: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFB347", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, gap: 6, shadowColor: "#FFB347", shadowOpacity: 0.3, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
+  btnAddProductText: { color: "#FFF", fontWeight: "600", fontSize: 14 },
+
   errorBanner: { backgroundColor: "#FEE2E2", borderRadius: 8, padding: 10, marginBottom: 10 },
   errorText: { color: "#DC2626", fontSize: 13 },
   searchBox: { flexDirection: "row", backgroundColor: "#F1F3F5", borderRadius: 12, padding: 12, alignItems: "center" },
@@ -592,7 +632,6 @@ const styles = StyleSheet.create({
   searchResults: { marginTop: 10, backgroundColor: "#FFF", borderRadius: 12, elevation: 5, shadowOpacity: 0.1, shadowRadius: 10, borderWidth: 1, borderColor: "#FFEAD9" },
   searchItem: { flexDirection: "row", alignItems: "center", padding: 15, borderBottomWidth: 1, borderBottomColor: "#F1F3F5", gap: 10 },
 
-  // Nouvelle Grille Flex sans catégories
   frigoGridContainer: {
     padding: 20,
     paddingBottom: 40,
@@ -601,7 +640,6 @@ const styles = StyleSheet.create({
     rowGap: 12,
     columnGap: 12,
   },
-  categoryTitle: { fontSize: 14, fontWeight: "800", marginBottom: 12, color: "#495057", letterSpacing: 1 },
   item: {
     flexDirection: "row",
     alignItems: "center",
@@ -616,33 +654,36 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
 
-  // Contrôles resserrés (Boutons rapprochés)
-  controls: { flexDirection: "row", alignItems: "center", gap: 4 },
-  btnMinus: { backgroundColor: "#F1F3F5", width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center" },
-  btnPlus: { backgroundColor: "#FF9F1C", width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center" },
-  btnEdit: { backgroundColor: "#FFF3E0", width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "#FFD580" },
+  // ESPACEMENT ACCRU POUR LES UTILISATEURS SUR MOBILE (Évite les fausses pressions)
+  controls: { flexDirection: "row", alignItems: "center", gap: 8 },
+  btnMinus: { backgroundColor: "#F1F3F5", width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center", marginRight: 2 },
+  btnPlus: { backgroundColor: "#FF9F1C", width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center", marginRight: 8 },
+  btnEdit: { backgroundColor: "#FFF3E0", width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "#FFD580", marginRight: 4 },
   btnDelete: { width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   emptyText: { textAlign: "center", color: "#ADB5BD", marginTop: 50, fontSize: 16 },
 
-  // Modal styles
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
-  modalContent: { backgroundColor: "#FFF8F2", borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 30, shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 12, elevation: 10 },
+  // INTERFACE REPOSITIONNÉE PARFAITEMENT AU CENTRE DE L'ÉCRAN
+  modalOverlayCentered: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
+  modalContentCentered: { backgroundColor: "#FFF8F2", borderRadius: 24, paddingBottom: 24, shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 12, elevation: 10, overflow: 'hidden' },
+
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1, borderBottomColor: "#FFEAD9" },
   modalTitle: { fontSize: 18, fontWeight: "700", color: "#333" },
   modalBody: { padding: 20 },
   inputGroup: { marginBottom: 20 },
   label: { fontSize: 13, fontWeight: "700", color: "#333", marginBottom: 10 },
+  nameInput: { borderWidth: 1, borderColor: "#E0E0E0", backgroundColor: "#FFF", borderRadius: 10, padding: 12, fontSize: 15, color: "#333" },
   qtyRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   qtyBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: "#FFF", borderWidth: 1, borderColor: "#E9ECEF", justifyContent: "center", alignItems: "center" },
   qtyInput: { flex: 1, borderWidth: 1, borderColor: "#E0E0E0", backgroundColor: "#FFF", borderRadius: 10, padding: 10, fontSize: 16, textAlign: "center" },
-  unitScroll: { marginBottom: 10 },
+  unitScroll: { marginBottom: 5 },
   unitChip: { backgroundColor: "#FFF", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: "#E9ECEF" },
   unitChipActive: { backgroundColor: "#FF9F1C", borderColor: "#FF9F1C" },
   unitChipText: { fontSize: 13, color: "#333", fontWeight: "600" },
   unitChipTextActive: { color: "#FFF" },
+
   modalFooter: { flexDirection: "row", gap: 10, paddingHorizontal: 20, paddingTop: 10 },
   btnCancel: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: "#E0E0E0", backgroundColor: "#FFF", justifyContent: "center", alignItems: "center" },
   btnCancelText: { fontSize: 14, fontWeight: "600", color: "#666" },
-  btnConfirm: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: "#FF9F1C", justifyContent: "center", alignItems: "center" },
+  btnConfirm: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: "#FFB347", justifyContent: "center", alignItems: "center" },
   btnConfirmText: { fontSize: 14, fontWeight: "600", color: "#FFF" },
 });
