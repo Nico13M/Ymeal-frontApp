@@ -1,5 +1,5 @@
 import { ApiError, apiRequest } from "@/src/lib/api";
-import { getSession } from "./auth";
+import { getCsrfToken, getSession } from "./auth";
 
 const COOKIE_SESSION_TOKEN = "__cookie_session__";
 
@@ -297,12 +297,14 @@ export async function createRecipe(payload: {
 }
 
 /* ===================== API CALLS IA ===================== */
-
 export async function generateAiRecipe(
   payload: RecipePredictionRequest,
 ): Promise<RecipePredictionResponse> {
   try {
     const { token, userId } = await getToken();
+
+    // Récupération du jeton CSRF
+    const csrfToken = await getCsrfToken();
 
     const data = await apiRequest<RecipePredictionResponse>(
       "/admin/recipes/generate",
@@ -310,17 +312,17 @@ export async function generateAiRecipe(
         method: "POST",
         token,
         credentials: "include",
-        headers: buildHeaders(userId),
-        body: payload,
+        headers: {
+          ...buildHeaders(userId),
+          "X-CSRF-TOKEN": csrfToken,
+        },
+        body: payload, // ✅ C'est ici que j'ai enlevé le JSON.stringify !
       },
     );
 
     return data!;
   } catch (error) {
-    console.error(
-      "[RECIPES] ❌ generateAiRecipe:",
-      error instanceof ApiError ? error.message : error,
-    );
+    console.error("[RECIPES] ❌ generateAiRecipe:", error);
     throw error;
   }
 }
