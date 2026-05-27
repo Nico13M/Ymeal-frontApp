@@ -54,11 +54,11 @@ export default function TrendingRecipeCard({
               <Ionicons name="time-outline" size={14} color="#666" />
               <Text style={styles.recipeTime}>{totalTime} min</Text>
             </View>
-          </View>
-          <View style={styles.recipeTagRow}>
             <View style={[styles.recipeTag, { backgroundColor: difficultyColors.backgroundColor }]}>
               <Text style={[styles.recipeTagText, { color: difficultyColors.textColor }]}>{item.difficulty || 'Moyen'}</Text>
             </View>
+          </View>
+          <View style={styles.recipeTagRow}>
             <View style={styles.recipeStatsRow}>
               <View style={styles.recipeStatPill}>
                 <Ionicons name="heart" size={12} color="#FF1744" />
@@ -118,10 +118,11 @@ const styles = StyleSheet.create({
   recipeTime: { color: '#666', fontSize: 13 },
   recipeTagRow: { marginTop: 2 },
   recipeTag: {
-    alignSelf: 'flex-start',
+    alignSelf: 'flex-end',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 5,
+    marginRight: 2,
   },
   recipeStatsRow: {
     flexDirection: 'row',
