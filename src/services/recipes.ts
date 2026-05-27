@@ -128,7 +128,7 @@ export type RecipePredictionRequest = {
 
 export type RecipePredictionResponse = {
   recipe: string;
-  model: string; 
+  model: string;
 };
 
 export type TrendingRecipesResult = {
@@ -451,6 +451,76 @@ export async function createRecipe(payload: {
 }
 
 /* ===================== API CALLS IA ===================== */
+
+const DIFFICULTY_MAP: Record<string, string> = {
+  facile: 'easy',
+  débutant: 'easy',
+  debutant: 'easy',
+  moyen: 'medium',
+  intermédiaire: 'medium',
+  intermediaire: 'medium',
+  difficile: 'hard',
+  avancé: 'hard',
+  avance: 'hard',
+};
+
+function generateSlug(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug + '-' + Math.random().toString(36).slice(2, 8);
+}
+
+function parseAiRecipeText(text: string, dishType?: string) {
+  const nameMatch = text.match(/[-*]\s*Nom\s*:\s*(.+)/i);
+  const name = nameMatch ? nameMatch[1].trim() : 'Recette IA';
+
+  const durationMatch = text.match(/Temps\s+total\s*:\s*(\d+)\s*min/i);
+  const duration = durationMatch ? parseInt(durationMatch[1], 10) : undefined;
+
+  const difficultyMatch = text.match(/Niveau\s*:\s*(\S+)/i);
+  const difficulty = difficultyMatch
+    ? (DIFFICULTY_MAP[difficultyMatch[1].toLowerCase().trim()] ?? 'easy')
+    : 'easy';
+
+  const servingsMatch = text.match(/Portions?\s*:\s*(\d+)/i) ?? text.match(/pour\s+(\d+)\s+personne/i);
+  const servings = servingsMatch ? Math.max(1, parseInt(servingsMatch[1], 10)) : 2;
+
+  const ingredientsMatch = text.match(/###\s+Ingr[eé]dients.*?\n([\s\S]*?)(?=###|$)/i);
+  const description = ingredientsMatch ? ingredientsMatch[1].trim() : text.trim();
+
+  const stepsMatch = text.match(/###\s+[Ée]tapes.*?\n([\s\S]*?)(?=###|$)/i);
+  const steps: string[] = stepsMatch
+    ? stepsMatch[1]
+        .split('\n')
+        .map((l) => l.replace(/^\s*(\d+[.)]\s*|[-*]\s*)/, '').trim())
+        .filter((l) => l !== '')
+    : [];
+
+  return { name, slug: generateSlug(name), description, duration, difficulty, servings, steps, dishType, is_public: false };
+}
+
+export async function saveAiRecipe(
+  recipeText: string,
+  options?: { isPublic?: boolean; dishType?: string },
+): Promise<RecipeFull> {
+  const parsed = parseAiRecipeText(recipeText, options?.dishType);
+  const payload = { ...parsed, is_public: options?.isPublic ?? false };
+  const data = await apiRequest<{ success: boolean; recipe: RecipeFull }>('/admin/recipes/create', {
+    method: 'POST',
+    ...(await getToken().then(({ token, userId }) => ({
+      token,
+      credentials: 'include' as const,
+      headers: buildHeaders(userId),
+    }))),
+    body: payload,
+  });
+  return data.recipe;
+}
+
 export async function generateAiRecipe(
   payload: RecipePredictionRequest,
 ): Promise<RecipePredictionResponse> {

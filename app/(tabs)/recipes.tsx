@@ -3,6 +3,7 @@ import { getFrigoIngredients } from "@/src/services/fridge";
 import {
   generateAiRecipe,
   getRecipes,
+  saveAiRecipe,
   type RecipeMinimal,
 } from "@/src/services/recipes";
 import { Ionicons } from "@expo/vector-icons";
@@ -77,6 +78,9 @@ export default function RecipesScreen() {
   const [generatedRecipeText, setGeneratedRecipeText] = useState<string | null>(
       null,
   );
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedRecipeId, setSavedRecipeId] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
@@ -284,11 +288,29 @@ export default function RecipesScreen() {
       </View>
   );
 
+  const handleSaveRecipe = async () => {
+    if (!generatedRecipeText) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      const saved = await saveAiRecipe(generatedRecipeText, { dishType: type });
+      setSavedRecipeId(saved.id);
+    } catch (err) {
+      setSaveError(
+        err instanceof Error ? err.message : 'Erreur lors de la sauvegarde',
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleGenerate = async () => {
     try {
       setSearching(true);
       setError(null);
       setGeneratedRecipeText(null);
+      setSavedRecipeId(null);
+      setSaveError(null);
 
       let tempsMinutes = 45;
       if (time === "Express") tempsMinutes = 15;
@@ -654,25 +676,72 @@ export default function RecipesScreen() {
                     onChangeText={setContext}
                 />
               </View>
+          
+          {/* 👇 AFFICHAGE DU RESULTAT DE L'IA 👇 */}
+          {generatedRecipeText && (
+            <View
+              style={{
+                marginTop: 25,
+                backgroundColor: "#FFF",
+                padding: 20,
+                borderRadius: 15,
+                borderWidth: 2,
+                borderColor: "#FF9F1C",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 18,
+                  fontWeight: "bold",
+                  color: "#FF9F1C",
+                  marginBottom: 15,
+                }}
+              >
+                ✨ Ta recette sur mesure :
+              </Text>
+              <Text style={{ fontSize: 15, lineHeight: 24, color: "#333" }}>
+                {generatedRecipeText}
+              </Text>
+              {savedRecipeId ? (
+                <View style={styles.savedContainer}>
+                  <View style={styles.savedBadge}>
+                    <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
+                    <Text style={styles.savedText}>Recette sauvegardée !</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.viewRecipeBtn}
+                    onPress={() => router.push(`/recipe/${savedRecipeId}`)}
+                  >
+                    <Text style={styles.viewRecipeBtnText}>Voir la recette →</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.saveBtn, isSaving && { opacity: 0.6 }]}
+                  onPress={handleSaveRecipe}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="bookmark" size={18} color="#FFF" />
+                      <Text style={styles.saveBtnText}>Sauvegarder cette recette</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {saveError && (
+                <Text style={styles.saveErrorText}>{saveError}</Text>
+              )}
 
               <TouchableOpacity
-                  style={styles.generateBtn}
-                  onPress={handleGenerate}
-                  disabled={searching}
+                style={styles.closeRecipeBtn}
+                onPress={() => setGeneratedRecipeText(null)}
               >
-                <LinearGradient
-                    colors={["#FF9F1C", "#FF7E05"]}
-                    style={styles.gradientBtn}
-                >
-                  {searching ? (
-                      <ActivityIndicator size="small" color="#FFF" />
-                  ) : (
-                      <>
-                        <Text style={styles.generateBtnText}>Générer la recette</Text>
-                        <Ionicons name="color-wand" size={20} color="#FFF" />
-                      </>
-                  )}
-                </LinearGradient>
+                <Text style={styles.closeRecipeBtnText}>Fermer la recette</Text>
+
               </TouchableOpacity>
 
               {/* AFFICHAGE DU RESULTAT DE L'IA */}
@@ -960,4 +1029,63 @@ const styles = StyleSheet.create({
   pageBtnActive: { backgroundColor: "#00C853", borderColor: "#00C853" },
   pageText: { fontSize: 14, fontWeight: "600", color: "#666" },
   pageTextActive: { color: "#FFF" },
+
+  saveBtn: {
+    marginTop: 15,
+    backgroundColor: "#FF9F1C",
+    paddingVertical: 14,
+    borderRadius: 12,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+  },
+  saveBtnText: {
+    color: "#FFF",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  savedContainer: {
+    marginTop: 15,
+    gap: 10,
+  },
+  savedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  savedText: {
+    color: "#22C55E",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  viewRecipeBtn: {
+    backgroundColor: "#00C853",
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  viewRecipeBtnText: {
+    color: "#FFF",
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  saveErrorText: {
+    color: "#DC2626",
+    marginTop: 8,
+    fontSize: 13,
+    textAlign: "center",
+  },
+  closeRecipeBtn: {
+    marginTop: 15,
+    alignSelf: "center",
+    padding: 10,
+    backgroundColor: "#F5F5F5",
+    borderRadius: 8,
+  },
+  closeRecipeBtnText: {
+    color: "#666",
+    fontWeight: "bold",
+  },
 });
