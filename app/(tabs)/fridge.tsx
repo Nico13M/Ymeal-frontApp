@@ -44,19 +44,30 @@ type SuggestedIngredient = {
   emoji: string;
 };
 
-/* ===================== CONFIGURATION PAR DÉFAUT ===================== */
+/* ===================== CONFIGURATION PAR DÉFAUT & EXTRACTEURS ===================== */
 const DEFAULT_CONFIG = { emoji: "🥗", unit: "g", step: 1, defaultQty: 20 };
 
-function getConfig() {
-  return DEFAULT_CONFIG;
+// Sécurité pour extraire la catégorie textuelle, même si le backend renvoie un objet (ex: { name: 'Légumes' })
+function extractCategory(ing: any): string {
+  if (!ing) return "Autres";
+  if (ing.category && typeof ing.category === "object") {
+    return ing.category.name || ing.category.title || "Autres";
+  }
+  return ing.category || "Autres";
+}
+
+// Sécurité pour l'émoji (gère les propriétés 'image' ou 'emoji' du backend)
+function extractEmoji(ing: any): string {
+  if (!ing) return DEFAULT_CONFIG.emoji;
+  return ing.image || ing.emoji || DEFAULT_CONFIG.emoji;
 }
 
 function toSuggested(ing: BackendIngredient): SuggestedIngredient {
   return {
     id: ing.id,
     name: ing.name,
-    category: ing.name,
-    emoji: DEFAULT_CONFIG.emoji,
+    category: extractCategory(ing),
+    emoji: extractEmoji(ing),
   };
 }
 
@@ -82,9 +93,15 @@ export default function FridgeScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<SuggestedIngredient | null>(null);
   const [editName, setEditName] = useState("");
+  const [editCategory, setEditCategory] = useState("Autres");
   const [editQuantity, setEditQuantity] = useState("1");
   const [editUnitId, setEditUnitId] = useState<number | null>(null);
   const [editingExistingId, setEditingExistingId] = useState<number | string | null>(null);
+
+  // Extraction unique des catégories disponibles issues de la base de données
+  const dynamicCategories = Array.from(
+      new Set(allSuggestions.map((s) => s.category).filter(Boolean))
+  );
 
   // Configuration de la grille adaptative
   const containerPadding = 40;
@@ -102,13 +119,14 @@ export default function FridgeScreen() {
   const itemWidth = (screenWidth - containerPadding - (columnGap * (numColumns - 1))) / numColumns;
 
   const persistQuantities = useCallback(async (ings: Ingredient[]) => {
-    const qtys: Record<string, { quantity: number; unitId: number | null; step: number; name: string }> = {};
+    const qtys: Record<string, { quantity: number; unitId: number | null; step: number; name: string; category: string }> = {};
     ings.forEach((ing) => {
       qtys[String(ing.id)] = {
         quantity: ing.quantity,
         unitId: ing.unit?.id ?? null,
         step: ing.step,
         name: ing.name,
+        category: ing.category,
       };
     });
     await AsyncStorage.setItem(STORAGE_KEYS.frigoIngredients, JSON.stringify(qtys));
@@ -128,7 +146,7 @@ export default function FridgeScreen() {
       setAllSuggestions(available.map(toSuggested));
 
       const storedQtyRaw = await AsyncStorage.getItem(STORAGE_KEYS.frigoIngredients);
-      const storedQty: Record<string, { quantity: number; unitId: number | null; step: number; name?: string }> =
+      const storedQty: Record<string, { quantity: number; unitId: number | null; step: number; name?: string; category?: string }> =
           storedQtyRaw ? JSON.parse(storedQtyRaw) : {};
 
       const mapped: Ingredient[] = backendIngredients.map((ing) => {
@@ -138,9 +156,9 @@ export default function FridgeScreen() {
 
         return {
           id: ing.id,
-          name: stored?.name || ing.name,
-          category: ing.name,
-          emoji: config.emoji,
+          name: ing.name, // Priorité au nom du serveur
+          category: extractCategory(ing), // Priorité absolue au serveur pour éviter de bloquer sur "Autres"
+          emoji: extractEmoji(ing), // Priorité absolue au serveur pour l'émoji frais
           quantity: stored?.quantity ?? ing.quantity ?? config.defaultQty,
           unit,
           step: stored?.step ?? config.step,
@@ -155,7 +173,7 @@ export default function FridgeScreen() {
           localItems.push({
             id: key,
             name: stored.name || "Produit",
-            category: "Autre",
+            category: stored.category || "Autres",
             emoji: "🛒",
             quantity: stored.quantity,
             unit,
@@ -176,44 +194,6 @@ export default function FridgeScreen() {
       useCallback(() => { loadFrigo(); }, [loadFrigo])
   );
 
-  const updateQuantity = useCallback(
-      async (id: number | string, delta: number) => {
-        setUpdatingId(id);
-        try {
-          setError(null);
-
-          const ingredient = ingredients.find((i) => i.id === id);
-          if (!ingredient) return;
-
-          const newQuantity = ingredient.quantity + delta;
-          if (newQuantity <= 0) {
-            if (typeof id === 'number') await removeIngredientFromFrigo(id);
-            const updated = ingredients.filter((i) => i.id !== id);
-            setIngredients(updated);
-            persistQuantities(updated);
-            return;
-          }
-
-          if (typeof id === 'number') {
-            await updateIngredientQuantity(id, newQuantity, ingredient.unit?.id);
-          }
-
-          setIngredients((prev) => {
-            const updated = prev.map((i) =>
-                i.id === id ? { ...i, quantity: newQuantity } : i
-            );
-            persistQuantities(updated);
-            return updated;
-          });
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "Erreur lors de la mise à jour");
-        } finally {
-          setUpdatingId(null);
-        }
-      },
-      [ingredients, persistQuantities]
-  );
-
   if (checking) {
     return (
         <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -226,6 +206,7 @@ export default function FridgeScreen() {
     setEditingExistingId(null);
     setEditingIngredient(null);
     setEditName("");
+    setEditCategory("Autres");
     setEditQuantity("1");
     setEditUnitId(null);
     setModalVisible(true);
@@ -235,6 +216,7 @@ export default function FridgeScreen() {
     setEditingExistingId(ing.id);
     setEditingIngredient(typeof ing.id === 'number' ? { id: ing.id, name: ing.name, category: ing.category, emoji: ing.emoji } : null);
     setEditName(ing.name);
+    setEditCategory(ing.category);
     setEditQuantity(ing.quantity.toString());
     setEditUnitId(ing.unit?.id ?? null);
     setModalVisible(true);
@@ -249,6 +231,7 @@ export default function FridgeScreen() {
     setEditingExistingId(null);
     setEditingIngredient(item);
     setEditName(item.name);
+    setEditCategory(item.category); // Applique directement la catégorie trouvée dans la base
     setEditQuantity("1");
     setEditUnitId(null);
     setModalVisible(true);
@@ -267,10 +250,26 @@ export default function FridgeScreen() {
       return;
     }
 
+    // RECHERCHE INTELLIGENTE : Si l'utilisateur a tapé à la main un nom existant dans le backend
+    const matchingSuggestion = allSuggestions.find(
+        (s) => s.name.toLowerCase() === finalName.toLowerCase()
+    );
+
     try {
       setSyncing(true);
       setError(null);
       const selectedUnit = editUnitId ? units.find((u) => u.id === editUnitId) || null : null;
+
+      // Détermination des valeurs finales (Priorité à la suggestion backend trouvée)
+      let finalCategory = editCategory;
+      let finalEmoji = editingIngredient?.emoji || "🛒";
+      let targetIngredientId = editingIngredient?.id || null;
+
+      if (matchingSuggestion && !editingIngredient) {
+        finalCategory = matchingSuggestion.category;
+        finalEmoji = matchingSuggestion.emoji;
+        targetIngredientId = matchingSuggestion.id;
+      }
 
       if (editingExistingId !== null) {
         if (typeof editingExistingId === 'number') {
@@ -280,7 +279,7 @@ export default function FridgeScreen() {
         setIngredients((prev) => {
           const updated = prev.map((i) =>
               i.id === editingExistingId
-                  ? { ...i, name: finalName, quantity: qty, unit: selectedUnit }
+                  ? { ...i, name: finalName, category: finalCategory, quantity: qty, unit: selectedUnit }
                   : i
           );
           persistQuantities(updated);
@@ -289,16 +288,17 @@ export default function FridgeScreen() {
       } else {
         let newId: string | number = `local_${Date.now()}`;
 
-        if (editingIngredient) {
-          await addIngredientToFrigo(editingIngredient.id, qty, editUnitId ?? undefined);
-          newId = editingIngredient.id;
+        // Si on a lié un ingrédient du backend (via clic ou via correspondance de nom)
+        if (targetIngredientId) {
+          await addIngredientToFrigo(Number(targetIngredientId), qty, editUnitId ?? undefined);
+          newId = targetIngredientId;
         }
 
         const newIng: Ingredient = {
           id: newId,
           name: finalName,
-          category: editingIngredient?.category || "Autres",
-          emoji: editingIngredient?.emoji || "🛒",
+          category: finalCategory,
+          emoji: finalEmoji,
           quantity: qty,
           unit: selectedUnit,
           step: 1,
@@ -446,43 +446,22 @@ export default function FridgeScreen() {
           {!loading &&
               ingredients.map((i) => (
                   <View key={i.id} style={[styles.item, { width: itemWidth }]}>
-                    <Text style={{ fontSize: 26 }}>{i.emoji}</Text>
+                    <Text style={{ fontSize: 26, marginRight: 4 }}>{i.emoji || "🛒"}</Text>
 
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: "700", fontSize: 15 }} numberOfLines={1}>
+                      <Text style={{ fontWeight: "700", fontSize: 15, color: "#1F2937" }}>
                         {i.name}
                       </Text>
+                      <Text style={{ color: "#6B7280", fontSize: 13, marginTop: 1 }}>
+                        {i.category}
+                      </Text>
                       <Text style={{ color: "#FF9F1C", fontWeight: "600", fontSize: 13, marginTop: 2 }}>
-                        {i.quantity} {i.unit?.symbol || i.unit?.name || ""}
+                        {i.quantity} {i.unit?.symbol || i.unit?.name || "unités"}
                       </Text>
                     </View>
 
-                    {/* BOUTONS D'ACTIONS SÉPARÉS POUR CLIQUER FACILEMENT */}
+                    {/* ACTIONS */}
                     <View style={styles.controls}>
-                      <TouchableOpacity
-                          style={styles.btnMinus}
-                          onPress={() => updateQuantity(i.id, -i.step)}
-                          disabled={updatingId !== null}
-                      >
-                        {updatingId === i.id ? (
-                            <ActivityIndicator size="small" color="#666" />
-                        ) : (
-                            <Ionicons name="remove" size={18} color="#666" />
-                        )}
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                          style={styles.btnPlus}
-                          onPress={() => updateQuantity(i.id, i.step)}
-                          disabled={updatingId !== null}
-                      >
-                        {updatingId === i.id ? (
-                            <ActivityIndicator size="small" color="#FFF" />
-                        ) : (
-                            <Ionicons name="add" size={18} color="#FFF" />
-                        )}
-                      </TouchableOpacity>
-
                       <TouchableOpacity
                           style={styles.btnEdit}
                           onPress={() => handleEditIngredient(i)}
@@ -507,7 +486,7 @@ export default function FridgeScreen() {
               ))}
         </ScrollView>
 
-        {/* MODAL CONFIGURATION PRODUIT (CENTRÉ SUR TOUS ÉCRANS) */}
+        {/* MODAL CONFIGURATION PRODUIT */}
         <Modal
             visible={modalVisible}
             transparent
@@ -536,6 +515,24 @@ export default function FridgeScreen() {
                       placeholder="Ex: Lait, Tomates..."
                       placeholderTextColor="#ADB5BD"
                   />
+                </View>
+
+                {/* CATÉGORIE DYNAMIQUE */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Catégorie</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.unitScroll}>
+                    {(dynamicCategories.length > 0 ? dynamicCategories : ['Autres']).map((cat) => (
+                        <TouchableOpacity
+                            key={cat}
+                            style={[styles.unitChip, editCategory === cat && styles.unitChipActive]}
+                            onPress={() => setEditCategory(cat)}
+                        >
+                          <Text style={[styles.unitChipText, editCategory === cat && styles.unitChipTextActive]}>
+                            {cat}
+                          </Text>
+                        </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 </View>
 
                 {/* QUANTITÉ */}
@@ -612,17 +609,16 @@ export default function FridgeScreen() {
   );
 }
 
+// Le reste des styles reste inchangé...
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
   header: { backgroundColor: "#FFF", padding: 20, borderBottomWidth: 1, borderBottomColor: "#EEE", zIndex: 10 },
   selectionStateBg: { backgroundColor: "#FFF8F2", borderBottomColor: "#FFEAD9" },
-
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
   headerTitle: { fontSize: 26, fontWeight: "bold", color: "#1F2937" },
   headerSubtitle: { fontSize: 13, color: "#4B5563", marginTop: 4 },
   btnAddProduct: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFB347", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, gap: 6, shadowColor: "#FFB347", shadowOpacity: 0.3, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
   btnAddProductText: { color: "#FFF", fontWeight: "600", fontSize: 14 },
-
   errorBanner: { backgroundColor: "#FEE2E2", borderRadius: 8, padding: 10, marginBottom: 10 },
   errorText: { color: "#DC2626", fontSize: 13 },
   searchBox: { flexDirection: "row", backgroundColor: "#F1F3F5", borderRadius: 12, padding: 12, alignItems: "center" },
@@ -631,41 +627,14 @@ const styles = StyleSheet.create({
   quickChip: { backgroundColor: "#FFF", paddingHorizontal: 16, paddingVertical: 10, borderRadius: 25, marginRight: 10, borderWidth: 1, borderColor: "#E9ECEF" },
   searchResults: { marginTop: 10, backgroundColor: "#FFF", borderRadius: 12, elevation: 5, shadowOpacity: 0.1, shadowRadius: 10, borderWidth: 1, borderColor: "#FFEAD9" },
   searchItem: { flexDirection: "row", alignItems: "center", padding: 15, borderBottomWidth: 1, borderBottomColor: "#F1F3F5", gap: 10 },
-
-  frigoGridContainer: {
-    padding: 20,
-    paddingBottom: 40,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    rowGap: 12,
-    columnGap: 12,
-  },
-  item: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF",
-    padding: 12,
-    borderRadius: 16,
-    gap: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-
-  // ESPACEMENT ACCRU POUR LES UTILISATEURS SUR MOBILE (Évite les fausses pressions)
-  controls: { flexDirection: "row", alignItems: "center", gap: 8 },
-  btnMinus: { backgroundColor: "#F1F3F5", width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center", marginRight: 2 },
-  btnPlus: { backgroundColor: "#FF9F1C", width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center", marginRight: 8 },
-  btnEdit: { backgroundColor: "#FFF3E0", width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "#FFD580", marginRight: 4 },
-  btnDelete: { width: 32, height: 32, borderRadius: 8, justifyContent: "center", alignItems: "center" },
+  frigoGridContainer: { padding: 20, paddingBottom: 40, flexDirection: "row", flexWrap: "wrap", rowGap: 12, columnGap: 12 },
+  item: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFF", padding: 14, borderRadius: 16, gap: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
+  controls: { flexDirection: "row", alignItems: "center", gap: 12 },
+  btnEdit: { backgroundColor: "#FFF3E0", width: 36, height: 36, borderRadius: 8, justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "#FFD580" },
+  btnDelete: { backgroundColor: "#FEE2E2", width: 36, height: 36, borderRadius: 8, justifyContent: "center", alignItems: "center" },
   emptyText: { textAlign: "center", color: "#ADB5BD", marginTop: 50, fontSize: 16 },
-
-  // INTERFACE REPOSITIONNÉE PARFAITEMENT AU CENTRE DE L'ÉCRAN
   modalOverlayCentered: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
-  modalContentCentered: { backgroundColor: "#FFF8F2", borderRadius: 24, paddingBottom: 24, shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 12, elevation: 10, overflow: 'hidden' },
-
+  modalContentCentered: { backgroundColor: "#FFF8F2", borderRadius: 24, paddingBottom: 24, shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 12, elevation: 10, overflow: 'hidden', alignSelf: 'center' },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1, borderBottomColor: "#FFEAD9" },
   modalTitle: { fontSize: 18, fontWeight: "700", color: "#333" },
   modalBody: { padding: 20 },
@@ -680,7 +649,6 @@ const styles = StyleSheet.create({
   unitChipActive: { backgroundColor: "#FF9F1C", borderColor: "#FF9F1C" },
   unitChipText: { fontSize: 13, color: "#333", fontWeight: "600" },
   unitChipTextActive: { color: "#FFF" },
-
   modalFooter: { flexDirection: "row", gap: 10, paddingHorizontal: 20, paddingTop: 10 },
   btnCancel: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: "#E0E0E0", backgroundColor: "#FFF", justifyContent: "center", alignItems: "center" },
   btnCancelText: { fontSize: 14, fontWeight: "600", color: "#666" },
