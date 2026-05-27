@@ -128,8 +128,8 @@ export type RecipePredictionRequest = {
 
 export type RecipePredictionResponse = {
   recipe: string;
-  model: string;
-}
+  model: string; 
+};
 
 export type TrendingRecipesResult = {
   window: {
