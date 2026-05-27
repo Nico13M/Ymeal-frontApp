@@ -440,6 +440,16 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
     }
   };
 
+  const MacroCard = ({ label, value, unit, color }: {
+    label: string; value: number; unit: string; color: string;
+  }) => (
+    <View style={[styles.macroCard, { borderTopColor: color }]}>
+      <Text style={[styles.macroValue, { color }]}>{value}</Text>
+      <Text style={styles.macroUnit}>{unit}</Text>
+      <Text style={styles.macroLabel}>{label}</Text>
+    </View>
+  );
+
   if (checking || loading) {
     return (
       <View style={styles.center}>
@@ -639,6 +649,19 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
             ))}
           </View>
         </View>
+
+        {/* VALEURS NUTRITIONNELLES */}
+        {recipe.nutrition?.totals && (
+          <View style={[styles.section, sectionStyle]}>
+            <Text style={styles.sectionTitle}>Valeurs nutritionnelles</Text>
+            <View style={styles.macroGrid}>
+              <MacroCard label="Calories"  value={recipe.nutrition.totals.energy_kcal}     unit="kcal" color="#FF9F1C" />
+              <MacroCard label="Protéines" value={recipe.nutrition.totals.proteins_g}      unit="g"    color="#3B82F6" />
+              <MacroCard label="Glucides"  value={recipe.nutrition.totals.carbohydrates_g} unit="g"    color="#22C55E" />
+              <MacroCard label="Lipides"   value={recipe.nutrition.totals.fat_g}           unit="g"    color="#EF4444" />
+            </View>
+          </View>
+        )}
 
         {/* STEPS */}
         <View style={[styles.section, sectionStyle]}>
@@ -1245,15 +1268,50 @@ infoCardFull: {
     flex: 1
   },
   youBadge: {
-  backgroundColor: '#FF9F1C',
-  paddingHorizontal: 8,
-  paddingVertical: 2,
-  borderRadius: 999
+    backgroundColor: '#FF9F1C',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999
   },
 
   youBadgeText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '700'
-  }
+  },
+
+  macroGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4
+  },
+
+  macroCard: {
+    flex: 1,
+    minWidth: '45%',
+    borderTopWidth: 3,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    padding: 14,
+    alignItems: 'center'
+  },
+
+  macroValue: {
+    fontSize: 22,
+    fontWeight: '800'
+  },
+
+  macroUnit: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2
+  },
+
+  macroLabel: {
+    fontSize: 12,
+    color: '#374151',
+    marginTop: 4,
+    fontWeight: '600'
+  },
 });

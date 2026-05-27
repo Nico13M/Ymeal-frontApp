@@ -528,7 +528,7 @@ export default function RecipesScreen() {
                         }
                         style={{ flex: 1 }}
                         value={ingredientInput}
-                        onChangeText={setSearchQuery}
+                        onChangeText={setIngredientInput}
                         editable={!useFrigo}
                         onSubmitEditing={handleAddIngredient}
                     />
@@ -741,51 +741,11 @@ export default function RecipesScreen() {
                 onPress={() => setGeneratedRecipeText(null)}
               >
                 <Text style={styles.closeRecipeBtnText}>Fermer la recette</Text>
-
               </TouchableOpacity>
 
-              {/* AFFICHAGE DU RESULTAT DE L'IA */}
-              {generatedRecipeText && (
-                  <View
-                      style={{
-                        marginTop: 25,
-                        backgroundColor: "#FFF",
-                        padding: 20,
-                        borderRadius: 15,
-                        borderWidth: 2,
-                        borderColor: "#FF9F1C",
-                      }}
-                  >
-                    <Text
-                        style={{
-                          fontSize: 18,
-                          fontWeight: "bold",
-                          color: "#FF9F1C",
-                          marginBottom: 15,
-                        }}
-                    >
-                      ✨ Ta recette sur mesure :
-                    </Text>
-                    <Text style={{ fontSize: 15, lineHeight: 24, color: "#333" }}>
-                      {generatedRecipeText}
-                    </Text>
-                    <TouchableOpacity
-                        style={{
-                          marginTop: 15,
-                          alignSelf: "center",
-                          padding: 10,
-                          backgroundColor: "#F5F5F5",
-                          borderRadius: 8,
-                        }}
-                        onPress={() => setGeneratedRecipeText(null)}
-                    >
-                      <Text style={{ color: "#666", fontWeight: "bold" }}>
-                        Fermer la recette
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-              )}
-            </ScrollView>
+            </View>
+          )}
+        </ScrollView>
         ) : (
             <>
               {loading && (
