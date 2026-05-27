@@ -367,15 +367,17 @@ export default function RecipesScreen() {
 
           <View style={[styles.rowBetween, styles.cardFooter]}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <View style={styles.ratingBadge}>
-                <Ionicons name="star" size={12} color="#FFF" />
-                <Text style={styles.ratingText}>
-                  {formatAverageRating(getAverageRating(item))} ({getRatingsCount(item)})
-                </Text>
-              </View>
-              <View style={styles.favBadge}>
+              <View style={styles.recipeStatPill}>
                 <Ionicons name="heart" size={12} color="#E63946" />
-                <Text style={styles.favText}>{item.favorites_count}</Text>
+                <Text style={styles.pillText}>{item.favorites_count} favoris</Text>
+              </View>
+              <View style={styles.recipeStatPill}>
+                <Ionicons name="chatbubble-outline" size={12} color="#666" />
+                <Text style={styles.pillText}>{getRatingsCount(item)} avis</Text>
+              </View>
+              <View style={styles.recipeStatPill}>
+                <Ionicons name="star" size={12} color="#F59E0B" />
+                <Text style={styles.pillText}>{formatAverageRating(getAverageRating(item))}/5</Text>
               </View>
             </View>
             <Text style={styles.linkText}>Voir ➔</Text>
@@ -910,10 +912,12 @@ const styles = StyleSheet.create({
   cardFooter: { marginTop: 12, alignItems: "center" },
   cardTitle: { fontSize: 18, fontWeight: "bold", color: "#333", width: "100%", marginBottom: 4 },
   rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  ratingBadge: { flexDirection: "row", backgroundColor: "#FFC107", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignItems: "center" },
-  ratingText: { fontSize: 12, fontWeight: "bold", marginLeft: 4, color: "#FFF" },
-  favBadge: { flexDirection: "row", backgroundColor: "#FFEBEB", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignItems: "center" },
-  favText: { fontSize: 12, fontWeight: "bold", marginLeft: 4, color: "#E63946" },
+  ratingBadge: { flexDirection: "row", alignItems: "center", gap: 3 },
+  ratingText: { fontSize: 12, fontWeight: "bold", color: "#F59E0B" },
+  favBadge: { flexDirection: "row", alignItems: "center", gap: 3 },
+  favText: { fontSize: 12, color: "#E63946" },
+  commentBadge: { flexDirection: "row", alignItems: "center", gap: 3 },
+  commentText: { fontSize: 12, color: "#666" },
   metaContainer: { width: "100%", marginTop: 4, marginBottom: 4 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 5 },
   metaText: { color: "#666", fontSize: 13 },
@@ -938,6 +942,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  recipeStatPill: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 4,
+  backgroundColor: "#F8FAFC",
+  borderWidth: 1,
+  borderColor: "#E5E7EB",
+  paddingHorizontal: 8,
+  paddingVertical: 4,
+  borderRadius: 999,
+},
+pillText: {
+  fontSize: 12,
+  color: "#555",
+  fontWeight: "500",
+},
   saveBtnText: { color: "#FFF", fontWeight: "700", fontSize: 16 },
   savedContainer: { marginTop: 15, gap: 10 },
   savedBadge: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
