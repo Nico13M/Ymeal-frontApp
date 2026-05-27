@@ -3,6 +3,20 @@ import { getCsrfToken, getSession } from "./auth";
 
 const COOKIE_SESSION_TOKEN = "__cookie_session__";
 
+export type IngredientMacros = {
+  energy_kcal: number | null;
+  proteins_g: number | null;
+  carbohydrates_g: number | null;
+  fat_g: number | null;
+};
+
+export type NutritionTotals = {
+  energy_kcal: number;
+  proteins_g: number;
+  carbohydrates_g: number;
+  fat_g: number;
+};
+
 export type RecipeIngredient = {
   id: number;
   name: string;
@@ -15,6 +29,7 @@ export type RecipeIngredient = {
         symbol: string;
       }
     | null;
+  macros?: IngredientMacros;
 };
 
 export type RecipeDiet = {
@@ -37,6 +52,7 @@ export type RecipeAuthor = {
 export type RecipeNutrition = {
   diets: RecipeDiet[];
   ingredients: RecipeIngredient[];
+  totals?: NutritionTotals;
 };
 
 export type RecipeEngagement = {
@@ -500,7 +516,13 @@ function parseAiRecipeText(text: string, dishType?: string) {
         .filter((l) => l !== '')
     : [];
 
-  return { name, slug: generateSlug(name), description, duration, difficulty, servings, steps, dishType, is_public: false };
+  const prixMatch = text.match(/[-*]\s*Total\s+recette\s*[:\-–]\s*(.+)/i);
+  const prixEstime = prixMatch ? prixMatch[1].trim() : null;
+  const descriptionFinal = prixEstime
+    ? `${description}\n\n💰 Prix estimé : ${prixEstime}`
+    : description;
+
+  return { name, slug: generateSlug(name), description: descriptionFinal, duration, difficulty, servings, steps, dishType, is_public: false };
 }
 
 export async function saveAiRecipe(

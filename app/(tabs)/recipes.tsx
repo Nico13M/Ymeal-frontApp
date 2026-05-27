@@ -522,6 +522,24 @@ export default function RecipesScreen() {
                         { flexDirection: "row", alignItems: "center", marginBottom: 8 },
                         fi.selected && { backgroundColor: "#C8E6C9" },
                       ]}
+
+                  >
+                    <TextInput
+                        placeholder={
+                          useFrigo
+                              ? "Désactivé (Mode Frigo)"
+                              : "Ajouter un ingrédient..."
+                        }
+                        style={{ flex: 1 }}
+                        value={ingredientInput}
+                        onChangeText={setIngredientInput}
+                        editable={!useFrigo}
+                        onSubmitEditing={handleAddIngredient}
+                    />
+                    <TouchableOpacity
+                        onPress={handleAddIngredient}
+                        disabled={useFrigo}
+
                     >
                       <Text>
                         {fi.emoji} {fi.name}
@@ -574,6 +592,7 @@ export default function RecipesScreen() {
               </TouchableOpacity>
             </View>
           </View>
+
 
           <Selector
             label="Difficulté"
@@ -634,7 +653,7 @@ export default function RecipesScreen() {
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Résultat de l'IA */}
+
           {generatedRecipeText && (
             <View
               style={{
