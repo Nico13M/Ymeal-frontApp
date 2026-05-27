@@ -453,6 +453,16 @@ const DIFFICULTY_MAP: Record<string, string> = {
   avance: 'hard',
 };
 
+function generateSlug(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug + '-' + Math.random().toString(36).slice(2, 8);
+}
+
 function parseAiRecipeText(text: string, dishType?: string) {
   const nameMatch = text.match(/[-*]\s*Nom\s*:\s*(.+)/i);
   const name = nameMatch ? nameMatch[1].trim() : 'Recette IA';
@@ -479,7 +489,7 @@ function parseAiRecipeText(text: string, dishType?: string) {
         .filter((l) => l !== '')
     : [];
 
-  return { name, description, duration, difficulty, servings, steps, dishType, is_public: false };
+  return { name, slug: generateSlug(name), description, duration, difficulty, servings, steps, dishType, is_public: false };
 }
 
 export async function saveAiRecipe(
