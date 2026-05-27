@@ -1,4 +1,4 @@
-// import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { STORAGE_KEYS } from "@/constants/storage";
 import { getHumanErrorMessage } from "@/src/lib/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -9,19 +9,19 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import {
-  SafeAreaView,
-  useSafeAreaInsets,
+    SafeAreaView,
+    useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
 type AccountData = {
@@ -412,13 +412,13 @@ export default function ModifierProfilScreen() {
 
             {/* ── Boutons ── */}
             <View style={styles.actions}>
-              {/* <PrimaryButton
+              <PrimaryButton
                 onPress={handleSave}
                 loading={isSaving}
                 disabled={isSaving}
               >
                 Enregistrer
-              </PrimaryButton> */}
+              </PrimaryButton>
             </View>
           </View>
         </ScrollView>

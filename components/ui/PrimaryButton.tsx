@@ -1,171 +1,64 @@
-// components/ui/PrimaryButton.tsx
-
-import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import {
-  ActivityIndicator,
-  GestureResponderEvent,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextStyle,
-  View,
-  ViewStyle
-} from 'react-native';
-
-type Variant = 'primary' | 'secondary' | 'outline' | 'danger';
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { COLORS } from "@/constants/profileConfig";
 
 interface PrimaryButtonProps {
-  children: React.ReactNode;
-  onPress?: (event: GestureResponderEvent) => void;
-
-  disabled?: boolean;
+  onPress: () => void;
   loading?: boolean;
-
-  icon?: keyof typeof Ionicons.glyphMap;
-
-  variant?: Variant;
-
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  disabled?: boolean;
+  icon?: string;
+  children: React.ReactNode;
 }
 
 export default function PrimaryButton({
-  children,
   onPress,
-
-  disabled = false,
   loading = false,
-
+  disabled = false,
   icon,
-
-  variant = 'primary',
-
-  style,
-  textStyle,
+  children,
 }: PrimaryButtonProps) {
   const isDisabled = disabled || loading;
 
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={onPress}
+      style={[styles.btn, styles.btnPrimary, isDisabled && styles.btnDisabled]}
+      activeOpacity={0.85}
       disabled={isDisabled}
-      style={[
-        styles.button,
-        variantStyles[variant],
-        isDisabled && styles.disabled,
-        style,
-      ]}
     >
-{loading ? (
-  <ActivityIndicator
-    color={variant === 'outline' ? '#FF7A00' : '#FFFFFF'}
-  />
-) : (
-  <View style={styles.content}>
-    <Text
-      style={[
-        styles.text,
-        textVariantStyles[variant],
-        textStyle,
-      ]}
-    >
-      {children}
-    </Text>
-
-    {icon ? (
-      <Ionicons
-        name="arrow-forward-outline"
-        size={18}
-        color={getTextColor(variant)}
-        style={styles.icon}
-      />
-    ) : null}
-  </View>
-)}
-    </Pressable>
+      <Text style={styles.btnPrimaryText}>
+        {children}
+        {icon && !loading && (
+          <>
+            {" "}
+            <Ionicons name={icon as any} size={16} color="#fff" />
+          </>
+        )}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
-function getTextColor(variant: Variant) {
-  switch (variant) {
-    case 'outline':
-      return '#FF7A00';
-
-    default:
-      return '#FFFFFF';
-  }
-}
-
 const styles = StyleSheet.create({
-  button: {
-    height: 54,
-    borderRadius: 18,
-
-    justifyContent: 'center',
-    alignItems: 'center',
-
-    paddingHorizontal: 20,
-
-    width: '100%', // ← IMPORTANT
+  btn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
-
-content: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-},
-
-icon: {
-  marginLeft: 6,
-},
-
-text: {
-  fontSize: 16,
-  fontWeight: '700',
-  textAlign: 'center',
-},
-
-  disabled: {
-    opacity: 0.6,
+  btnPrimary: {
+    backgroundColor: COLORS.orange,
   },
-});
-
-const variantStyles = StyleSheet.create({
-  primary: {
-    backgroundColor: '#FF7A00',
+  btnPrimaryText: {
+    color: "#fff",
+    fontWeight: "900",
+    fontSize: 14,
+    flexDirection: "row",
+    alignItems: "center",
   },
-
-  secondary: {
-    backgroundColor: '#2D2D2D',
-  },
-
-  outline: {
-    backgroundColor: 'transparent',
-
-    borderWidth: 1.5,
-    borderColor: '#FF7A00',
-  },
-
-  danger: {
-    backgroundColor: '#D92D20',
-  },
-});
-
-const textVariantStyles = StyleSheet.create({
-  primary: {
-    color: '#FFFFFF',
-  },
-
-  secondary: {
-    color: '#FFFFFF',
-  },
-
-  outline: {
-    color: '#FF7A00',
-  },
-
-  danger: {
-    color: '#FFFFFF',
+  btnDisabled: {
+    opacity: 0.5,
   },
 });

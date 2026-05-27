@@ -1,28 +1,25 @@
-import { Ionicons } from "@expo/vector-icons";
+import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-
+import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/constants/profileConfig";
 
-type Props = {
+interface StepHeaderProps {
   step: number;
   totalSteps: number;
   onBack: () => void;
-  isWebDesktop?: boolean;
-};
+}
 
-export default function StepHeader({
-  step,
-  totalSteps,
-  onBack,
-  isWebDesktop,
-}: Props) {
+export default function StepHeader({ step, totalSteps, onBack }: StepHeaderProps) {
   return (
-    <>
-      <View style={[styles.header, isWebDesktop && styles.headerDesktop]}>
-        <Text style={[styles.headerTitle, isWebDesktop && styles.headerTitleDesktop]}>
-          Personnalise ton profil
-        </Text>
-
+    <View style={styles.container}>
+      {step > 0 && (
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={20} color={COLORS.text} />
+          <Text style={styles.backText}>Retour</Text>
+        </TouchableOpacity>
+      )}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Personnalise ton profil</Text>
         <Text style={styles.headerStep}>
           {step === 0
             ? `0/${totalSteps}`
@@ -31,28 +28,14 @@ export default function StepHeader({
             : `${step}/${totalSteps}`}
         </Text>
       </View>
-
-      {step > 0 && (
-        <TouchableOpacity
-          onPress={onBack}
-          style={[styles.backButton, isWebDesktop && styles.backButtonDesktop]}
-        >
-          <Ionicons
-            name="arrow-back"
-            size={20}
-            color={COLORS.text}
-          />
-
-          <Text style={styles.backText}>
-            Retour
-          </Text>
-        </TouchableOpacity>
-      )}
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    marginBottom: 6,
+  },
   header: {
     height: 56,
     flexDirection: "row",
@@ -60,24 +43,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 6,
   },
-
-  headerDesktop: {
-    paddingHorizontal: 0,
-    marginBottom: 8,
-  },
-
   headerTitle: {
     fontSize: 22,
     fontWeight: "900",
     color: COLORS.text,
     letterSpacing: 0.2,
   },
-
-  headerTitleDesktop: {
-    fontSize: 24,
-    lineHeight: 32,
-  },
-
   headerStep: {
     fontSize: 12,
     fontWeight: "800",
@@ -87,18 +58,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: COLORS.orangeSoft,
   },
-
   backButton: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,
     alignSelf: "flex-start",
   },
-
-  backButtonDesktop: {
-    marginBottom: 16,
-  },
-
   backText: {
     marginLeft: 6,
     fontSize: 13,

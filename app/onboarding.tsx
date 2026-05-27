@@ -1,453 +1,12 @@
-// import { Ionicons } from '@expo/vector-icons';
-// import AsyncStorage from '@react-native-async-storage/async-storage';
-// import { LinearGradient } from 'expo-linear-gradient';
-// import { router } from 'expo-router';
-// import React, { useRef, useState } from 'react';
-// // import {
-// //   Dimensions,
-// //   FlatList,
-// //   Image,
-// //   StatusBar,
-// //   StyleSheet,
-// //   Text,
-// //   TouchableOpacity,
-// //   View,
-// // } from 'react-native';
-
-// import {
-//   Dimensions,
-//   FlatList,
-//   Image,
-//   Platform,
-//   StatusBar,
-//   StyleSheet,
-//   Text,
-//   TouchableOpacity,
-//   View,
-// } from 'react-native';
-
-
-// const { width, height } = Dimensions.get('window');
-// const isWebDesktop = Platform.OS === 'web' && width > 900;
-
-// const COLORS = {
-//   primary: '#FF9F1C',
-//   secondary: '#FF6B6B',
-//   cream: '#FFF9F2', 
-//   dark: '#1A1A2E',
-//   grey: '#666',
-//   white: '#FFFFFF',
-// };
-
-// type Slide = {
-//   type: 'welcome' | 'features' | 'steps' | 'final';
-//   title: string;
-//   subtitle?: string;
-//   description?: string;
-
-//   items?: {
-//     icon: keyof typeof Ionicons.glyphMap;
-//     title: string;
-//     desc: string;
-//   }[];
-
-//   steps?: {
-//     num: string;
-//     title: string;
-//     desc: string;
-//   }[];
-// };
-
-
-// const SLIDES: Slide[] = [
-//   {
-//     type: 'welcome',
-//     title: "Mange mieux,\nDépense moins 🎓",
-//     description: "L'app qui transforme ton budget étudiant en repas savoureux. Rejoins la communauté !",
-//   },
-//   {
-//     type: 'features',
-//     title: "Tout ce qu'il te faut",
-//     subtitle: "Une app complète pour cuisiner malin.",
-//     items: [
-//       { icon: 'phone-portrait-outline', title: "Inventaire Frigo", desc: "Génère des recettes avec ce que tu as." },
-//       { icon: 'trending-down-outline', title: "Budget Maîtrisé", desc: "Des recettes dès 2€ par repas." },
-//       { icon: 'location-outline', title: "Bons Plans", desc: "Les promos autour de toi." },
-//       { icon: 'people-outline', title: "Communauté", desc: "Partage et découvre les recettes préférées." }, 
-//     ]
-//   },
-//   {
-//     type: 'steps',
-//     title: "Comment ça marche ?",
-//     subtitle: "Simple comme bonjour en 3 étapes.",
-//     steps: [
-//       { num: '1', title: "Crée ton profil", desc: "Régime, budget et localisation." },
-//       { num: '2', title: "Remplis ton frigo", desc: "Ajoute tes ingrédients actuels." },
-//       { num: '3', title: "Cuisine & Partage", desc: "Découvre tes recettes personnalisées." },
-//     ]
-//   },
-//   {
-//     type: 'final',
-//     title: "Prêt à cuisiner ?",
-//     description: "Rejoins des milliers d'étudiants qui cuisinent malin avec Ymeal.",
-//   },
-// ];
-
-// export default function OnboardingScreen() {
-//   const [currentIndex, setCurrentIndex] = useState(0);
-// const slidesRef = useRef<FlatList<Slide>>(null);
-
-//   const finishOnboarding = async () => {
-//     try {
-//       await AsyncStorage.setItem('hasSeenOnboarding', 'true');
-//       router.replace('/register');
-//     } catch (err) { console.log(err); }
-//   };
-
-// const scrollToNext = () => {
-//   if (currentIndex < SLIDES.length - 1) {
-//     slidesRef.current?.scrollToOffset({
-//       offset: (currentIndex + 1) * width,
-//       animated: true,
-//     });
-
-//     setCurrentIndex((prev) => prev + 1);
-//   } else {
-//     finishOnboarding();
-//   }
-// };
-
-// const renderItem = ({ item }: { item: Slide }) => {
-    
-//     if (item.type === 'welcome') {
-//       return (
-//         <View style={{ width, height }}>
-//           <LinearGradient colors={[COLORS.primary, COLORS.secondary]} style={styles.gradientContainer}>
-//             <View style={[styles.contentContainer]}> 
-//               <Text style={styles.mainTitle}>{item.title}</Text>
-//               <Text style={styles.mainDesc}>{item.description}</Text>
-              
-//               <Image
-//   source={require('@/assets/images/logo_ymeal.png')}
-//   style={styles.logoImage}
-//   resizeMode="contain"
-// />
-
-//               {/* <View style={styles.statsContainer}>
-//                  <Text style={styles.statText}>✨ 10K+ Étudiants</Text>
-//                  <Text style={styles.statText}>🍲 500+ Recettes</Text>
-//               </View> */}
-//             </View>
-//           </LinearGradient>
-//         </View>
-//       );
-//     }
-
-//     if (item.type === 'features') {
-//       return (
-//         <View style={[styles.creamContainer, { width }]}>
-//           <Text style={styles.darkTitle}>{item.title}</Text>
-//           <Text style={styles.darkSubtitle}>{item.subtitle}</Text>
-          
-//           {/* <View style={styles.cardsWrapper}> */}
-//           <View
-//   style={[
-//     styles.cardsWrapper,
-//     isWebDesktop && {
-//       width: '100%',
-//       maxWidth: 1000,
-//       alignSelf: 'center',
-//     },
-//   ]}
-// >
-//             {item.items?.map((feature, index) => (
-//               <View key={index} style={styles.featureCard}>
-//                 <View style={styles.iconBox}>
-//                   <Ionicons name={feature.icon} size={28} color="#FFF" />
-//                 </View>
-//                 <View style={{flex: 1}}>
-//                   <Text style={styles.cardTitle}>{feature.title}</Text>
-//                   <Text style={styles.cardDesc}>{feature.desc}</Text>
-//                 </View>
-//               </View>
-//             ))}
-//           </View>
-//         </View>
-//       );
-//     }
-
-//     if (item.type === 'steps') {
-//       return (
-//         <View style={[styles.creamContainer, { width }]}>
-//            <Text style={styles.darkTitle}>{item.title}</Text>
-//            <Text style={styles.darkSubtitle}>{item.subtitle}</Text>
-
-//            <View style={styles.stepsWrapper}>
-//               {item.steps?.map((step, index) => (
-//                 <View key={index} style={styles.stepItem}>
-//                   <View style={styles.stepCircle}>
-//                     <Text style={styles.stepNum}>{step.num}</Text>
-//                   </View>
-//                   <View style={{ alignItems: 'center' }}>
-//                     <Text style={styles.stepTitle}>{step.title}</Text>
-//                     <Text style={styles.stepDesc}>{step.desc}</Text>
-//                   </View>
-//                 </View>
-//               ))}
-//            </View>
-//         </View>
-//       );
-//     }
-
-//     if (item.type === 'final') {
-//       return (
-//         <View style={{ width, height }}>
-//           <LinearGradient colors={[COLORS.primary, COLORS.secondary]} style={styles.gradientContainer}>
-//              <View style={styles.contentContainer}>
-// <Image
-//   source={require('@/assets/images/logo_ymeal.png')}
-//   style={styles.finalLogo}
-//   resizeMode="contain"
-// />
-//                 <Text style={styles.mainTitle}>{item.title}</Text>
-//                 <Text style={styles.mainDesc}>{item.description}</Text>
-                
-//                 <TouchableOpacity style={styles.whiteBtn} onPress={finishOnboarding}>
-//                   <Text style={styles.whiteBtnText}>Commencer maintenant ➔</Text>
-//                 </TouchableOpacity>
-//              </View>
-//           </LinearGradient>
-//         </View>
-//       );
-//     }
-//     return null;
-//   };
-
-//   return (
-//     <View style={styles.container}>
-//       <StatusBar barStyle={currentIndex === 1 || currentIndex === 2 ? "dark-content" : "light-content"} />
-      
-// <FlatList<Slide>
-//   ref={slidesRef}
-//   data={SLIDES}
-//   horizontal
-//   pagingEnabled
-//   showsHorizontalScrollIndicator={false}
-//   bounces={false}
-//   keyExtractor={(_, index) => index.toString()}
-//   renderItem={renderItem}
-
-//   getItemLayout={(_, index) => ({
-//     length: width,
-//     offset: width * index,
-//     index,
-//   })}
-
-//   onMomentumScrollEnd={(e) => {
-//     const index = Math.round(
-//       e.nativeEvent.contentOffset.x / width
-//     );
-//     setCurrentIndex(index);
-//   }}
-// />
-
-//       {currentIndex < SLIDES.length - 1 && (
-//         <View style={styles.footer}>
-//           <View style={styles.indicatorContainer}>
-//             {SLIDES.map((_, index) => (
-//               <View 
-//                 key={index} 
-//                 style={[
-//                   styles.indicator, 
-//                   currentIndex === index && styles.activeIndicator,
-//                   // Gestion intelligente des couleurs des points
-//                   (currentIndex === 1 || currentIndex === 2) ? { backgroundColor: '#E0D0C0' } : { backgroundColor: 'rgba(255,255,255,0.4)' },
-//                   (currentIndex === index && (currentIndex === 1 || currentIndex === 2)) && { backgroundColor: COLORS.primary },
-//                   (currentIndex === index && (currentIndex === 0 || currentIndex === 3)) && { backgroundColor: '#FFF' }
-//                 ]} 
-//               />
-//             ))}
-//           </View>
-
-//           <TouchableOpacity onPress={scrollToNext} style={styles.nextBtn}>
-//             <Text style={[
-//               styles.nextText, 
-//               (currentIndex === 1 || currentIndex === 2) ? { color: COLORS.primary } : { color: '#FFF' }
-//             ]}>
-//               Suivant
-//             </Text>
-//           </TouchableOpacity>
-//         </View>
-//       )}
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   // container: { flex: 1 },
-//   container: {
-//   flex: 1,
-//   backgroundColor: COLORS.cream,
-// },
-  
-// gradientContainer: {
-//   flex: 1,
-//   justifyContent: 'center',
-//   alignItems: 'center',
-//   padding: 20,
-//   paddingTop: 60,
-// },
-//   creamContainer: { flex: 1, backgroundColor: COLORS.cream, padding: 20, paddingTop: 80, alignItems: 'center' },
-  
-// contentContainer: {
-//   flex: 1,
-//   justifyContent: 'center',
-//   alignItems: 'center',
-//   width: '100%',
-//   paddingBottom: Platform.OS === 'web' ? 0 : 80,
-// },
-
-//   mainTitle: {
-//   fontSize: width < 380 ? 28 : 34, fontWeight: '800', color: '#FFF', textAlign: 'center', marginBottom: 20 },
-//   mainDesc: { fontSize: 17, color: '#FFF', textAlign: 'center', opacity: 0.95, lineHeight: 26, paddingHorizontal: 10 },
-  
-//   darkTitle: { fontSize: 26, fontWeight: 'bold', color: COLORS.dark, marginBottom: 8, textAlign: 'center' },
-//   darkSubtitle: { fontSize: 15, color: COLORS.grey, marginBottom: 30, textAlign: 'center' },
-
-//   imagePlaceholder: {
-//     width: width * 0.85, height: 260, backgroundColor: '#FFF', borderRadius: 25,
-//     justifyContent: 'center', alignItems: 'center', marginTop: 30, elevation: 8,
-//     shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: {width:0, height:5}
-//   },
-//   statsContainer: { flexDirection: 'row', marginTop: 25, gap: 20 },
-//   statText: { color: 'rgba(255,255,255,0.9)', fontSize: 15, fontWeight: '600'},
-
-//   cardsWrapper: { width: '100%', gap: 12 }, // Gap réduit légèrement pour faire tenir les 4
-//   featureCard: {
-//     width: isWebDesktop ? '85%' : '100%',
-//     maxWidth: 850,
-//     alignSelf: 'center',
-//     flexDirection: 'row', 
-//     backgroundColor: '#FFF', 
-//     paddingVertical: 18, // Plus de hauteur
-//     paddingHorizontal: 20, 
-//     borderRadius: 18,
-//     alignItems: 'center',
-//     shadowColor: COLORS.primary, // Ombre orangée légère
-//     shadowOffset: { width: 0, height: 4 }, 
-//     shadowOpacity: 0.08, 
-//     shadowRadius: 10, 
-//     elevation: 4,
-//     borderWidth: 1,
-//     borderColor: 'rgba(255,159,28, 0.1)' // Bordure très fine orange pâle
-//   },
-//   iconBox: { 
-//     width: 52, height: 52, backgroundColor: COLORS.primary, borderRadius: 14, 
-//     justifyContent: 'center', alignItems: 'center', marginRight: 18 
-//   },
-//   cardTitle: { fontSize: 17, fontWeight: 'bold', color: '#333', marginBottom: 4 },
-//   cardDesc: { fontSize: 13, color: '#777', lineHeight: 18 },
-
-//   // --- PAGE 3 : ETAPES ---
-//   stepsWrapper: { width: '100%', alignItems: 'center', gap: 35 },
-//   stepItem: { alignItems: 'center', width: '85%' },
-//   stepCircle: { 
-//     width: 55, height: 55, backgroundColor: COLORS.primary, borderRadius: 30, 
-//     justifyContent: 'center', alignItems: 'center', marginBottom: 12,
-//     shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowRadius: 6, elevation: 6
-//   },
-//   stepNum: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
-//   stepTitle: { fontSize: 19, fontWeight: 'bold', color: '#333', marginBottom: 6 },
-//   stepDesc: { fontSize: 15, color: '#666', textAlign: 'center', lineHeight: 22 },
-
-//   // --- FOOTER ---
-// footer: {
-//   position: 'absolute',
-
-//   bottom: Platform.OS === 'web' ? 50 : 35,
-
-//   left: 25,
-//   right: 25,
-
-//   flexDirection: 'row',
-//   justifyContent: 'space-between',
-//   alignItems: 'center',
-// },
-
-//   indicatorContainer: { flexDirection: 'row' },
-//   indicator: { height: 8, width: 8, borderRadius: 4, marginHorizontal: 4 },
-//   activeIndicator: { width: 22 },
-
-//   nextBtn: {
-//   paddingVertical: 12,
-//   paddingHorizontal: 22,
-
-//   borderRadius: 30,
-
-//   backgroundColor:
-//     Platform.OS === 'web'
-//       ? 'rgba(255,255,255,0.12)'
-//       : 'transparent',
-
-//   backdropFilter:
-//     Platform.OS === 'web'
-//       ? 'blur(8px)'
-//       : undefined,
-// },
-
-//   nextText: { fontSize: 18, fontWeight: 'bold' },
-
-// whiteBtn: {
-//   backgroundColor: '#FFF',
-
-//   width: Platform.OS === 'web' ? 420 : '90%',
-
-//   paddingVertical: 18,
-//   paddingHorizontal: 35,
-
-//   borderRadius: 35,
-
-//   marginTop: 35,
-
-//   alignItems: 'center',
-//   justifyContent: 'center',
-
-//   shadowColor: '#000',
-//   shadowOpacity: 0.15,
-//   shadowRadius: 10,
-//   elevation: 5,
-// },
-
-// logoImage: {
-//   width: width * 0.58,
-//   height: 150,
-//   marginTop: 10,
-//   marginBottom: 0,
-// },
-
-// finalLogo: {
-//   width: 170,
-//   height: 120,
-//   marginBottom: 10,
-// },
-//   whiteBtnText: { color: COLORS.primary, fontSize: 18, fontWeight: 'bold' }
-// });
-
-
-
-
-
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useRef, useState } from 'react';
-
 import {
   Dimensions,
   FlatList,
   Image,
-  Platform,
   StatusBar,
   StyleSheet,
   Text,
@@ -457,13 +16,10 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-const isWebDesktop =
-  Platform.OS === 'web' && width > 900;
-
 const COLORS = {
   primary: '#FF9F1C',
   secondary: '#FF6B6B',
-  cream: '#FFF9F2',
+  cream: '#FFF9F2', 
   dark: '#1A1A2E',
   grey: '#666',
   white: '#FFFFFF',
@@ -488,149 +44,80 @@ type Slide = {
   }[];
 };
 
+
 const SLIDES: Slide[] = [
   {
     type: 'welcome',
-    title: 'Mange mieux,\nDépense moins 🎓',
-    description:
-      "L'app qui transforme ton budget étudiant en repas savoureux.",
+    title: "Mange mieux,\nDépense moins 🎓",
+    description: "L'app qui transforme ton budget étudiant en repas savoureux. Rejoins la communauté !",
   },
-
   {
     type: 'features',
     title: "Tout ce qu'il te faut",
-    subtitle:
-      'Une app complète pour cuisiner malin.',
-
+    subtitle: "Une app complète pour cuisiner malin.",
     items: [
-      {
-        icon: 'phone-portrait-outline',
-        title: 'Inventaire Frigo',
-        desc:
-          'Génère des recettes avec ce que tu as.',
-      },
-
-      {
-        icon: 'trending-down-outline',
-        title: 'Budget Maîtrisé',
-        desc: 'Des recettes dès 2€ par repas.',
-      },
-
-      {
-        icon: 'location-outline',
-        title: 'Bons Plans',
-        desc: 'Les promos autour de toi.',
-      },
-
-      {
-        icon: 'people-outline',
-        title: 'Communauté',
-        desc:
-          'Partage et découvre les recettes préférées.',
-      },
-    ],
+      { icon: 'phone-portrait-outline', title: "Inventaire Frigo", desc: "Génère des recettes avec ce que tu as." },
+      { icon: 'trending-down-outline', title: "Budget Maîtrisé", desc: "Des recettes dès 2€ par repas." },
+      { icon: 'location-outline', title: "Bons Plans", desc: "Les promos autour de toi." },
+      { icon: 'people-outline', title: "Communauté", desc: "Partage et découvre les recettes préférées." }, 
+    ]
   },
-
   {
     type: 'steps',
-    title: 'Comment ça marche ?',
-    subtitle:
-      'Simple comme bonjour en 3 étapes.',
-
+    title: "Comment ça marche ?",
+    subtitle: "Simple comme bonjour en 3 étapes.",
     steps: [
-      {
-        num: '1',
-        title: 'Crée ton profil',
-        desc:
-          'Régime, budget et localisation.',
-      },
-
-      {
-        num: '2',
-        title: 'Remplis ton frigo',
-        desc:
-          'Ajoute tes ingrédients actuels.',
-      },
-
-      {
-        num: '3',
-        title: 'Cuisine & Partage',
-        desc:
-          'Découvre tes recettes personnalisées.',
-      },
-    ],
+      { num: '1', title: "Crée ton profil", desc: "Régime, budget et localisation." },
+      { num: '2', title: "Remplis ton frigo", desc: "Ajoute tes ingrédients actuels." },
+      { num: '3', title: "Cuisine & Partage", desc: "Découvre tes recettes personnalisées." },
+    ]
   },
-
   {
     type: 'final',
-    title: 'Prêt à cuisiner ?',
-    description:
-      "Rejoins des milliers d'étudiants qui cuisinent malin avec Ymeal.",
+    title: "Prêt à cuisiner ?",
+    description: "Rejoins des milliers d'étudiants qui cuisinent malin avec Ymeal.",
   },
 ];
 
 export default function OnboardingScreen() {
-  const [currentIndex, setCurrentIndex] =
-    useState(0);
-
-  const slidesRef =
-    useRef<FlatList<Slide>>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+const slidesRef = useRef<FlatList<Slide>>(null);
 
   const finishOnboarding = async () => {
     try {
-      await AsyncStorage.setItem(
-        'hasSeenOnboarding',
-        'true'
-      );
-
+      await AsyncStorage.setItem('hasSeenOnboarding', 'true');
       router.replace('/register');
-    } catch (err) {
-      console.log(err);
-    }
+    } catch (err) { console.log(err); }
   };
 
   const scrollToNext = () => {
     if (currentIndex < SLIDES.length - 1) {
-      slidesRef.current?.scrollToOffset({
-        offset: (currentIndex + 1) * width,
-        animated: true,
-      });
-
-      setCurrentIndex((prev) => prev + 1);
+      slidesRef.current?.scrollToIndex({ index: currentIndex + 1 });
     } else {
       finishOnboarding();
     }
   };
 
-  const renderItem = ({
-    item,
-  }: {
-    item: Slide;
-  }) => {
+const renderItem = ({ item }: { item: Slide }) => {
+    
     if (item.type === 'welcome') {
       return (
         <View style={{ width, height }}>
-          <LinearGradient
-            colors={[
-              COLORS.primary,
-              COLORS.secondary,
-            ]}
-            style={styles.gradientContainer}
-          >
-            <View style={styles.contentContainer}>
-              <Text style={styles.mainTitle}>
-                {item.title}
-              </Text>
-
-              <Text style={styles.mainDesc}>
-                {item.description}
-              </Text>
-
+          <LinearGradient colors={[COLORS.primary, COLORS.secondary]} style={styles.gradientContainer}>
+            <View style={[styles.contentContainer]}> 
+              <Text style={styles.mainTitle}>{item.title}</Text>
+              <Text style={styles.mainDesc}>{item.description}</Text>
+              
               <Image
-                source={require('@/assets/images/logo_ymeal.png')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
+  source={require('@/assets/images/logo_ymeal.png')}
+  style={styles.logoImage}
+  resizeMode="contain"
+/>
+
+              {/* <View style={styles.statsContainer}>
+                 <Text style={styles.statText}>✨ 10K+ Étudiants</Text>
+                 <Text style={styles.statText}>🍲 500+ Recettes</Text>
+              </View> */}
             </View>
           </LinearGradient>
         </View>
@@ -639,51 +126,22 @@ export default function OnboardingScreen() {
 
     if (item.type === 'features') {
       return (
-        <View
-          style={[
-            styles.creamContainer,
-            { width },
-          ]}
-        >
-          <Text style={styles.darkTitle}>
-            {item.title}
-          </Text>
-
-          <Text style={styles.darkSubtitle}>
-            {item.subtitle}
-          </Text>
-
+        <View style={[styles.creamContainer, { width }]}>
+          <Text style={styles.darkTitle}>{item.title}</Text>
+          <Text style={styles.darkSubtitle}>{item.subtitle}</Text>
+          
           <View style={styles.cardsWrapper}>
-            {item.items?.map(
-              (feature, index) => (
-                <View
-                  key={index}
-                  style={styles.featureCard}
-                >
-                  <View style={styles.iconBox}>
-                    <Ionicons
-                      name={feature.icon}
-                      size={28}
-                      color="#FFF"
-                    />
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <Text
-                      style={styles.cardTitle}
-                    >
-                      {feature.title}
-                    </Text>
-
-                    <Text
-                      style={styles.cardDesc}
-                    >
-                      {feature.desc}
-                    </Text>
-                  </View>
+            {item.items?.map((feature, index) => (
+              <View key={index} style={styles.featureCard}>
+                <View style={styles.iconBox}>
+                  <Ionicons name={feature.icon} size={28} color="#FFF" />
                 </View>
-              )
-            )}
+                <View style={{flex: 1}}>
+                  <Text style={styles.cardTitle}>{feature.title}</Text>
+                  <Text style={styles.cardDesc}>{feature.desc}</Text>
+                </View>
+              </View>
+            ))}
           </View>
         </View>
       );
@@ -691,52 +149,23 @@ export default function OnboardingScreen() {
 
     if (item.type === 'steps') {
       return (
-        <View
-          style={[
-            styles.creamContainer,
-            { width },
-          ]}
-        >
-          <Text style={styles.darkTitle}>
-            {item.title}
-          </Text>
+        <View style={[styles.creamContainer, { width }]}>
+           <Text style={styles.darkTitle}>{item.title}</Text>
+           <Text style={styles.darkSubtitle}>{item.subtitle}</Text>
 
-          <Text style={styles.darkSubtitle}>
-            {item.subtitle}
-          </Text>
-
-          <View style={styles.stepsWrapper}>
-            {item.steps?.map(
-              (step, index) => (
-                <View
-                  key={index}
-                  style={styles.stepItem}
-                >
-                  <View
-                    style={styles.stepCircle}
-                  >
-                    <Text
-                      style={styles.stepNum}
-                    >
-                      {step.num}
-                    </Text>
+           <View style={styles.stepsWrapper}>
+              {item.steps?.map((step, index) => (
+                <View key={index} style={styles.stepItem}>
+                  <View style={styles.stepCircle}>
+                    <Text style={styles.stepNum}>{step.num}</Text>
                   </View>
-
-                  <Text
-                    style={styles.stepTitle}
-                  >
-                    {step.title}
-                  </Text>
-
-                  <Text
-                    style={styles.stepDesc}
-                  >
-                    {step.desc}
-                  </Text>
+                  <View style={{ alignItems: 'center' }}>
+                    <Text style={styles.stepTitle}>{step.title}</Text>
+                    <Text style={styles.stepDesc}>{step.desc}</Text>
+                  </View>
                 </View>
-              )
-            )}
-          </View>
+              ))}
+           </View>
         </View>
       );
     }
@@ -744,589 +173,174 @@ export default function OnboardingScreen() {
     if (item.type === 'final') {
       return (
         <View style={{ width, height }}>
-          <LinearGradient
-            colors={[
-              COLORS.primary,
-              COLORS.secondary,
-            ]}
-            style={styles.gradientContainer}
-          >
-            <View style={styles.contentContainer}>
-              <Image
-                source={require('@/assets/images/logo_ymeal.png')}
-                style={styles.finalLogo}
-                resizeMode="contain"
-              />
-
-              <Text style={styles.mainTitle}>
-                {item.title}
-              </Text>
-
-              <Text style={styles.mainDesc}>
-                {item.description}
-              </Text>
-
-              <TouchableOpacity
-                style={styles.whiteBtn}
-                onPress={finishOnboarding}
-              >
-                <Text
-                  style={styles.whiteBtnText}
-                >
-                  Commencer maintenant →
-                </Text>
-              </TouchableOpacity>
-            </View>
+          <LinearGradient colors={[COLORS.primary, COLORS.secondary]} style={styles.gradientContainer}>
+             <View style={styles.contentContainer}>
+<Image
+  source={require('@/assets/images/logo_ymeal.png')}
+  style={styles.finalLogo}
+  resizeMode="contain"
+/>
+                <Text style={styles.mainTitle}>{item.title}</Text>
+                <Text style={styles.mainDesc}>{item.description}</Text>
+                
+                <TouchableOpacity style={styles.whiteBtn} onPress={finishOnboarding}>
+                  <Text style={styles.whiteBtnText}>Commencer maintenant ➔</Text>
+                </TouchableOpacity>
+             </View>
           </LinearGradient>
         </View>
       );
     }
-
     return null;
   };
 
   return (
     <View style={styles.container}>
-      <StatusBar
-        barStyle="dark-content"
-      />
-
-      <TouchableOpacity
-  style={styles.skipButton}
-  onPress={finishOnboarding}
->
-  <Text style={styles.skipButtonText}>
-    Passer
-  </Text>
-</TouchableOpacity>
-
-{isWebDesktop ? (
-
-<FlatList
-  data={[1]}
-  keyExtractor={() => 'web'}
-  showsVerticalScrollIndicator={false}
-
-renderItem={() => (
-
-  <View style={{ flex: 1 }}>
-
-    {/* <TouchableOpacity
-      style={styles.skipButton}
-      onPress={finishOnboarding}
-    >
-      <Text style={styles.skipButtonText}>
-        Passer
-      </Text>
-    </TouchableOpacity> */}
-
-    <View style={styles.webContainer}>
-
-      {/* CARD 1 */}
-      <LinearGradient
-        colors={[
-          COLORS.primary,
-          COLORS.secondary,
-        ]}
-        style={styles.webGradientCard}
-      >
-        <Text style={styles.mainTitle}>
-          Mange mieux,{'\n'}
-          Dépense moins 🎓
-        </Text>
-
-        <Text style={styles.mainDesc}>
-          L'app qui transforme ton budget étudiant en repas savoureux.
-        </Text>
-
-        <Image
-          source={require('@/assets/images/logo_ymeal.png')}
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
-      </LinearGradient>
-
-      {/* CARD 2 */}
-      <View style={styles.webCard}>
-        <Text style={styles.darkTitle}>
-          Tout ce qu'il te faut
-        </Text>
-
-        <Text style={styles.darkSubtitle}>
-          Une app complète pour cuisiner malin.
-        </Text>
-
-        <View style={styles.cardsWrapper}>
-          {SLIDES[1].items?.map((feature, index) => (
-            <View
-              key={index}
-              style={styles.featureCard}
-            >
-              <View style={styles.iconBox}>
-                <Ionicons
-                  name={feature.icon}
-                  size={24}
-                  color="#FFF"
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cardTitle}>
-                  {feature.title}
-                </Text>
-
-                <Text style={styles.cardDesc}>
-                  {feature.desc}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* CARD 3 */}
-      <View style={styles.webCard}>
-        <Text style={styles.darkTitle}>
-          Comment ça marche ?
-        </Text>
-
-        <Text style={styles.darkSubtitle}>
-          Simple comme bonjour en 3 étapes.
-        </Text>
-
-        <View style={styles.stepsWrapper}>
-          {SLIDES[2].steps?.map((step, index) => (
-            <View
-              key={index}
-              style={styles.stepItem}
-            >
-              <View style={styles.stepCircle}>
-                <Text style={styles.stepNum}>
-                  {step.num}
-                </Text>
-              </View>
-
-              <Text style={styles.stepTitle}>
-                {step.title}
-              </Text>
-
-              <Text style={styles.stepDesc}>
-                {step.desc}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* CARD 4 */}
-      <LinearGradient
-        colors={[
-          COLORS.primary,
-          COLORS.secondary,
-        ]}
-        style={styles.webGradientCard}
-      >
-        <Image
-          source={require('@/assets/images/logo_ymeal.png')}
-          style={styles.finalLogo}
-          resizeMode="contain"
-        />
-
-        <Text style={styles.mainTitle}>
-          Prêt à cuisiner ?
-        </Text>
-
-        <Text style={styles.mainDesc}>
-          Rejoins des milliers d'étudiants.
-        </Text>
-
-        <TouchableOpacity
-          style={styles.whiteBtn}
-          onPress={finishOnboarding}
-        >
-          <Text style={styles.whiteBtnText}>
-            Commencer maintenant →
-          </Text>
-        </TouchableOpacity>
-      </LinearGradient>
-
-    </View>
-  </View>
-  )}
+      <StatusBar barStyle={currentIndex === 1 || currentIndex === 2 ? "dark-content" : "light-content"} />
+      
+<FlatList<Slide>
+  ref={slidesRef}
+  data={SLIDES}
+  horizontal
+  pagingEnabled
+  showsHorizontalScrollIndicator={false}
+  bounces={false}
+  keyExtractor={(_, index) => index.toString()}
+  renderItem={renderItem}
+  onMomentumScrollEnd={(e) => {
+    const index = Math.round(
+      e.nativeEvent.contentOffset.x / width
+    );
+    setCurrentIndex(index);
+  }}
 />
 
-) : (
-        <>
-          <FlatList<Slide>
-            ref={slidesRef}
-            data={SLIDES}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={
-              false
-            }
-            bounces={false}
-            keyExtractor={(_, index) =>
-              index.toString()
-            }
-            renderItem={renderItem}
-            getItemLayout={(_, index) => ({
-              length: width,
-              offset: width * index,
-              index,
-            })}
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(
-                e.nativeEvent.contentOffset
-                  .x / width
-              );
+      {currentIndex < SLIDES.length - 1 && (
+        <View style={styles.footer}>
+          <View style={styles.indicatorContainer}>
+            {SLIDES.map((_, index) => (
+              <View 
+                key={index} 
+                style={[
+                  styles.indicator, 
+                  currentIndex === index && styles.activeIndicator,
+                  // Gestion intelligente des couleurs des points
+                  (currentIndex === 1 || currentIndex === 2) ? { backgroundColor: '#E0D0C0' } : { backgroundColor: 'rgba(255,255,255,0.4)' },
+                  (currentIndex === index && (currentIndex === 1 || currentIndex === 2)) && { backgroundColor: COLORS.primary },
+                  (currentIndex === index && (currentIndex === 0 || currentIndex === 3)) && { backgroundColor: '#FFF' }
+                ]} 
+              />
+            ))}
+          </View>
 
-              setCurrentIndex(index);
-            }}
-          />
-
-          {currentIndex <
-            SLIDES.length - 1 && (
-            <View style={styles.footer}>
-              <View
-                style={
-                  styles.indicatorContainer
-                }
-              >
-                {SLIDES.map(
-                  (_, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.indicator,
-
-                        currentIndex ===
-                          index &&
-                          styles.activeIndicator,
-                      ]}
-                    />
-                  )
-                )}
-              </View>
-
-              <TouchableOpacity
-                onPress={scrollToNext}
-                style={styles.nextBtn}
-              >
-                <Text
-                  style={styles.nextText}
-                >
-                  Suivant
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </>
+          <TouchableOpacity onPress={scrollToNext} style={styles.nextBtn}>
+            <Text style={[
+              styles.nextText, 
+              (currentIndex === 1 || currentIndex === 2) ? { color: COLORS.primary } : { color: '#FFF' }
+            ]}>
+              Suivant
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.cream,
-  },
-
-webContainer: {
-  width: '100%',
-
-  flexDirection: 'row',
-  flexWrap: 'wrap',
-
+  container: { flex: 1 },
+  
+gradientContainer: {
+  flex: 1,
   justifyContent: 'center',
-
-columnGap: 50,
-rowGap: 80,
-paddingBottom: 80,
-
-  paddingVertical: 60,
-  paddingHorizontal: 40,
-
-  backgroundColor: COLORS.cream,
+  alignItems: 'center',
+  padding: 20,
+  paddingTop: 60,
 },
-
-  webCard: {
-  width: 500,
-  height: 420,
-    backgroundColor: COLORS.cream,
-    borderRadius: 28,
-    padding: 30,
-    justifyContent: 'center',
-  },
-
-  webGradientCard: {
-    width: 500,
-    height: 420,
-    borderRadius: 28,
-    padding: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  gradientContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    paddingTop: 60,
-  },
-
-  creamContainer: {
-    flex: 1,
-    backgroundColor: COLORS.cream,
-    padding: 20,
-    paddingTop: 80,
-    alignItems: 'center',
-  },
-
-  contentContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-    paddingBottom:
-      Platform.OS === 'web' ? 0 : 80,
-  },
+  creamContainer: { flex: 1, backgroundColor: COLORS.cream, padding: 20, paddingTop: 80, alignItems: 'center' },
+  
+contentContainer: {
+  flex: 1,
+  justifyContent: 'center',
+  alignItems: 'center',
+  width: '100%',
+  paddingBottom: 80,
+},
 
   mainTitle: {
-    fontSize:
-      width < 380 ? 28 : 34,
-    fontWeight: '800',
-    color: '#FFF',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
+  fontSize: width < 380 ? 28 : 34, fontWeight: '800', color: '#FFF', textAlign: 'center', marginBottom: 20 },
+  mainDesc: { fontSize: 17, color: '#FFF', textAlign: 'center', opacity: 0.95, lineHeight: 26, paddingHorizontal: 10 },
+  
+  darkTitle: { fontSize: 26, fontWeight: 'bold', color: COLORS.dark, marginBottom: 8, textAlign: 'center' },
+  darkSubtitle: { fontSize: 15, color: COLORS.grey, marginBottom: 30, textAlign: 'center' },
 
-  mainDesc: {
-    fontSize: 17,
-    color: '#FFF',
-    textAlign: 'center',
-    opacity: 0.95,
-    lineHeight: 26,
-    paddingHorizontal: 10,
+  imagePlaceholder: {
+    width: width * 0.85, height: 260, backgroundColor: '#FFF', borderRadius: 25,
+    justifyContent: 'center', alignItems: 'center', marginTop: 30, elevation: 8,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: {width:0, height:5}
   },
+  statsContainer: { flexDirection: 'row', marginTop: 25, gap: 20 },
+  statText: { color: 'rgba(255,255,255,0.9)', fontSize: 15, fontWeight: '600'},
 
-  darkTitle: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: COLORS.dark,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-
-  darkSubtitle: {
-    fontSize: 15,
-    color: COLORS.grey,
-    marginBottom: 30,
-    textAlign: 'center',
-  },
-
-  cardsWrapper: {
-    width: '100%',
-    gap: 12,
-  },
-
+  cardsWrapper: { width: '100%', gap: 12 }, // Gap réduit légèrement pour faire tenir les 4
   featureCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    paddingVertical: 18,
-    paddingHorizontal: 20,
+    flexDirection: 'row', 
+    backgroundColor: '#FFF', 
+    paddingVertical: 18, // Plus de hauteur
+    paddingHorizontal: 20, 
     borderRadius: 18,
     alignItems: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
+    shadowColor: COLORS.primary, // Ombre orangée légère
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.08, 
+    shadowRadius: 10, 
     elevation: 4,
     borderWidth: 1,
-    borderColor:
-      'rgba(255,159,28, 0.1)',
+    borderColor: 'rgba(255,159,28, 0.1)' // Bordure très fine orange pâle
   },
-
-  iconBox: {
-    width: 52,
-    height: 52,
-    backgroundColor:
-      COLORS.primary,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 18,
+  iconBox: { 
+    width: 52, height: 52, backgroundColor: COLORS.primary, borderRadius: 14, 
+    justifyContent: 'center', alignItems: 'center', marginRight: 18 
   },
+  cardTitle: { fontSize: 17, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+  cardDesc: { fontSize: 13, color: '#777', lineHeight: 18 },
 
-  cardTitle: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+  // --- PAGE 3 : ETAPES ---
+  stepsWrapper: { width: '100%', alignItems: 'center', gap: 35 },
+  stepItem: { alignItems: 'center', width: '85%' },
+  stepCircle: { 
+    width: 55, height: 55, backgroundColor: COLORS.primary, borderRadius: 30, 
+    justifyContent: 'center', alignItems: 'center', marginBottom: 12,
+    shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowRadius: 6, elevation: 6
   },
+  stepNum: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
+  stepTitle: { fontSize: 19, fontWeight: 'bold', color: '#333', marginBottom: 6 },
+  stepDesc: { fontSize: 15, color: '#666', textAlign: 'center', lineHeight: 22 },
 
-  cardDesc: {
-    fontSize: 13,
-    color: '#777',
-    lineHeight: 18,
+  // --- FOOTER ---
+  footer: { position: 'absolute', bottom: 35, left: 25, right: 25, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  indicatorContainer: { flexDirection: 'row' },
+  indicator: { height: 8, width: 8, borderRadius: 4, marginHorizontal: 4 },
+  activeIndicator: { width: 22 },
+  nextBtn: { padding: 10 },
+  nextText: { fontSize: 18, fontWeight: 'bold' },
+
+  whiteBtn: { 
+    backgroundColor: '#FFF', paddingVertical: 18, paddingHorizontal: 35, 
+    borderRadius: 35, marginTop: 35, width: '90%', alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 5
   },
-
-  stepsWrapper: {
-    width: '100%',
-    alignItems: 'center',
-    gap: 35,
-  },
-
-  stepItem: {
-    alignItems: 'center',
-    width: '85%',
-  },
-
-  stepCircle: {
-    width: 55,
-    height: 55,
-    backgroundColor:
-      COLORS.primary,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-
-  stepNum: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-
-  stepTitle: {
-    fontSize: 19,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 6,
-  },
-
-  stepDesc: {
-    fontSize: 15,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-
-  footer: {
-    position: 'absolute',
-    bottom: 35,
-    left: 25,
-    right: 25,
-
-    flexDirection: 'row',
-    justifyContent:
-      'space-between',
-
-    alignItems: 'center',
-  },
-
-  indicatorContainer: {
-    flexDirection: 'row',
-  },
-
-  indicator: {
-    height: 8,
-    width: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
-    backgroundColor:
-      'rgba(255,255,255,0.4)',
-  },
-
-  activeIndicator: {
-    width: 22,
-    backgroundColor: '#FFF',
-  },
-
-  nextBtn: {
-    padding: 10,
-  },
-
-  nextText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFF',
-  },
-
-  whiteBtn: {
-    backgroundColor: '#FFF',
-
-    width:
-      Platform.OS === 'web'
-        ? 420
-        : '90%',
-
-    paddingVertical: 18,
-    paddingHorizontal: 35,
-
-    borderRadius: 35,
-
-    marginTop: 35,
-
-    alignItems: 'center',
-    justifyContent: 'center',
-
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-
-  whiteBtnText: {
-    color: COLORS.primary,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-
-  logoImage: {
-    width: width * 0.58,
-    height: 150,
-    marginTop: 10,
-  },
-
-skipButton: {
-  position: 'absolute',
-
-  top: Platform.OS === 'web' ? 30 : 60,
-  right: Platform.OS === 'web' ? 40 : 24,
-
-  zIndex: 999,
-
-  paddingVertical: 10,
-  paddingHorizontal: 18,
-
-  borderRadius: 999,
-
-  backgroundColor: 'rgba(255,255,255,0.92)',
-
-  shadowColor: '#000',
-  shadowOpacity: 0.08,
-  shadowRadius: 10,
-  elevation: 5,
+logoImage: {
+  width: width * 0.58,
+  height: 150,
+  marginTop: 10,
+  marginBottom: 0,
 },
 
-skipButtonText: {
-  color: COLORS.dark,
-  fontSize: 14,
-  fontWeight: '700',
+finalLogo: {
+  width: 170,
+  height: 120,
+  marginBottom: 10,
 },
-
-
-
-  finalLogo: {
-    width: 170,
-    height: 120,
-    marginBottom: 10,
-  },
+  whiteBtnText: { color: COLORS.primary, fontSize: 18, fontWeight: 'bold' }
 });

@@ -29,10 +29,7 @@ type ApiRequestOptions = {
 
 function getErrorMessageFromPayload(payload: unknown): string | null {
   if (typeof payload === "string") {
-    const sanitized = payload
-      .replace(/<[^>]*>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    const sanitized = payload.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
     return sanitized.length > 0 ? sanitized.slice(0, 240) : null;
   }
 
@@ -67,10 +64,7 @@ function getErrorMessageFromPayload(payload: unknown): string | null {
     }
   }
 
-  if (
-    Array.isArray(maybePayload.violations) &&
-    maybePayload.violations.length > 0
-  ) {
+  if (Array.isArray(maybePayload.violations) && maybePayload.violations.length > 0) {
     const firstViolation = maybePayload.violations[0];
     if (firstViolation && typeof firstViolation === "object") {
       const message = (firstViolation as Record<string, unknown>).message;
@@ -102,16 +96,10 @@ async function parseResponsePayload(response: Response): Promise<unknown> {
 
 export async function apiRequest<T = unknown>(
   path: string,
-  options: ApiRequestOptions = {},
+  options: ApiRequestOptions = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
-  const {
-    method = "GET",
-    body,
-    token,
-    headers = {},
-    credentials = "omit",
-  } = options;
+  const { method = "GET", body, token, headers = {}, credentials = "omit" } = options;
 
   const requestHeaders: Record<string, string> = {
     Accept: "application/json",
@@ -136,8 +124,7 @@ export async function apiRequest<T = unknown>(
   const payload = await parseResponsePayload(response);
 
   if (!response.ok) {
-    const message =
-      getErrorMessageFromPayload(payload) ?? `Erreur API (${response.status})`;
+    const message = getErrorMessageFromPayload(payload) ?? `Erreur API (${response.status})`;
     throw new ApiError(message, response.status, payload);
   }
 
@@ -146,10 +133,10 @@ export async function apiRequest<T = unknown>(
 
 export function getHumanErrorMessage(
   error: unknown,
-  fallback = "Une erreur est survenue.",
+  fallback = "Une erreur est survenue."
 ): string {
   if (error instanceof ApiError) return error.message;
-  if (error instanceof Error && error.message.trim().length > 0)
-    return error.message;
+  if (error instanceof Error && error.message.trim().length > 0) return error.message;
   return fallback;
 }
+
