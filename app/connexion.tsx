@@ -143,7 +143,7 @@ export default function ConnexionScreen() {
           return;
         }
 
-        const createdDate = new Date(createdAt).getTime();
+        const createdDate = new Date((createdAt as string) || "").getTime();
         const now = Date.now();
 
         const ONE_HOUR = 60 * 60 * 1000;

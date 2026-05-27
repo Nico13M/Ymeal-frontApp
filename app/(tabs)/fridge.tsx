@@ -48,6 +48,10 @@ type SuggestedIngredient = {
 /* ===================== CONFIGURATION PAR DÉFAUT & EXTRACTEURS ===================== */
 const DEFAULT_CONFIG = { emoji: "🥗", unit: "g", step: 1, defaultQty: 20 };
 
+function getConfig() {
+  return DEFAULT_CONFIG;
+}
+
 // Sécurité pour extraire la catégorie textuelle, même si le backend renvoie un objet (ex: { name: 'Légumes' })
 function extractCategory(ing: any): string {
   if (!ing) return "Autres";

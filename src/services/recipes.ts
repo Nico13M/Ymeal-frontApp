@@ -64,7 +64,8 @@ export type RecipeFull = {
   author: RecipeAuthor | null;
   nutrition: RecipeNutrition;
   engagement: RecipeEngagement;
-  steps?: string[]; // Pour les étapes de préparation (si disponibles)
+  steps?: string[];
+  created_at: string | null;
 };
 
 export type RecipeMinimal = {
@@ -118,6 +119,7 @@ export type RecipePredictionRequest = {
 export type RecipePredictionResponse = {
   recipe: string;
   model: string;
+}
 
 export type TrendingRecipesResult = {
   window: {
