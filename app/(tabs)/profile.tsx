@@ -57,9 +57,9 @@ type StoredProfileConfig = {
 };
 
 const BUDGET_LABELS: Record<BudgetChoice, string> = {
-  PETIT: "Petit budget (< 100EUR/mois)",
-  MOYEN: "Budget moyen (100-200EUR/mois)",
-  LARGE: "Budget large (> 200EUR/mois)",
+  PETIT: "Petit budget (< 100 €/mois)",
+  MOYEN: "Budget moyen (100-200 €/mois)",
+  LARGE: "Budget élevé (> 200 €/mois)",
 };
 
 const PEOPLE_LABELS: Record<PeopleChoice, string> = {
@@ -98,7 +98,7 @@ function toDisplayArray(values?: string[]): string[] {
   return values;
 }
 
-function MultiLineValue({ values, fallback = "Non renseigne" }: { values: string[]; fallback?: string }) {
+function MultiLineValue({ values, fallback = "Non renseigné" }: { values: string[]; fallback?: string }) {
   if (values.length === 0) {
     return <Text style={styles.infoValue}>{fallback}</Text>;
   }
@@ -210,14 +210,14 @@ export default function ProfileScreen() {
   }, [account]);
 
   const email = useMemo(() => {
-    return account?.email?.trim() || "Email non renseigne";
+    return account?.email?.trim() || "E-mail non renseigné";
   }, [account]);
 
   const topName = useMemo(() => {
     const pseudo = account?.pseudo?.trim();
     if (pseudo) return pseudo;
     if (fullName) return fullName;
-    return "Etudiant Ymeal";
+    return "Étudiant Ymeal";
   }, [account, fullName]);
 
   const subLine = useMemo(() => {
@@ -226,16 +226,16 @@ export default function ProfileScreen() {
     return email;
   }, [account, fullName, email]);
 
-  const location = config?.location?.trim() || "Localisation non renseignee";
+  const location = config?.location?.trim() || "Localisation non renseignée";
 
   const diets = useMemo(() => {
-    if (!config?.diets || config.diets.length === 0) return "Non renseigne";
+    if (!config?.diets || config.diets.length === 0) return "Non renseigné";
     return config.diets.map((dietKey) => DIET_LABELS[dietKey] || dietKey).join(", ");
   }, [config]);
 
-  const budget = config?.budget ? BUDGET_LABELS[config.budget] : "Non renseigne";
+  const budget = config?.budget ? BUDGET_LABELS[config.budget] : "Non renseigné";
   const peopleKey = resolvePeople(config);
-  const people = peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigne";
+  const people = peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigné";
 
   const onOpenSettings = () => setSettingsOpen(true);
   const onCloseSettings = () => {
@@ -280,7 +280,7 @@ export default function ProfileScreen() {
     };
 
     if (!nextAccount.firstName || !nextAccount.lastName || !nextAccount.email) {
-      setEditUserError("Le prenom, le nom et l'email sont obligatoires.");
+      setEditUserError("Le prénom, le nom et l’e-mail sont obligatoires.");
       return;
     }
 
@@ -291,7 +291,7 @@ export default function ProfileScreen() {
 
     if (!userId) {
       setEditUserError(
-        "Identifiant utilisateur introuvable. Deconnecte-toi puis reconnecte-toi pour regenerer ton profil."
+        "Identifiant utilisateur introuvable. Déconnecte-toi puis reconnecte-toi pour régénérer ton profil."
       );
       return;
     }
@@ -385,7 +385,7 @@ export default function ProfileScreen() {
               onPress={onOpenSettings}
               activeOpacity={0.85}
               style={styles.settingsIconButton}
-              accessibilityLabel="Ouvrir les parametres"
+              accessibilityLabel="Ouvrir les paramètres"
             >
               <Ionicons name="settings-outline" size={20} color="#FFF" />
             </TouchableOpacity>
@@ -409,7 +409,7 @@ export default function ProfileScreen() {
 
           <InfoRow
             icon="leaf-outline"
-            label="Regime alimentaire"
+            label="Régime alimentaire"
             onPress={() => goToConfigurationStep(CONFIG_STEPS.diet)}
           >
             <MultiLineValue values={config?.diets?.map((k) => DIET_LABELS[k] || k) ?? []} />
@@ -421,7 +421,7 @@ export default function ProfileScreen() {
             onPress={() => goToConfigurationStep(CONFIG_STEPS.budget)}
           >
             <Text style={styles.infoValue}>
-              {config?.budget ? BUDGET_LABELS[config.budget] : "Non renseigne"}
+              {config?.budget ? BUDGET_LABELS[config.budget] : "Non renseigné"}
             </Text>
           </InfoRow>
 
@@ -431,7 +431,7 @@ export default function ProfileScreen() {
             onPress={() => goToConfigurationStep(CONFIG_STEPS.people)}
           >
             <Text style={styles.infoValue}>
-              {peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigne"}
+              {peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigné"}
             </Text>
           </InfoRow>
 
@@ -445,7 +445,7 @@ export default function ProfileScreen() {
 
           <InfoRow
             icon="ban-outline"
-            label="Ingredients a eviter"
+            label="Ingrédients à éviter"
             onPress={() => goToConfigurationStep(CONFIG_STEPS.avoidIngredients)}
           >
             <MultiLineValue values={resolveAvoidedIngredients(config) ?? []} />
@@ -470,7 +470,7 @@ export default function ProfileScreen() {
       >
         <Pressable style={styles.settingsBackdrop} onPress={onCloseSettings}>
           <Pressable style={styles.settingsSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.settingsTitle}>Parametres du profil</Text>
+            <Text style={styles.settingsTitle}>Paramètres du profil</Text>
 
             <TouchableOpacity
               style={styles.settingsAction}
@@ -481,7 +481,7 @@ export default function ProfileScreen() {
                 <Ionicons name="person-circle-outline" size={18} color="#FF7A00" />
               </View>
               <View style={styles.settingsActionTextWrap}>
-                <Text style={styles.settingsActionTitle}>Modifier mes infos</Text>
+                <Text style={styles.settingsActionTitle}>Modifier mes informations</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
             </TouchableOpacity>
@@ -511,7 +511,7 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.settingsActionTextWrap}>
                 <Text style={styles.settingsDangerTitle}>
-                  {isLoggingOut ? "Deconnexion..." : "Se deconnecter"}
+                  {isLoggingOut ? "Déconnexion..." : "Se déconnecter"}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -528,9 +528,9 @@ export default function ProfileScreen() {
       >
         <Pressable style={styles.settingsBackdrop} onPress={onCloseEditUser}>
           <Pressable style={styles.settingsSheet} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.settingsTitle}>Modifier mes infos</Text>
+            <Text style={styles.settingsTitle}>Modifier mes informations</Text>
             <Text style={styles.settingsSubtitle}>
-              Mets à jour ton prénom, ton nom et ton email.
+              Mets à jour ton prénom, ton nom et ton e-mail.
             </Text>
 
             <View style={styles.editField}>
@@ -567,7 +567,7 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.editField}>
-              <Text style={styles.editLabel}>Email</Text>
+              <Text style={styles.editLabel}>E-mail</Text>
               <TextInput
                 value={editDraft.email}
                 onChangeText={(value) => setEditDraft((prev) => ({ ...prev, email: value }))}
