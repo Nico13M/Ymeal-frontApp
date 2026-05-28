@@ -114,7 +114,7 @@ function toDisplayArray(values?: string[]): string[] {
   return values;
 }
 
-function MultiLineValue({ values, fallback = "Non renseigne" }: { values: string[]; fallback?: string }) {
+function MultiLineValue({ values, fallback = "Non renseigné" }: { values: string[]; fallback?: string }) {
   if (values.length === 0) {
     return <Text style={styles.infoValue}>{fallback}</Text>;
   }
@@ -251,7 +251,7 @@ export default function ProfileScreen() {
   }, [account]);
 
   const email = useMemo(() => {
-    return account?.email?.trim() || "Email non renseigne";
+    return account?.email?.trim() || "Email non renseigné";
   }, [account]);
 
   const topName = useMemo(() => {
@@ -267,16 +267,16 @@ export default function ProfileScreen() {
     return email;
   }, [account, fullName, email]);
 
-  const location = config?.location?.trim() || "Localisation non renseignee";
+  const location = config?.location?.trim() || "Localisation non renseignée";
 
   const diets = useMemo(() => {
-    if (!config?.diets || config.diets.length === 0) return "Non renseigne";
+    if (!config?.diets || config.diets.length === 0) return "Non renseigné";
     return config.diets.map((dietKey) => DIET_LABELS[dietKey] || dietKey).join(", ");
   }, [config]);
 
-  const budget = config?.budget ? BUDGET_LABELS[config.budget] : "Non renseigne";
+  const budget = config?.budget ? BUDGET_LABELS[config.budget] : "Non renseigné";
   const peopleKey = resolvePeople(config);
-  const people = peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigne";
+  const people = peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigné";
 
   const onOpenSettings = () => setSettingsOpen(true);
   const onCloseSettings = () => {
@@ -509,7 +509,7 @@ export default function ProfileScreen() {
               onPress={onOpenSettings}
               activeOpacity={0.85}
               style={styles.settingsIconButton}
-              accessibilityLabel="Ouvrir les parametres"
+              accessibilityLabel="Ouvrir les paramètres"
             >
               <Ionicons name="settings-outline" size={20} color="#FFF" />
             </TouchableOpacity>
@@ -517,7 +517,7 @@ export default function ProfileScreen() {
 
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={15} color="#FFF" />
-            <Text numberOfLines={1} style={styles.locationText}>
+            <Text style={styles.locationText}>
               {location}
             </Text>
           </View>
@@ -529,7 +529,7 @@ export default function ProfileScreen() {
             Platform.OS === "web" && styles.webSheet,
           ]}
         >
-          <Text style={styles.sheetTitle}>{"Infos d'inscription"}</Text>
+          <Text style={styles.sheetTitle}>{"Informations d'inscription"}</Text>
 
           <InfoRow icon="leaf-outline" label="Regime alimentaire" onPress={() => openModal("diet")}>
             <MultiLineValue values={profile?.diets.map((d) => d.name) ?? config?.diets?.map((k) => DIET_LABELS[k] || k) ?? []} />
@@ -543,7 +543,7 @@ export default function ProfileScreen() {
 
           <InfoRow icon="people-outline" label="Nombre de personnes" onPress={() => openModal("people")}>
             <Text style={styles.infoValue}>
-              {profile?.personCount != null ? `${profile.personCount} personne(s)` : peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigne"}
+              {profile?.personCount != null ? `${profile.personCount} personne(s)` : peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigné"}
             </Text>
           </InfoRow>
 
@@ -551,7 +551,7 @@ export default function ProfileScreen() {
             <MultiLineValue values={profile?.cuisines.map((c) => c.name) ?? config?.cuisines ?? []} />
           </InfoRow>
 
-          <InfoRow icon="ban-outline" label="Ingredients a eviter" onPress={() => openModal("blacklist")}>
+          <InfoRow icon="ban-outline" label="Ingredients à éviter" onPress={() => openModal("blacklist")}>
             <MultiLineValue values={profile?.blacklist.map((b) => b.name) ?? resolveAvoidedIngredients(config) ?? []} />
           </InfoRow>
 
@@ -570,7 +570,7 @@ export default function ProfileScreen() {
       >
         <Pressable style={styles.settingsBackdrop} onPress={onCloseSettings}>
           <Pressable style={styles.settingsSheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.settingsTitle}>Parametres du profil</Text>
+            <Text style={styles.settingsTitle}>Paramètres du profil</Text>
 
             <TouchableOpacity
               style={styles.settingsAction}
@@ -581,7 +581,7 @@ export default function ProfileScreen() {
                 <Ionicons name="person-circle-outline" size={18} color="#FF7A00" />
               </View>
               <View style={styles.settingsActionTextWrap}>
-                <Text style={styles.settingsActionTitle}>Modifier mes infos</Text>
+                <Text style={styles.settingsActionTitle}>Modifier mes informations</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
             </TouchableOpacity>
@@ -923,9 +923,18 @@ const styles = StyleSheet.create({
 
   webSheet: {
     width: "100%",
-    maxWidth: 1100,
+    maxWidth: 900,
     alignSelf: "center",
   },
+
+  locationText: {
+  color: "#FFF",
+  fontSize: 12,
+  fontWeight: "700",
+
+  // évite le débordement
+  maxWidth: 220,
+},
 
   settingsIconButton: {
     width: 40,
@@ -964,29 +973,87 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     maxWidth: "100%",
   },
-  locationText: { color: "#FFF", fontSize: 12, fontWeight: "700" },
-  sheet: {
-    marginTop: -48,
-    marginHorizontal: 14,
-    borderRadius: 24,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: "#FFF",
-    borderWidth: 1,
-    borderColor: "#F1E5D5",
+sheet: {
+  marginTop: -48,
+  marginHorizontal: 14,
+  borderRadius: 20,
+
+  // plus compact sur PC
+  paddingVertical: Platform.OS === "web" ? 6 : 10,
+  paddingHorizontal: Platform.OS === "web" ? 18 : 12,
+
+  backgroundColor: "#FFF",
+  borderWidth: 1,
+  borderColor: "#F1E5D5",
   },
   sheetTitle: { fontSize: 19, fontWeight: "900", color: "#0F172A", paddingHorizontal: 6, paddingVertical: 10 },
-  infoRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 6, paddingVertical: 12, borderTopWidth: 1, borderTopColor: "#F6ECDC" },
+ infoRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 10,
+
+  paddingHorizontal: Platform.OS === "web" ? 4 : 6,
+  paddingVertical: Platform.OS === "web" ? 8 : 12,
+
+  borderTopWidth: 1,
+  borderTopColor: "#F6ECDC",
+},
   infoIconWrap: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(255,122,0,0.14)", alignItems: "center", justifyContent: "center" },
   infoTextWrap: { flex: 1, gap: 2 },
   infoLabel: { color: "#FF7A00", fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.35 },
   infoValue: { color: "#334155", fontSize: 14, fontWeight: "600", lineHeight: 20 },
   editButton: { width: 30, height: 30, borderRadius: 15, backgroundColor: "rgba(255,122,0,0.12)", alignItems: "center", justifyContent: "center" },
-  settingsBackdrop: { flex: 1, backgroundColor: "rgba(15,23,42,0.45)", justifyContent: "flex-end" },
-  settingsSheet: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 28, gap: 12 },
+ 
+  settingsBackdrop: {
+  flex: 1,
+  backgroundColor: "rgba(15,23,42,0.45)",
+  justifyContent: Platform.OS === "web" ? "center" : "flex-end",
+},
+
+
+ settingsSheet: {
+  backgroundColor: "#FFFFFF",
+
+  // mêmes arrondis partout
+  borderRadius: 24,
+
+  width: Platform.OS === "web" ? "82%" : "100%",
+  maxWidth: 900,
+
+  alignSelf: "center",
+
+  paddingHorizontal: Platform.OS === "web" ? 24 : 16,
+  paddingTop: Platform.OS === "web" ? 20 : 16,
+  paddingBottom: Platform.OS === "web" ? 24 : 28,
+
+  gap: 12,
+
+  marginBottom: Platform.OS === "web" ? 120 : 0,
+
+  // ombre desktop
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 10 },
+  shadowOpacity: 0.15,
+  shadowRadius: 20,
+  elevation: 10,
+},
+
+
   settingsTitle: { fontSize: 20, fontWeight: "900", color: "#0F172A" },
   settingsSubtitle: { fontSize: 13, color: "#475569", lineHeight: 18 },
-  settingsAction: { flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 14, borderWidth: 1, borderColor: "#EAE4DA", backgroundColor: "#FFFDF8", paddingHorizontal: 12, paddingVertical: 12 },
+  settingsAction: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 10,
+
+  borderRadius: 14,
+  borderWidth: 1,
+  borderColor: "#EAE4DA",
+  backgroundColor: "#FFFDF8",
+
+  paddingHorizontal: Platform.OS === "web" ? 14 : 12,
+  paddingVertical: Platform.OS === "web" ? 10 : 12,
+},
   settingsDangerAction: { borderColor: "#F4D2D2", backgroundColor: "#FFF9F9" },
   settingsActionIcon: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,122,0,0.14)" },
   settingsDangerIcon: { backgroundColor: "rgba(220,38,38,0.12)" },
@@ -998,7 +1065,18 @@ const styles = StyleSheet.create({
   infoValueDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#FF7A00", opacity: 0.5, marginTop: 1 },
   editField: { gap: 6 },
   editLabel: { fontSize: 12, fontWeight: "800", color: "#334155" },
-  editInput: { borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12, fontSize: 14, color: "#0F172A", backgroundColor: "#FFF" },
+  editInput: {
+  borderWidth: 1,
+  borderColor: "#E2E8F0",
+  borderRadius: 12,
+
+  paddingHorizontal: 12,
+  paddingVertical: Platform.OS === "web" ? 10 : 12,
+
+  fontSize: 14,
+  color: "#0F172A",
+  backgroundColor: "#FFF",
+},
   editError: { color: "#B91C1C", fontSize: 13, fontWeight: "700" },
   editDebug: { color: "#0F172A", fontSize: 12, fontWeight: "600", lineHeight: 18, backgroundColor: "#F8FAFC", borderWidth: 1, borderColor: "#E2E8F0", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
   editActionsRow: { flexDirection: "row", gap: 10, marginTop: 6 },
@@ -1007,4 +1085,5 @@ const styles = StyleSheet.create({
   editSaveAction: { backgroundColor: "#FF7A00" },
   editCancelText: { color: "#334155", fontSize: 14, fontWeight: "800" },
   editSaveText: { color: "#FFF", fontSize: 14, fontWeight: "800" },
+
 });

@@ -14,6 +14,7 @@ import {
   FlatList,
   Image,
   Keyboard,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -78,11 +79,13 @@ export default function RecipesScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [savedRecipeId, setSavedRecipeId] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);  
 
   const { width } = useWindowDimensions();
   const isDesktop = width >= 1024;
   const isTablet = width >= 768 && width < 1024;
   const isMobile = width < 768;
+  const isWeb = Platform.OS === "web";
 
   const numColumns = isDesktop ? 4 : isTablet ? 2 : 1;
 
@@ -399,7 +402,19 @@ export default function RecipesScreen() {
       <StatusBar backgroundColor="#00C853" barStyle="light-content" />
 
       {/* HEADER */}
-      <View style={[styles.header, !isMobile && styles.headerDesktop]}>
+      {/* <View style={[styles.header, !isMobile && styles.headerDesktop]}> */}
+<View
+  style={[
+    styles.header,
+    !isMobile && styles.headerDesktop,
+    !isWeb && styles.mobileFixedHeader,
+    isWeb && styles.webHeader,
+  ]}
+  onLayout={(e) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) setHeaderHeight(h);
+  }}
+>
         {!showGenerator && isSearchActive ? (
           <View style={styles.searchBarContainer}>
             <Ionicons name="search" size={20} color="#00C853" style={{ marginRight: 10 }} />
@@ -452,7 +467,10 @@ export default function RecipesScreen() {
       </View>
 
       {showGenerator ? (
-        <ScrollView contentContainerStyle={styles.scrollForm}>
+        <ScrollView contentContainerStyle={[
+  styles.scrollForm,
+  !isWeb && { paddingTop: headerHeight + 10 },
+]}>
           {error && (
             <View
               style={{
@@ -736,10 +754,11 @@ export default function RecipesScreen() {
                 columnWrapperStyle={
                   numColumns > 1 ? getColumnWrapperStyle() : undefined
                 }
-                contentContainerStyle={[
-                  styles.listContent,
-                  !isMobile && styles.listContentDesktop,
-                ]}
+contentContainerStyle={[
+  styles.listContent,
+  !isMobile && styles.listContentDesktop,
+  !isWeb && { paddingTop: headerHeight + 10 },
+]}
                 renderItem={renderRecipeItem}
                 ListEmptyComponent={
                   <View style={{ alignItems: "center", marginTop: 50 }}>
@@ -834,15 +853,20 @@ export default function RecipesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F5F5F5" },
+  container: { 
+  flex: 1, 
+  backgroundColor: "#F5F5F5",
+  paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+},
   header: {
     backgroundColor: "#00C853",
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: Platform.OS === "ios" ? 10 : 20,
     paddingBottom: 15,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
+
   headerDesktop: { paddingTop: 20 },
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerTitle: { fontSize: 20, fontWeight: "bold", color: "#FFF", flex: 1, marginRight: 10 },
@@ -857,6 +881,20 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 5,
   },
+
+mobileFixedHeader: {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  zIndex: 1000,
+  backgroundColor: "#00C853",
+},
+
+webHeader: {
+  position: "relative",
+},
+
   generatorBtnText: { color: "#00C853", fontSize: 12, fontWeight: "bold" },
   searchBarContainer: {
     flexDirection: "row",
@@ -868,7 +906,11 @@ const styles = StyleSheet.create({
     height: 45,
   },
   searchInput: { flex: 1, fontSize: 16, color: "#333" },
-  scrollForm: { padding: 20, paddingBottom: 50 },
+ scrollForm: {
+  padding: 20,
+  paddingBottom: 50,
+  // paddingTop: Platform.OS === "web" ? 20 : 120,
+},
   selectorContainer: { marginBottom: 20 },
   selectorLabel: { fontSize: 14, fontWeight: "bold", color: "#555", marginBottom: 10, marginLeft: 5 },
   chipRow: { flexDirection: "row", gap: 10 },
@@ -897,8 +939,15 @@ const styles = StyleSheet.create({
   generateBtn: { marginTop: 10, borderRadius: 15, overflow: "hidden", elevation: 4 },
   gradientBtn: { paddingVertical: 18, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 },
   generateBtnText: { color: "#FFF", fontSize: 18, fontWeight: "bold" },
-  listContent: { padding: 15, paddingBottom: 0 },
-  listContentDesktop: { paddingHorizontal: 24 },
+  listContent: {
+  padding: 15,
+  paddingBottom: 0,
+  // paddingTop: Platform.OS === "web" ? 15 : 95,
+},
+  listContentDesktop: {
+  paddingHorizontal: 24,
+  paddingTop: 15,
+},
   columnWrapperDesktop: { marginHorizontal: "3.60%" },
   columnWrapperTablet: { marginHorizontal: "1%" },
   promoCardDesktop: { borderRadius: 15, padding: 20, marginBottom: 20, marginTop: 15, marginHorizontal: "3.60%" },
@@ -955,6 +1004,7 @@ const styles = StyleSheet.create({
   paddingVertical: 4,
   borderRadius: 999,
 },
+
 pillText: {
   fontSize: 12,
   color: "#555",
