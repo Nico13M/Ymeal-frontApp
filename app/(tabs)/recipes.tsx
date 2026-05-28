@@ -374,10 +374,12 @@ export default function RecipesScreen() {
               <View style={styles.recipeStatPill}>
                 <Text style={styles.pillText}>{getRatingsCount(item)} avis</Text>
               </View>
-              <View style={styles.recipeStatPill}>
-                <Ionicons name="star" size={12} color="#F59E0B" />
-                <Text style={styles.pillText}>{formatAverageRating(getAverageRating(item))}/5</Text>
-              </View>
+              {getRatingsCount(item) > 0 && (
+                <View style={styles.recipeStatPill}>
+                  <Ionicons name="star" size={12} color="#F59E0B" />
+                  <Text style={styles.pillText}>{formatAverageRating(getAverageRating(item))}/5</Text>
+                </View>
+              )}
             </View>
             <Text style={styles.linkText}>Voir ➔</Text>
           </View>
