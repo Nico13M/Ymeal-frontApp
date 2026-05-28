@@ -126,7 +126,6 @@ export type SearchResult = {
   };
 };
 
-
 /* ===================== TYPES IA ===================== */
 
 export type RecipePredictionRequest = {
@@ -154,7 +153,6 @@ export type TrendingRecipesResult = {
   };
   recipes: RecipeMinimal[];
   total_results: number;
-
 };
 
 /* ===================== HELPER ===================== */
@@ -253,15 +251,21 @@ export async function searchRecipes(params: {
 export async function getTrendingRecipes(): Promise<TrendingRecipesResult> {
   try {
     const { token, userId } = await getToken();
-    const data = await apiRequest<TrendingRecipesResult>("/admin/recipes/trending", {
-      method: "GET",
-      token,
-      credentials: "include",
-      headers: buildHeaders(userId),
-    });
+    const data = await apiRequest<TrendingRecipesResult>(
+      "/admin/recipes/trending",
+      {
+        method: "GET",
+        token,
+        credentials: "include",
+        headers: buildHeaders(userId),
+      },
+    );
     return data;
   } catch (error) {
-    console.error("[RECIPES] ❌ getTrendingRecipes:", error instanceof ApiError ? error.message : error);
+    console.error(
+      "[RECIPES] ❌ getTrendingRecipes:",
+      error instanceof ApiError ? error.message : error,
+    );
     throw error;
   }
 }
@@ -269,12 +273,15 @@ export async function getTrendingRecipes(): Promise<TrendingRecipesResult> {
 export async function getRecipeRatingsCount(recipeId: number): Promise<number> {
   try {
     const { token, userId } = await getToken();
-    const response = await apiRequest<unknown>(`/admin/ratings/recipes/${recipeId}`, {
-      method: "GET",
-      token,
-      credentials: "include",
-      headers: buildHeaders(userId),
-    });
+    const response = await apiRequest<unknown>(
+      `/admin/ratings/recipes/${recipeId}`,
+      {
+        method: "GET",
+        token,
+        credentials: "include",
+        headers: buildHeaders(userId),
+      },
+    );
 
     if (Array.isArray(response)) {
       return response.length;
@@ -295,7 +302,11 @@ export async function getRecipeRatingsCount(recipeId: number): Promise<number> {
         return payload.data.length;
       }
 
-      if (payload.data && typeof payload.data === "object" && Array.isArray((payload.data as { ratings?: unknown[] }).ratings)) {
+      if (
+        payload.data &&
+        typeof payload.data === "object" &&
+        Array.isArray((payload.data as { ratings?: unknown[] }).ratings)
+      ) {
         return (payload.data as { ratings: unknown[] }).ratings.length;
       }
 
@@ -306,20 +317,28 @@ export async function getRecipeRatingsCount(recipeId: number): Promise<number> {
 
     return 0;
   } catch (error) {
-    console.error("[RECIPES] ❌ getRecipeRatingsCount:", error instanceof ApiError ? error.message : error);
+    console.error(
+      "[RECIPES] ❌ getRecipeRatingsCount:",
+      error instanceof ApiError ? error.message : error,
+    );
     return 0;
   }
 }
 
-export async function getRecipeRatingsStats(recipeId: number): Promise<{ count: number; average: number }> {
+export async function getRecipeRatingsStats(
+  recipeId: number,
+): Promise<{ count: number; average: number }> {
   try {
     const { token, userId } = await getToken();
-    const response = await apiRequest<unknown>(`/admin/ratings/recipes/${recipeId}`, {
-      method: "GET",
-      token,
-      credentials: "include",
-      headers: buildHeaders(userId),
-    });
+    const response = await apiRequest<unknown>(
+      `/admin/ratings/recipes/${recipeId}`,
+      {
+        method: "GET",
+        token,
+        credentials: "include",
+        headers: buildHeaders(userId),
+      },
+    );
 
     const extractRatings = (payload: unknown): Array<{ rating?: number }> => {
       if (Array.isArray(payload)) return payload as Array<{ rating?: number }>;
@@ -327,7 +346,9 @@ export async function getRecipeRatingsStats(recipeId: number): Promise<{ count: 
       if (!payload || typeof payload !== "object") return [];
 
       const record = payload as {
-        data?: { ratings?: Array<{ rating?: number }> } | Array<{ rating?: number }>;
+        data?:
+          | { ratings?: Array<{ rating?: number }> }
+          | Array<{ rating?: number }>;
         ratings?: Array<{ rating?: number }>;
         stats?: {
           average?: number | null;
@@ -335,12 +356,21 @@ export async function getRecipeRatingsStats(recipeId: number): Promise<{ count: 
         };
       };
 
-      if (typeof record.stats?.average === "number" || typeof record.stats?.count === "number") {
+      if (
+        typeof record.stats?.average === "number" ||
+        typeof record.stats?.count === "number"
+      ) {
         return [];
       }
 
       if (Array.isArray(record.data)) return record.data;
-      if (record.data && typeof record.data === "object" && Array.isArray((record.data as { ratings?: Array<{ rating?: number }> }).ratings)) {
+      if (
+        record.data &&
+        typeof record.data === "object" &&
+        Array.isArray(
+          (record.data as { ratings?: Array<{ rating?: number }> }).ratings,
+        )
+      ) {
         return (record.data as { ratings: Array<{ rating?: number }> }).ratings;
       }
       if (Array.isArray(record.ratings)) return record.ratings;
@@ -359,18 +389,30 @@ export async function getRecipeRatingsStats(recipeId: number): Promise<{ count: 
       if (typeof payload.stats?.count === "number") {
         return {
           count: payload.stats.count,
-          average: typeof payload.stats.average === "number" ? payload.stats.average : 0,
+          average:
+            typeof payload.stats.average === "number"
+              ? payload.stats.average
+              : 0,
         };
       }
     }
 
-    const ratings = extractRatings(response).filter((item) => typeof item.rating === "number");
+    const ratings = extractRatings(response).filter(
+      (item) => typeof item.rating === "number",
+    );
     const count = ratings.length;
-    const average = count > 0 ? ratings.reduce((sum, item) => sum + (item.rating as number), 0) / count : 0;
+    const average =
+      count > 0
+        ? ratings.reduce((sum, item) => sum + (item.rating as number), 0) /
+          count
+        : 0;
 
     return { count, average };
   } catch (error) {
-    console.error("[RECIPES] ❌ getRecipeRatingsStats:", error instanceof ApiError ? error.message : error);
+    console.error(
+      "[RECIPES] ❌ getRecipeRatingsStats:",
+      error instanceof ApiError ? error.message : error,
+    );
     return { count: 0, average: 0 };
   }
 }
@@ -469,51 +511,59 @@ export async function createRecipe(payload: {
 /* ===================== API CALLS IA ===================== */
 
 const DIFFICULTY_MAP: Record<string, string> = {
-  facile: 'easy',
-  débutant: 'easy',
-  debutant: 'easy',
-  moyen: 'medium',
-  intermédiaire: 'medium',
-  intermediaire: 'medium',
-  difficile: 'hard',
-  avancé: 'hard',
-  avance: 'hard',
+  facile: "easy",
+  débutant: "easy",
+  debutant: "easy",
+  moyen: "medium",
+  intermédiaire: "medium",
+  intermediaire: "medium",
+  difficile: "hard",
+  avancé: "hard",
+  avance: "hard",
 };
 
 function generateSlug(name: string): string {
   const slug = name
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  return slug + '-' + Math.random().toString(36).slice(2, 8);
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug + "-" + Math.random().toString(36).slice(2, 8);
 }
 
 function parseAiRecipeText(text: string, dishType?: string) {
   const nameMatch = text.match(/[-*]\s*Nom\s*:\s*(.+)/i);
-  const name = nameMatch ? nameMatch[1].trim() : 'Recette IA';
+  const name = nameMatch ? nameMatch[1].trim() : "Recette IA";
 
   const durationMatch = text.match(/Temps\s+total\s*:\s*(\d+)\s*min/i);
   const duration = durationMatch ? parseInt(durationMatch[1], 10) : undefined;
 
   const difficultyMatch = text.match(/Niveau\s*:\s*(\S+)/i);
   const difficulty = difficultyMatch
-    ? (DIFFICULTY_MAP[difficultyMatch[1].toLowerCase().trim()] ?? 'easy')
-    : 'easy';
+    ? (DIFFICULTY_MAP[difficultyMatch[1].toLowerCase().trim()] ?? "easy")
+    : "easy";
 
-  const servingsMatch = text.match(/Portions?\s*:\s*(\d+)/i) ?? text.match(/pour\s+(\d+)\s+personne/i);
-  const servings = servingsMatch ? Math.max(1, parseInt(servingsMatch[1], 10)) : 2;
+  const servingsMatch =
+    text.match(/Portions?\s*:\s*(\d+)/i) ??
+    text.match(/pour\s+(\d+)\s+personne/i);
+  const servings = servingsMatch
+    ? Math.max(1, parseInt(servingsMatch[1], 10))
+    : 2;
 
-  const ingredientsMatch = text.match(/###\s+Ingr[eé]dients.*?\n([\s\S]*?)(?=###|$)/i);
-  const description = ingredientsMatch ? ingredientsMatch[1].trim() : text.trim();
+  const ingredientsMatch = text.match(
+    /###\s+Ingr[eé]dients.*?\n([\s\S]*?)(?=###|$)/i,
+  );
+  const description = ingredientsMatch
+    ? ingredientsMatch[1].trim()
+    : text.trim();
 
   const stepsMatch = text.match(/###\s+[Ée]tapes.*?\n([\s\S]*?)(?=###|$)/i);
   const steps: string[] = stepsMatch
     ? stepsMatch[1]
-        .split('\n')
-        .map((l) => l.replace(/^\s*(\d+[.)]\s*|[-*]\s*)/, '').trim())
-        .filter((l) => l !== '')
+        .split("\n")
+        .map((l) => l.replace(/^\s*(\d+[.)]\s*|[-*]\s*)/, "").trim())
+        .filter((l) => l !== "")
     : [];
 
   const prixMatch = text.match(/[-*]\s*Total\s+recette\s*[:\-–]\s*(.+)/i);
@@ -522,7 +572,17 @@ function parseAiRecipeText(text: string, dishType?: string) {
     ? `${description}\n\n💰 Prix estimé : ${prixEstime}`
     : description;
 
-  return { name, slug: generateSlug(name), description: descriptionFinal, duration, difficulty, servings, steps, dishType, is_public: false };
+  return {
+    name,
+    slug: generateSlug(name),
+    description: descriptionFinal,
+    duration,
+    difficulty,
+    servings,
+    steps,
+    dishType,
+    is_public: false,
+  };
 }
 
 export async function saveAiRecipe(
@@ -531,15 +591,25 @@ export async function saveAiRecipe(
 ): Promise<RecipeFull> {
   const parsed = parseAiRecipeText(recipeText, options?.dishType);
   const payload = { ...parsed, is_public: options?.isPublic ?? false };
-  const data = await apiRequest<{ success: boolean; recipe: RecipeFull }>('/admin/recipes/create', {
-    method: 'POST',
-    ...(await getToken().then(({ token, userId }) => ({
-      token,
-      credentials: 'include' as const,
-      headers: buildHeaders(userId),
-    }))),
-    body: payload,
-  });
+  const data = await apiRequest<{ success: boolean; recipe: RecipeFull }>(
+    "/admin/recipes/create",
+    {
+      method: "POST",
+      ...(await getToken().then(({ token, userId }) => ({
+        token,
+        credentials: "include" as const,
+        headers: buildHeaders(userId),
+      }))),
+      body: payload,
+    },
+  );
+
+  try {
+    await addToFavorites(data.recipe.id);
+  } catch (err) {
+    console.error("Erreur lors de l'ajout automatique aux favoris :", err);
+  }
+
   return data.recipe;
 }
 
