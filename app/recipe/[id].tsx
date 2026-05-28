@@ -30,10 +30,10 @@ interface RatingResponse {
   rating: number;
   comment?: string | null;
   created_at: string;
-  user?: {
-    id: number;
-    name: string;
-  };
+user?: {
+  id: number;
+  pseudo: string;
+};
 }
 
 type RatingsListApiResponse = {
@@ -784,7 +784,9 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
                   <View style={{ marginBottom: 12 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={styles.commentAuthor}>{rating.user?.name || 'Anonyme'}</Text>
+                        <Text style={styles.commentAuthor}>
+  {rating.user?.pseudo || 'Anonyme'}
+</Text>
                         {isMe && (
                           <View style={styles.youBadge}>
                             <Text style={styles.youBadgeText}>Vous</Text>
