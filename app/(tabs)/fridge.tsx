@@ -322,9 +322,10 @@ export default function FridgeScreen() {
     setEditingExistingId(ing.id);
     setEditingIngredient(typeof ing.id === 'number' ? { id: ing.id, name: ing.name, category: ing.category, emoji: ing.emoji } : null);
     setEditName(ing.name);
-    setEditCategory(ing.category);
     setEditQuantity(ing.quantity.toString());
     setEditUnitId(ing.unit?.id ?? null);
+    // ✅ CORRECTION : Utilisation de 'ing' (le paramètre) et repli sur "Autres" si vide
+    setEditCategory(ing.category || "Autres");
     setModalVisible(true);
   };
 
@@ -337,7 +338,7 @@ export default function FridgeScreen() {
     setEditingExistingId(null);
     setEditingIngredient(item);
     setEditName(item.name);
-    setEditCategory(item.category);
+    setEditCategory(item.category || "Autres");
     setEditQuantity("1");
     setEditUnitId(null);
     setModalVisible(true);
@@ -377,7 +378,7 @@ export default function FridgeScreen() {
 
       if (editingExistingId !== null) {
         if (typeof editingExistingId === 'number') {
-          await updateIngredientQuantity(editingExistingId, qty, editUnitId ?? undefined);
+          await updateIngredientQuantity(editingExistingId, qty, editUnitId ?? undefined, finalCategory);
         }
 
         setIngredients((prev) => {
@@ -393,7 +394,7 @@ export default function FridgeScreen() {
         let newId: string | number = `local_${Date.now()}`;
 
         if (targetIngredientId) {
-          await addIngredientToFrigo(Number(targetIngredientId), qty, editUnitId ?? undefined);
+          await addIngredientToFrigo(Number(targetIngredientId), qty, editUnitId ?? undefined, finalCategory);
           newId = targetIngredientId;
         }
 

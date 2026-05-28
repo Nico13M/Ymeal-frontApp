@@ -134,7 +134,8 @@ export async function getFrigoIngredients(): Promise<BackendFrigoIngredient[]> {
 export async function addIngredientToFrigo(
     ingredientId: number,
     quantity: number = 1,
-    unitId?: number
+    unitId?: number,
+    category?: string // 👈 Ajout du paramètre category
 ): Promise<BackendFrigoIngredient> {
   try {
     const { token, userId } = await getToken();
@@ -143,7 +144,7 @@ export async function addIngredientToFrigo(
       token,
       credentials: "include",
       headers: buildHeaders(userId),
-      body: { quantity, unit_id: unitId ?? null },
+      body: { quantity, unit_id: unitId ?? null, category: category ?? null },
     });
     return data!;
   } catch (error) {
@@ -155,7 +156,8 @@ export async function addIngredientToFrigo(
 export async function updateIngredientQuantity(
     ingredientId: number,
     quantity: number,
-    unitId?: number
+    unitId?: number,
+    category?: string 
 ): Promise<BackendFrigoIngredient> {
   try {
     const { token, userId } = await getToken();
@@ -164,7 +166,7 @@ export async function updateIngredientQuantity(
       token,
       credentials: "include",
       headers: buildHeaders(userId),
-      body: { quantity, unit_id: unitId ?? null },
+      body: { quantity, unit_id: unitId ?? null, category: category ?? null },
     });
     return data!;
   } catch (error) {
