@@ -562,7 +562,7 @@ export async function generateAiRecipe(
           ...buildHeaders(userId),
           "X-CSRF-TOKEN": csrfToken,
         },
-        body: payload, // ✅ C'est ici que j'ai enlevé le JSON.stringify !
+        body: payload,
       },
     );
 
