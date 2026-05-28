@@ -120,7 +120,7 @@ export default function ConfigProfilScreen() {
   // ── State – recherche ingrédients à éviter ───────────────
   const [vegQuery, setVegQuery] = useState("");
   const [vegSuggestionsFromApi, setVegSuggestionsFromApi] = useState<ReferenceItem[]>([]);
-  const [allergyQuery, setAllergyQuery] = useState("");
+  const [allergyQuery, setAllergyQuery] = useState(""); // conservé pour compatibilité éventuelle
 
   // ── State – UI ───────────────────────────────────────────
   const [isSavingConfig, setIsSavingConfig] = useState(false);
@@ -267,20 +267,12 @@ export default function ConfigProfilScreen() {
     return true;
   }, [step, diets, location, budget, cuisines, people]);
 
-  // Suggestions allergies depuis le référentiel
-  const allergySuggestions = useMemo(() => {
-    if (step !== 6) return [];
-    const q = allergyQuery.trim().toLowerCase();
-    if (!q) return [];
-    return refAllergies
-      .filter(
-        (a) =>
-          a.name.toLowerCase().includes(q) &&
-          !allergies.some((x) => x.toLowerCase() === a.name.toLowerCase())
-      )
-      .slice(0, 6)
-      .map((a) => a.name);
-  }, [step, allergyQuery, allergies, refAllergies]);
+  // Toggle allergy par nom
+  const toggleAllergy = (name: string) => {
+    setAllergies((prev) =>
+      prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]
+    );
+  };
 
   // Suggestions légumes/ingrédients depuis l'API
   const vegSuggestions = useMemo(
@@ -514,14 +506,10 @@ export default function ConfigProfilScreen() {
 
               {step === 6 && (
                 <AllergiesStep
-                  step={step}
-                  allergyQuery={allergyQuery}
-                  setAllergyQuery={setAllergyQuery}
-                  allergySuggestions={allergySuggestions}
                   allergies={allergies}
-                  addAllergy={addAllergy}
-                  removeAt={removeAt}
-                  setAllergies={setAllergies}
+                  toggleAllergy={toggleAllergy}
+                  availableAllergies={refAllergies}
+                  isLoading={isLoadingRefs}
                   styles={styles}
                   isWebDesktop={isWebDesktop}
                 />

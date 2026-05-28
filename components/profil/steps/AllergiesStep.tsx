@@ -1,171 +1,72 @@
-import React from "react";
-
-import {
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-
-import { Ionicons } from "@expo/vector-icons";
-
 import { COLORS } from "@/constants/profileConfig";
+import { ReferenceItem } from "@/src/services/profile";
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 type Props = {
-  step: number;
-
-  allergyQuery: string;
-
-  setAllergyQuery: (
-    value: string
-  ) => void;
-
-  allergySuggestions: string[];
-
-  allergies: string[];
-
-  addAllergy: (
-    value: string
-  ) => void;
-
-  removeAt: (
-    list: string[],
-    idx: number
-  ) => string[];
-
-  setAllergies: React.Dispatch<
-    React.SetStateAction<string[]>
-  >;
-
+  allergies: string[];          // noms sélectionnés
+  toggleAllergy: (name: string) => void;
+  availableAllergies: ReferenceItem[];
+  isLoading?: boolean;
   styles: any;
   isWebDesktop?: boolean;
 };
 
 export default function AllergiesStep({
-  step,
-
-  allergyQuery,
-  setAllergyQuery,
-
-  allergySuggestions,
-
   allergies,
-
-  addAllergy,
-
-  removeAt,
-
-  setAllergies,
-
+  toggleAllergy,
+  availableAllergies,
+  isLoading = false,
   styles,
   isWebDesktop,
 }: Props) {
   return (
     <>
       <View style={[styles.questionRow, isWebDesktop && styles.questionRowDesktop]}>
-        <Ionicons
-          name="medkit-outline"
-          size={18}
-          color={COLORS.orange}
-        />
-
+        <Ionicons name="medkit-outline" size={18} color={COLORS.orange} />
         <Text style={[styles.question, isWebDesktop && styles.questionDesktop]}>
           As-tu des allergies ?
         </Text>
       </View>
 
       <Text style={[styles.helper, isWebDesktop && styles.helperDesktop]}>
-        Même système : recherche +
-        multi-sélection.
+        Sélectionne toutes celles qui te concernent.
       </Text>
 
-      <View style={[styles.inputWrap, isWebDesktop && { maxWidth: 420, alignSelf: "center", width: "100%" }]}>
-        <Ionicons
-          name="search"
-          size={18}
-          color={COLORS.muted}
-        />
-
-        <TextInput
-          key={`allergy-step-${step}`}
-          value={allergyQuery}
-          onChangeText={setAllergyQuery}
-          placeholder="ex: gluten..."
-          style={styles.input}
-          returnKeyType="next"
-          blurOnSubmit={false}
-        />
-      </View>
-
-      {allergySuggestions.length >
-        0 && (
-        <View style={styles.suggestions}>
-          {allergySuggestions.map(
-            (a) => (
+      {isLoading ? (
+        <ActivityIndicator color={COLORS.orange} style={{ marginTop: 24 }} />
+      ) : (
+        <View style={[styles.chipsWrap, isWebDesktop && styles.chipsWrapDesktop]}>
+          {availableAllergies.map((a) => {
+            const selected = allergies.includes(a.name);
+            return (
               <Pressable
-                key={a}
-                onPress={() =>
-                  addAllergy(a)
-                }
-                style={
-                  styles.suggestionItem
-                }
+                key={a.id}
+                onPress={() => toggleAllergy(a.name)}
+                style={[
+                  styles.chip,
+                  selected && styles.chipSelected,
+                ]}
               >
                 <Text
-                  style={
-                    styles.suggestionText
-                  }
+                  style={[
+                    styles.chipText,
+                    selected && styles.chipTextSelected,
+                  ]}
                 >
-                  {a}
+                  {a.name}
                 </Text>
-
-                <Ionicons
-                  name="add"
-                  size={18}
-                  color={COLORS.orange}
-                />
               </Pressable>
-            )
-          )}
+            );
+          })}
         </View>
       )}
 
       {allergies.length > 0 && (
-        <View style={styles.selectedWrap}>
-          {allergies.map(
-            (a, idx) => (
-              <Pressable
-                key={`${a}-${idx}`}
-                onPress={() =>
-                  setAllergies(
-                    (prev) =>
-                      removeAt(
-                        prev,
-                        idx
-                      )
-                  )
-                }
-                style={
-                  styles.selectedChip
-                }
-              >
-                <Text
-                  style={
-                    styles.selectedChipText
-                  }
-                >
-                  {a}
-                </Text>
-
-                <Ionicons
-                  name="close"
-                  size={14}
-                  color={COLORS.orange}
-                />
-              </Pressable>
-            )
-          )}
-        </View>
+        <Text style={[styles.helper, isWebDesktop && styles.helperDesktop, { marginTop: 12 }]}>
+          {allergies.length} allergie{allergies.length > 1 ? "s" : ""} sélectionnée{allergies.length > 1 ? "s" : ""}
+        </Text>
       )}
     </>
   );
