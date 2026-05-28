@@ -2,12 +2,29 @@ import { DIETS } from "@/constants/profileConfig";
 import { STORAGE_KEYS } from "@/constants/storage";
 import useRequireAuth from "@/src/hooks/useRequireAuth";
 import { clearSession, getSession, resolveUserId, updateUserRequest } from "@/src/services/auth";
+import {
+  BudgetOption,
+  fetchAllAllergies,
+  fetchAllBudgets,
+  fetchAllCuisines,
+  fetchAllDiets,
+  getProfileRequest,
+  ReferenceItem,
+  saveUserAllergies,
+  saveUserBlacklist,
+  saveUserBudget,
+  saveUserCuisines,
+  saveUserDiets,
+  saveUserPersonCount,
+  searchIngredients,
+  UserProfile
+} from "@/src/services/profile";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -24,7 +41,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-
 type BudgetChoice = "PETIT" | "MOYEN" | "LARGE";
 type PeopleChoice = "1" | "2" | "3-4" | "5+";
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -36,7 +52,7 @@ type StoredAccount = {
   pseudo?: string;
   email?: string;
 };
-
+type EditModalKey = "diet" | "budget" | "people" | "cuisines" | "blacklist" | "allergies";
 type AccountDraft = {
   firstName: string;
   lastName: string;
@@ -161,6 +177,7 @@ function InfoRow({
 
 export default function ProfileScreen() {
   const { checking } = useRequireAuth();
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<StoredAccount | null>(null);
@@ -177,20 +194,44 @@ export default function ProfileScreen() {
     email: "",
   });
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const insets = useSafeAreaInsets();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [editModal, setEditModal] = useState<EditModalKey | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Référentiels
+  const [allDiets, setAllDiets] = useState<ReferenceItem[]>([]);
+  const [allAllergies, setAllAllergies] = useState<ReferenceItem[]>([]);
+  const [allCuisines, setAllCuisines] = useState<ReferenceItem[]>([]);
+  const [ingredientResults, setIngredientResults] = useState<ReferenceItem[]>([]);
+
+  // Valeurs temporaires d'édition
+  const [tmpDietIds, setTmpDietIds] = useState<number[]>([]);
+  const [tmpAllergyIds, setTmpAllergyIds] = useState<number[]>([]);
+  const [tmpCuisineIds, setTmpCuisineIds] = useState<number[]>([]);
+  const [tmpBlacklist, setTmpBlacklist] = useState<ReferenceItem[]>([]);
+  const [tmpBudget, setTmpBudget] = useState<string>("");
+  const [allBudgets, setAllBudgets] = useState<BudgetOption[]>([]);
+  const [tmpBudgetId, setTmpBudgetId] = useState<number | null>(null);
+  const [tmpPersonCount, setTmpPersonCount] = useState<number>(2);
+
+  // Recherche ingrédients
+  const [ingredientQuery, setIngredientQuery] = useState("");
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const [accountRaw, configRaw, session] = await Promise.all([
+      const [accountRaw, configRaw, session, fetchedProfile] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.accountProfile),
         AsyncStorage.getItem(STORAGE_KEYS.profileConfig),
         getSession(),
+        getProfileRequest(),
       ]);
       const parsedAccount = accountRaw ? (JSON.parse(accountRaw) as StoredAccount) : null;
       const sessionUserId = resolveUserId(session?.user);
       setAccount(parsedAccount ? { ...parsedAccount, id: parsedAccount.id ?? sessionUserId ?? undefined } : null);
       setConfig(configRaw ? (JSON.parse(configRaw) as StoredProfileConfig) : null);
+      setProfile(fetchedProfile);
     } catch {
       setAccount(null);
       setConfig(null);
@@ -337,6 +378,89 @@ export default function ProfileScreen() {
     }
   };
 
+  const openModal = async (key: EditModalKey) => {
+    setEditModal(key);
+    try {
+      if (key === "diet") {
+        if (!allDiets.length) {
+          const diets = await fetchAllDiets();
+          setAllDiets(Array.isArray(diets) ? diets : []);
+        }
+        setTmpDietIds(profile?.diets.map((d) => d.id) ?? []);
+      }
+      if (key === "allergies") {
+        if (!allAllergies.length) {
+          const allergies = await fetchAllAllergies();
+          setAllAllergies(Array.isArray(allergies) ? allergies : []);
+        }
+        setTmpAllergyIds(profile?.allergies.map((a) => a.id) ?? []);
+      }
+      if (key === "cuisines") {
+        if (!allCuisines.length) {
+          const cuisines = await fetchAllCuisines();
+          setAllCuisines(Array.isArray(cuisines) ? cuisines : []);
+        }
+        setTmpCuisineIds(profile?.cuisines.map((c) => c.id) ?? []);
+      }
+      if (key === "blacklist") setTmpBlacklist(profile?.blacklist ?? []);
+      if (key === "budget") {
+          if (!allBudgets.length) {
+            const budgets = await fetchAllBudgets();
+            setAllBudgets(budgets);
+          }
+        setTmpBudgetId(profile?.budget?.id ?? null);
+    }
+      if (key === "people") setTmpPersonCount(profile?.personCount ?? 2);
+    } catch (error) {
+      console.error("Error opening modal:", error);
+    }
+  };
+
+  const closeModal = () => {
+    setEditModal(null);
+    setIngredientQuery("");
+    setIngredientResults([]);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (editModal === "diet")      await saveUserDiets(tmpDietIds);
+      if (editModal === "allergies") await saveUserAllergies(tmpAllergyIds);
+      if (editModal === "cuisines")  await saveUserCuisines(tmpCuisineIds);
+      if (editModal === "blacklist") await saveUserBlacklist(tmpBlacklist.map((b) => b.id));
+      if (editModal === "budget" && tmpBudgetId !== null) {
+        await saveUserBudget(tmpBudgetId);
+      }
+      if (editModal === "people")    await saveUserPersonCount(tmpPersonCount);
+      await loadProfile();
+      closeModal();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggle = (id: number, list: number[], setter: (v: number[]) => void) => {
+    setter(list.includes(id) ? list.filter((i) => i !== id) : [...list, id]);
+  };
+
+  const handleIngredientSearch = (q: string) => {
+    setIngredientQuery(q);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (q.trim().length < 3) { setIngredientResults([]); return; }
+    searchTimeout.current = setTimeout(async () => {
+      const results = await searchIngredients(q);
+      setIngredientResults(results.filter((r) => !tmpBlacklist.some((b) => b.id === r.id)));
+    }, 300);
+  };
+
+  const addToBlacklist = (item: ReferenceItem) => {
+    setTmpBlacklist((prev) => [...prev, item]);
+    setIngredientResults((prev) => prev.filter((r) => r.id !== item.id));
+    setIngredientQuery("");
+  };
+
+  // ✅ NOW the conditional early returns are safe
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -400,63 +524,39 @@ export default function ProfileScreen() {
         </LinearGradient>
 
         <View
-  style={[
-    styles.sheet,
-    Platform.OS === "web" && styles.webSheet,
-  ]}
->
+          style={[
+            styles.sheet,
+            Platform.OS === "web" && styles.webSheet,
+          ]}
+        >
           <Text style={styles.sheetTitle}>{"Infos d'inscription"}</Text>
 
-          <InfoRow
-            icon="leaf-outline"
-            label="Regime alimentaire"
-            onPress={() => goToConfigurationStep(CONFIG_STEPS.diet)}
-          >
-            <MultiLineValue values={config?.diets?.map((k) => DIET_LABELS[k] || k) ?? []} />
+          <InfoRow icon="leaf-outline" label="Regime alimentaire" onPress={() => openModal("diet")}>
+            <MultiLineValue values={profile?.diets.map((d) => d.name) ?? config?.diets?.map((k) => DIET_LABELS[k] || k) ?? []} />
           </InfoRow>
 
-          <InfoRow
-            icon="wallet-outline"
-            label="Budget mensuel"
-            onPress={() => goToConfigurationStep(CONFIG_STEPS.budget)}
-          >
+          <InfoRow icon="wallet-outline" label="Budget mensuel" onPress={() => openModal("budget")}>
             <Text style={styles.infoValue}>
-              {config?.budget ? BUDGET_LABELS[config.budget] : "Non renseigne"}
+              {profile?.budget?.label ?? "Non renseigné"}
             </Text>
           </InfoRow>
 
-          <InfoRow
-            icon="people-outline"
-            label="Nombre de personnes"
-            onPress={() => goToConfigurationStep(CONFIG_STEPS.people)}
-          >
+          <InfoRow icon="people-outline" label="Nombre de personnes" onPress={() => openModal("people")}>
             <Text style={styles.infoValue}>
-              {peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigne"}
+              {profile?.personCount != null ? `${profile.personCount} personne(s)` : peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigne"}
             </Text>
           </InfoRow>
 
-          <InfoRow
-            icon="restaurant-outline"
-            label="Cuisines favorites"
-            onPress={() => goToConfigurationStep(CONFIG_STEPS.cuisines)}
-          >
-            <MultiLineValue values={config?.cuisines ?? []} />
+          <InfoRow icon="restaurant-outline" label="Cuisines favorites" onPress={() => openModal("cuisines")}>
+            <MultiLineValue values={profile?.cuisines.map((c) => c.name) ?? config?.cuisines ?? []} />
           </InfoRow>
 
-          <InfoRow
-            icon="ban-outline"
-            label="Ingredients a eviter"
-            onPress={() => goToConfigurationStep(CONFIG_STEPS.avoidIngredients)}
-          >
-            <MultiLineValue values={resolveAvoidedIngredients(config) ?? []} />
+          <InfoRow icon="ban-outline" label="Ingredients a eviter" onPress={() => openModal("blacklist")}>
+            <MultiLineValue values={profile?.blacklist.map((b) => b.name) ?? resolveAvoidedIngredients(config) ?? []} />
           </InfoRow>
 
-          <InfoRow
-            icon="medkit-outline"
-            label="Allergies"
-            onPress={() => goToConfigurationStep(CONFIG_STEPS.allergies)}
-          >
-            <MultiLineValue values={config?.allergies ?? []} />
+          <InfoRow icon="medkit-outline" label="Allergies" onPress={() => openModal("allergies")}>
+            <MultiLineValue values={profile?.allergies.map((a) => a.name) ?? config?.allergies ?? []} />
           </InfoRow>
         </View>
       </ScrollView>
@@ -485,20 +585,6 @@ export default function ProfileScreen() {
               </View>
               <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
             </TouchableOpacity>
-
-            {/* <TouchableOpacity
-              style={styles.settingsAction}
-              onPress={onEditConfiguration}
-              activeOpacity={0.85}
-            >
-              <View style={styles.settingsActionIcon}>
-                <Ionicons name="create-outline" size={18} color="#FF7A00" />
-              </View>
-              <View style={styles.settingsActionTextWrap}>
-                <Text style={styles.settingsActionTitle}>Modifier ma configuration</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
-            </TouchableOpacity> */}
 
             <TouchableOpacity
               style={[styles.settingsAction, styles.settingsDangerAction]}
@@ -606,6 +692,211 @@ export default function ProfileScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* MODAL RÉGIMES */}
+      <Modal visible={editModal === "diet"} transparent animationType="slide" onRequestClose={closeModal}>
+        <Pressable style={styles.settingsBackdrop} onPress={closeModal}>
+          <Pressable style={styles.settingsSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={styles.settingsTitle}>Régimes alimentaires</Text>
+              <TouchableOpacity onPress={closeModal}><Ionicons name="close" size={22} color="#334155" /></TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 350 }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 4 }}>
+                {allDiets.map((item) => {
+                  const active = tmpDietIds.includes(item.id);
+                  return (
+                    <TouchableOpacity key={item.id} onPress={() => toggle(item.id, tmpDietIds, setTmpDietIds)}
+                      style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: active ? "#FF7A00" : "#FFF", borderColor: active ? "#FF7A00" : "#DDD" }}>
+                      <Text style={{ color: active ? "#FFF" : "#555", fontWeight: "600" }}>{item.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            <TouchableOpacity style={[styles.editSaveAction, { minHeight: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", opacity: saving ? 0.6 : 1 }]} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.editSaveText}>Sauvegarder</Text>}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* MODAL ALLERGIES */}
+      <Modal visible={editModal === "allergies"} transparent animationType="slide" onRequestClose={closeModal}>
+        <Pressable style={styles.settingsBackdrop} onPress={closeModal}>
+          <Pressable style={styles.settingsSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={styles.settingsTitle}>Allergies</Text>
+              <TouchableOpacity onPress={closeModal}><Ionicons name="close" size={22} color="#334155" /></TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 350 }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 4 }}>
+                {allAllergies.map((item) => {
+                  const active = tmpAllergyIds.includes(item.id);
+                  return (
+                    <TouchableOpacity key={item.id} onPress={() => toggle(item.id, tmpAllergyIds, setTmpAllergyIds)}
+                      style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: active ? "#FF7A00" : "#FFF", borderColor: active ? "#FF7A00" : "#DDD" }}>
+                      <Text style={{ color: active ? "#FFF" : "#555", fontWeight: "600" }}>{item.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            <TouchableOpacity style={[styles.editSaveAction, { minHeight: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", opacity: saving ? 0.6 : 1 }]} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.editSaveText}>Sauvegarder</Text>}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* MODAL CUISINES */}
+      <Modal visible={editModal === "cuisines"} transparent animationType="slide" onRequestClose={closeModal}>
+        <Pressable style={styles.settingsBackdrop} onPress={closeModal}>
+          <Pressable style={styles.settingsSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={styles.settingsTitle}>Cuisines favorites</Text>
+              <TouchableOpacity onPress={closeModal}><Ionicons name="close" size={22} color="#334155" /></TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 350 }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 4 }}>
+                {allCuisines.map((item) => {
+                  const active = tmpCuisineIds.includes(item.id);
+                  return (
+                    <TouchableOpacity key={item.id} onPress={() => toggle(item.id, tmpCuisineIds, setTmpCuisineIds)}
+                      style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, backgroundColor: active ? "#FF7A00" : "#FFF", borderColor: active ? "#FF7A00" : "#DDD" }}>
+                      <Text style={{ color: active ? "#FFF" : "#555", fontWeight: "600" }}>{item.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            <TouchableOpacity style={[styles.editSaveAction, { minHeight: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", opacity: saving ? 0.6 : 1 }]} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.editSaveText}>Sauvegarder</Text>}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* MODAL BLACKLIST */}
+      <Modal visible={editModal === "blacklist"} transparent animationType="slide" onRequestClose={closeModal}>
+        <Pressable style={styles.settingsBackdrop} onPress={closeModal}>
+          <Pressable style={styles.settingsSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={styles.settingsTitle}>Ingrédients à éviter</Text>
+              <TouchableOpacity onPress={closeModal}><Ionicons name="close" size={22} color="#334155" /></TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#F8FAFC", borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: "#E2E8F0", marginVertical: 8 }}>
+              <Ionicons name="search" size={18} color="#888" />
+              <TextInput style={{ flex: 1, marginLeft: 8, fontSize: 14, color: "#333" }} placeholder="Rechercher (3 car. min)..." placeholderTextColor="#AAA" value={ingredientQuery} onChangeText={handleIngredientSearch} />
+              {ingredientQuery.length > 0 && <TouchableOpacity onPress={() => { setIngredientQuery(""); setIngredientResults([]); }}><Ionicons name="close-circle" size={18} color="#888" /></TouchableOpacity>}
+            </View>
+            {ingredientResults.length > 0 && (
+              <View style={{ backgroundColor: "#FFF", borderRadius: 10, borderWidth: 1, borderColor: "#E5E7EB", marginBottom: 8, overflow: "hidden" }}>
+                {ingredientResults.map((item) => (
+                  <TouchableOpacity key={item.id} onPress={() => addToBlacklist(item)}
+                    style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" }}>
+                    <Text style={{ fontSize: 14, color: "#333" }}>{item.name}</Text>
+                    <Ionicons name="add-circle" size={20} color="#FF7A00" />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <ScrollView style={{ maxHeight: 200 }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {tmpBlacklist.map((item) => (
+                  <View key={item.id} style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: "#FFCDD2", backgroundColor: "#FFF5F5" }}>
+                    <Text style={{ color: "#C62828", fontWeight: "600" }}>{item.name}</Text>
+                    <TouchableOpacity onPress={() => setTmpBlacklist((p) => p.filter((b) => b.id !== item.id))} style={{ marginLeft: 6 }}>
+                      <Ionicons name="close-circle" size={16} color="#C62828" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+            <TouchableOpacity style={[styles.editSaveAction, { minHeight: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 8, opacity: saving ? 0.6 : 1 }]} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.editSaveText}>Sauvegarder</Text>}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* MODAL BUDGET */}
+     <Modal visible={editModal === "budget"} transparent animationType="slide" onRequestClose={closeModal}>
+  <Pressable style={styles.settingsBackdrop} onPress={closeModal}>
+    <Pressable style={styles.settingsSheet} onPress={(e) => e.stopPropagation()}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={styles.settingsTitle}>Budget mensuel</Text>
+        <TouchableOpacity onPress={closeModal}>
+          <Ionicons name="close" size={22} color="#334155" />
+        </TouchableOpacity>
+      </View>
+
+      <View style={{ gap: 10, paddingVertical: 8 }}>
+        {allBudgets.map((budget) => {
+          const active = tmpBudgetId === budget.id;
+          return (
+            <TouchableOpacity
+              key={budget.id}
+              onPress={() => setTmpBudgetId(budget.id)}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                borderRadius: 14,
+                borderWidth: 2,
+                borderColor: active ? "#FF7A00" : "#E2E8F0",
+                backgroundColor: active ? "#FFF5EB" : "#FAFAFA",
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontWeight: "800", color: active ? "#FF7A00" : "#334155", fontSize: 15 }}>
+                  {budget.label}
+                </Text>
+              </View>
+              {active && <Ionicons name="checkmark-circle" size={22} color="#FF7A00" />}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <TouchableOpacity
+        style={[styles.editSaveAction, { minHeight: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", opacity: saving ? 0.6 : 1 }]}
+        onPress={handleSave}
+        disabled={saving}
+      >
+        {saving
+          ? <ActivityIndicator size="small" color="#FFF" />
+          : <Text style={styles.editSaveText}>Sauvegarder</Text>
+        }
+      </TouchableOpacity>
+    </Pressable>
+  </Pressable>
+</Modal>
+
+      {/* MODAL NOMBRE DE PERSONNES */}
+      <Modal visible={editModal === "people"} transparent animationType="slide" onRequestClose={closeModal}>
+        <Pressable style={styles.settingsBackdrop} onPress={closeModal}>
+          <Pressable style={styles.settingsSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={styles.settingsTitle}>Nombre de personnes</Text>
+              <TouchableOpacity onPress={closeModal}><Ionicons name="close" size={22} color="#334155" /></TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 24, paddingVertical: 16 }}>
+              <TouchableOpacity onPress={() => setTmpPersonCount(Math.max(1, tmpPersonCount - 1))}>
+                <Ionicons name="remove-circle-outline" size={42} color="#FF7A00" />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 36, fontWeight: "900", color: "#FF7A00", minWidth: 50, textAlign: "center" }}>{tmpPersonCount}</Text>
+              <TouchableOpacity onPress={() => setTmpPersonCount(tmpPersonCount + 1)}>
+                <Ionicons name="add-circle-outline" size={42} color="#FF7A00" />
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={[styles.editSaveAction, { minHeight: 46, borderRadius: 12, alignItems: "center", justifyContent: "center", opacity: saving ? 0.6 : 1 }]} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.editSaveText}>Sauvegarder</Text>}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -631,10 +922,10 @@ const styles = StyleSheet.create({
   },
 
   webSheet: {
-  width: "100%",
-  maxWidth: 1100,
-  alignSelf: "center",
-},
+    width: "100%",
+    maxWidth: 1100,
+    alignSelf: "center",
+  },
 
   settingsIconButton: {
     width: 40,
