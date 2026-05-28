@@ -1,14 +1,15 @@
+import { COLORS } from "@/constants/profileConfig";
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { COLORS } from "@/constants/profileConfig";
 
 interface ProgressBarProps {
   progress: number;
+  isWebDesktop?: boolean;
 }
 
-export default function ProgressBar({ progress }: ProgressBarProps) {
+export default function ProgressBar({ progress, isWebDesktop }: ProgressBarProps) {
   return (
-    <View style={styles.progressTrack}>
+    <View style={[styles.progressTrack, isWebDesktop && styles.progressTrackDesktop]}>
       <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
     </View>
   );
@@ -22,6 +23,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginHorizontal: 6,
     marginBottom: 14,
+  },
+  progressTrackDesktop: {
+    maxWidth: 600,
+    alignSelf: "center",
+    width: "100%",
   },
   progressFill: {
     height: "100%",

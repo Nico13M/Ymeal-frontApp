@@ -1,78 +1,74 @@
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { COLORS } from "@/constants/profileConfig";
+import { ReferenceItem } from "@/src/services/profile";
 import { Ionicons } from "@expo/vector-icons";
-import { COLORS, CUISINES } from "@/constants/profileConfig";
-import Chip from "@/components/ui/Chip";
+import React from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
-interface CuisineStepProps {
-  cuisines: string[];
-  toggleCuisine: (c: string) => void;
-  styles?: any;
-}
+type Props = {
+  cuisines: string[];           // noms sélectionnés
+  toggleCuisine: (name: string) => void;
+  availableCuisines: ReferenceItem[];
+  isLoading?: boolean;
+  styles: any;
+  isWebDesktop?: boolean;
+};
 
-export default function CuisineStep({ cuisines, toggleCuisine, styles: passedStyles }: CuisineStepProps) {
+export default function CuisineStep({
+  cuisines,
+  toggleCuisine,
+  availableCuisines,
+  isLoading = false,
+  styles,
+  isWebDesktop,
+}: Props) {
   return (
-    <View style={styles.container}>
-      <View style={styles.questionRow}>
+    <>
+      <View style={[styles.questionRow, isWebDesktop && styles.questionRowDesktop]}>
         <Ionicons name="restaurant-outline" size={18} color={COLORS.orange} />
-        <Text style={styles.question}>As-tu une alimentation favorite ?</Text>
+        <Text style={[styles.question, isWebDesktop && styles.questionDesktop]}>
+          As-tu une alimentation favorite ?
+        </Text>
       </View>
-      <Text style={styles.helper}>Choisis jusqu'à 6 styles de cuisine.</Text>
-      
-      <View style={styles.chipsWrap}>
-        {CUISINES.map((c) => {
-          const selected = cuisines.includes(c);
-          const atLimit = !selected && cuisines.length >= 6;
-          return (
-            <Chip
-              key={c}
-              label={c}
-              selected={selected}
-              disabled={atLimit}
-              onPress={() => toggleCuisine(c)}
-            />
-          );
-        })}
-      </View>
-      
-      <Text style={styles.footerHelper}>Sélectionné : {cuisines.length} / 6</Text>
-    </View>
+
+      <Text style={[styles.helper, isWebDesktop && styles.helperDesktop]}>
+        Choisis jusqu&apos;à 6 styles de cuisine.
+      </Text>
+
+      {isLoading ? (
+        <ActivityIndicator color={COLORS.orange} style={{ marginTop: 24 }} />
+      ) : (
+        <View style={[styles.chipsWrap, isWebDesktop && styles.chipsWrapDesktop]}>
+          {availableCuisines.map((c) => {
+            const selected = cuisines.includes(c.name);
+            const atLimit = !selected && cuisines.length >= 6;
+            return (
+              <Pressable
+                key={c.id}
+                onPress={() => toggleCuisine(c.name)}
+                style={[
+                  styles.chip,
+                  selected && styles.chipSelected,
+                  atLimit && styles.chipDisabled,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    selected && styles.chipTextSelected,
+                    atLimit && styles.chipTextDisabled,
+                  ]}
+                >
+                  {c.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      <Text style={[styles.helper, isWebDesktop && styles.helperDesktop]}>
+        Sélectionné : {cuisines.length}/6
+      </Text>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    width: "100%",
-  },
-  questionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginBottom: 4,
-  },
-  question: {
-    fontSize: 17,
-    fontWeight: "900",
-    color: COLORS.text,
-    flex: 1,
-  },
-  helper: {
-    marginTop: 6,
-    color: COLORS.sub,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  chipsWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 12,
-    gap: 10,
-  },
-  footerHelper: {
-    marginTop: 14,
-    color: COLORS.orange,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-});
