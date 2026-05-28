@@ -46,6 +46,48 @@ type SuggestedIngredient = {
   emoji: string;
 };
 
+/* ===================== DICTIONNAIRE DE SECOURS LOCAL ===================== */
+// Permet de combler les manques du backend pour les catégories et émojis automatiquement
+const LOCAL_FALLBACK_MAP: Record<string, { emoji: string; category: string }> = {
+  poulet: { emoji: "🍗", category: "Viandes" },
+  boeuf: { emoji: "🥩", category: "Viandes" },
+  porc: { emoji: "🥩", category: "Viandes" },
+  steak: { emoji: "🥩", category: "Viandes" },
+  poisson: { emoji: "🐟", category: "Poissons & Crustacés" },
+  saumon: { emoji: "🐟", category: "Poissons & Crustacés" },
+  thon: { emoji: "🐟", category: "Poissons & Crustacés" },
+  oeuf: { emoji: "🥚", category: "Œufs & Produits Laitiers" },
+  oeufs: { emoji: "🥚", category: "Œufs & Produits Laitiers" },
+  lait: { emoji: "🥛", category: "Œufs & Produits Laitiers" },
+  fromage: { emoji: "🧀", category: "Œufs & Produits Laitiers" },
+  beurre: { emoji: "🧈", category: "Œufs & Produits Laitiers" },
+  yaourt: { emoji: "🥛", category: "Œufs & Produits Laitiers" },
+  crème: { emoji: "🥛", category: "Œufs & Produits Laitiers" },
+  creme: { emoji: "🥛", category: "Œufs & Produits Laitiers" },
+  carotte: { emoji: "🥕", category: "Fruits & Légumes" },
+  carottes: { emoji: "🥕", category: "Fruits & Légumes" },
+  tomate: { emoji: "🍅", category: "Fruits & Légumes" },
+  tomates: { emoji: "🍅", category: "Fruits & Légumes" },
+  oignon: { emoji: "🧅", category: "Fruits & Légumes" },
+  oignons: { emoji: "🧅", category: "Fruits & Légumes" },
+  ail: { emoji: "🧄", category: "Fruits & Légumes" },
+  pomme: { emoji: "🍎", category: "Fruits & Légumes" },
+  pommes: { emoji: "🍎", category: "Fruits & Légumes" },
+  banane: { emoji: "🍌", category: "Fruits & Légumes" },
+  bananes: { emoji: "🍌", category: "Fruits & Légumes" },
+  salade: { emoji: "🥬", category: "Fruits & Légumes" },
+  courgette: { emoji: "🥒", category: "Fruits & Légumes" },
+  courgettes: { emoji: "🥒", category: "Fruits & Légumes" },
+  pates: { emoji: "🍝", category: "Épicerie" },
+  pâtes: { emoji: "🍝", category: "Épicerie" },
+  riz: { emoji: "🍚", category: "Épicerie" },
+  farine: { emoji: "🌾", category: "Épicerie" },
+  sucre: { emoji: "🍬", category: "Épicerie" },
+  sel: { emoji: "🧂", category: "Épicerie" },
+  poivre: { emoji: "🧂", category: "Épicerie" },
+  huile: { emoji: "🍾", category: "Épicerie" },
+};
+
 /* ===================== CONFIGURATION PAR DÉFAUT & EXTRACTEURS ===================== */
 const DEFAULT_CONFIG = { emoji: "🥗", unit: "g", step: 1, defaultQty: 20 };
 
@@ -53,19 +95,45 @@ function getConfig() {
   return DEFAULT_CONFIG;
 }
 
-// Sécurité pour extraire la catégorie textuelle, même si le backend renvoie un objet (ex: { name: 'Légumes' })
+// Sécurité pour extraire la catégorie textuelle avec fallback intelligent sur le dictionnaire local
 function extractCategory(ing: any): string {
   if (!ing) return "Autres";
-  if (ing.category && typeof ing.category === "object") {
-    return ing.category.name || ing.category.title || "Autres";
+
+  let cat = "Autres";
+  if (ing.category) {
+    if (typeof ing.category === "object") {
+      cat = ing.category.name || ing.category.title || "Autres";
+    } else {
+      cat = ing.category;
+    }
   }
-  return ing.category || "Autres";
+
+  // Si la catégorie renvoyée est "Autres" ou vide, on vérifie notre dictionnaire local
+  if ((cat === "Autres" || !cat) && ing.name) {
+    const key = ing.name.toLowerCase().trim();
+    if (LOCAL_FALLBACK_MAP[key]) {
+      cat = LOCAL_FALLBACK_MAP[key].category;
+    }
+  }
+  return cat;
 }
 
-// Sécurité pour l'émoji (gère les propriétés 'image' ou 'emoji' du backend)
+// Sécurité pour l'émoji avec fallback intelligent sur le dictionnaire local
 function extractEmoji(ing: any): string {
   if (!ing) return DEFAULT_CONFIG.emoji;
-  return ing.image || ing.emoji || DEFAULT_CONFIG.emoji;
+
+  const backendEmoji = ing.image || ing.emoji;
+  if (backendEmoji && backendEmoji !== DEFAULT_CONFIG.emoji) {
+    return backendEmoji;
+  }
+
+  if (ing.name) {
+    const key = ing.name.toLowerCase().trim();
+    if (LOCAL_FALLBACK_MAP[key]) {
+      return LOCAL_FALLBACK_MAP[key].emoji;
+    }
+  }
+  return backendEmoji || DEFAULT_CONFIG.emoji;
 }
 
 function toSuggested(ing: BackendIngredient): SuggestedIngredient {
@@ -106,6 +174,10 @@ export default function FridgeScreen() {
   const dynamicCategories = Array.from(
       new Set(allSuggestions.map((s) => s.category).filter(Boolean))
   );
+  if (!dynamicCategories.includes("Autres")) {
+    dynamicCategories.push("Autres");
+  }
+
   const normalizedSearch = search.replace(/\s+/g, "");
   const canSearch = normalizedSearch.length >= 3;
 
@@ -162,9 +234,9 @@ export default function FridgeScreen() {
 
         return {
           id: ing.id,
-          name: ing.name, // Priorité au nom du serveur
-          category: extractCategory(ing), // Priorité absolue au serveur pour éviter de bloquer sur "Autres"
-          emoji: extractEmoji(ing), // Priorité absolue au serveur pour l'émoji frais
+          name: ing.name,
+          category: extractCategory(ing),
+          emoji: extractEmoji(ing),
           quantity: stored?.quantity ?? ing.quantity ?? config.defaultQty,
           unit,
           step: stored?.step ?? config.step,
@@ -180,7 +252,7 @@ export default function FridgeScreen() {
             id: key,
             name: stored.name || "Produit",
             category: stored.category || "Autres",
-            emoji: "🛒",
+            emoji: LOCAL_FALLBACK_MAP[stored.name?.toLowerCase().trim() || ""]?.emoji || "🛒",
             quantity: stored.quantity,
             unit,
             step: stored.step || 1,
@@ -213,14 +285,10 @@ export default function FridgeScreen() {
     const timeoutId = setTimeout(async () => {
       try {
         const results = await searchAvailableIngredients(search);
-        if (!isActive) {
-          return;
-        }
+        if (!isActive) return;
         setSearchResults(results.map(toSuggested));
       } catch (err) {
-        if (!isActive) {
-          return;
-        }
+        if (!isActive) return;
         setSearchResults([]);
         setError(err instanceof Error ? err.message : "Erreur lors de la recherche des ingrédients");
       }
@@ -261,7 +329,7 @@ export default function FridgeScreen() {
   };
 
   const handleAddIngredient = (item: SuggestedIngredient) => {
-    const existing = ingredients.find((i) => i.name.toLowerCase() === item.name.toLowerCase());
+    const existing = ingredients.find((i) => i.name.toLowerCase().trim() === item.name.toLowerCase().trim());
     if (existing) {
       setError("Ce produit est déjà dans votre frigo");
       return;
@@ -269,7 +337,7 @@ export default function FridgeScreen() {
     setEditingExistingId(null);
     setEditingIngredient(item);
     setEditName(item.name);
-    setEditCategory(item.category); // Applique directement la catégorie trouvée dans la base
+    setEditCategory(item.category);
     setEditQuantity("1");
     setEditUnitId(null);
     setModalVisible(true);
@@ -288,9 +356,8 @@ export default function FridgeScreen() {
       return;
     }
 
-    // RECHERCHE INTELLIGENTE : Si l'utilisateur a tapé à la main un nom existant dans le backend
     const matchingSuggestion = allSuggestions.find(
-        (s) => s.name.toLowerCase() === finalName.toLowerCase()
+        (s) => s.name.toLowerCase().trim() === finalName.toLowerCase().trim()
     );
 
     try {
@@ -298,9 +365,8 @@ export default function FridgeScreen() {
       setError(null);
       const selectedUnit = editUnitId ? units.find((u) => u.id === editUnitId) || null : null;
 
-      // Détermination des valeurs finales (Priorité à la suggestion backend trouvée)
       let finalCategory = editCategory;
-      let finalEmoji = editingIngredient?.emoji || "🛒";
+      let finalEmoji = editingIngredient?.emoji || LOCAL_FALLBACK_MAP[finalName.toLowerCase().trim()]?.emoji || "🛒";
       let targetIngredientId = editingIngredient?.id || null;
 
       if (matchingSuggestion && !editingIngredient) {
@@ -329,25 +395,6 @@ export default function FridgeScreen() {
         if (targetIngredientId) {
           await addIngredientToFrigo(Number(targetIngredientId), qty, editUnitId ?? undefined);
           newId = targetIngredientId;
-        // } else {
-        //   try {
-        //     const created = await createIngredient({
-        //       name: finalName,
-        //       category: finalCategory,
-        //       image: finalEmoji,
-        //     });
-        //     // Puis on l'ajoute au frigo
-        //     await addIngredientToFrigo(created.id, qty, editUnitId ?? undefined);
-        //     newId = created.id;
-        //     finalEmoji = extractEmoji(created);
-        //     finalCategory = extractCategory(created);
-
-        //     // Mettre à jour les suggestions locales pour éviter les doublons futurs
-        //     setAllSuggestions((prev) => [...prev, toSuggested(created)]);
-        //   } catch (err) {
-        //     // Fallback local si la création backend échoue
-        //     console.warn("[FRIGO] Création backend échouée, stockage local uniquement", err);
-        //   }
         }
 
         const newIng: Ingredient = {
@@ -392,15 +439,11 @@ export default function FridgeScreen() {
     }
   };
 
-  const quickSuggestions = allSuggestions
-      .filter((s) => !ingredients.find((i) => i.name.toLowerCase() === s.name.toLowerCase()))
-      .slice(0, 6);
+  const filteredResults = searchResults.filter(
+      (s) => !ingredients.find((i) => i.name.toLowerCase().trim() === s.name.toLowerCase().trim())
+  );
 
-    const filteredResults = searchResults.filter(
-      (s) => !ingredients.find((i) => i.name.toLowerCase() === s.name.toLowerCase())
-    );
-
-    const isSearching = canSearch;
+  const isSearching = canSearch;
 
   return (
       <SafeAreaView style={styles.container}>
@@ -413,7 +456,6 @@ export default function FridgeScreen() {
             </View>
             <TouchableOpacity style={styles.btnAddProduct} onPress={handleOpenAddModal}>
               <Ionicons name="add" size={27} color="#FF9F1C" />
-              {/* {screenWidth > 350 && <Text style={styles.btnAddProductText}>Ajouter un produit</Text>} */}
             </TouchableOpacity>
           </View>
 
@@ -439,31 +481,12 @@ export default function FridgeScreen() {
             )}
           </View>
 
-          {/* SUGGESTIONS */}
-          {/* {!isSearching && quickSuggestions.length > 0 && (
-              <View style={{ marginTop: 15 }}>
-                <Text style={styles.sectionLabel}>Suggestions rapides</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {quickSuggestions.map((s) => (
-                      <TouchableOpacity
-                          key={s.id}
-                          style={styles.quickChip}
-                          onPress={() => handleAddIngredient(s)}
-                          disabled={syncing}
-                      >
-                        <Text>{s.emoji} {s.name}</Text>
-                      </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-          )} */}
-
           {/* RÉSULTATS DE LA RECHERCHE */}
           {isSearching && (
               <View style={[styles.searchResults, { maxHeight: screenHeight * 0.4 }]}>
                 <ScrollView keyboardShouldPersistTaps="handled">
                   {filteredResults.length === 0 ? (
-                  <Text style={{ padding: 15, color: "#ADB5BD" }}>Aucun résultat dans la base</Text>
+                      <Text style={{ padding: 15, color: "#ADB5BD" }}>Aucun résultat dans la base</Text>
                   ) : (
                       filteredResults.map((s) => (
                           <TouchableOpacity
@@ -555,16 +578,16 @@ export default function FridgeScreen() {
             <View style={[styles.modalContentCentered, { maxHeight: screenHeight * 0.85, width: screenWidth > 600 ? 500 : "90%" }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
-                  {editingIngredient?.emoji || "🛒"} {editingExistingId !== null ? "Modifier" : "Ajouter un produit"}
+                  {editingIngredient?.emoji || LOCAL_FALLBACK_MAP[editName.toLowerCase().trim()]?.emoji || "🛒"} {editingExistingId !== null ? "Modifier" : "Ajouter un produit"}
                 </Text>
                 <TouchableOpacity onPress={() => setModalVisible(false)}>
                   <Ionicons name="close" size={24} color="#333" />
                 </TouchableOpacity>
               </View>
-                  {editingExistingId === null && (
-                    <Text style={styles.newProductWarning}>
-                      ⚠️ Ce produit ne sera pas utilisé dans la génération de recettes par IA.
-                    </Text> )}
+              {editingExistingId === null && (
+                  <Text style={styles.newProductWarning}>
+                    ⚠️ Ce produit ne sera pas utilisé dans la génération de recettes par IA.
+                  </Text> )}
               <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
                 {/* NOM DU PRODUIT */}
                 <View style={styles.inputGroup}>
@@ -572,7 +595,14 @@ export default function FridgeScreen() {
                   <TextInput
                       style={styles.nameInput}
                       value={editName}
-                      onChangeText={setEditName}
+                      onChangeText={(txt) => {
+                        setEditName(txt);
+                        // Changement dynamique optionnel de la catégorie si correspondance trouvée en tapant
+                        const key = txt.toLowerCase().trim();
+                        if (LOCAL_FALLBACK_MAP[key] && editingExistingId === null) {
+                          setEditCategory(LOCAL_FALLBACK_MAP[key].category);
+                        }
+                      }}
                       placeholder="Ex: Lait, Tomates..."
                       placeholderTextColor="#ADB5BD"
                   />
@@ -670,7 +700,6 @@ export default function FridgeScreen() {
   );
 }
 
-// Le reste des styles reste inchangé...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
