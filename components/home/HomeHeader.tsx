@@ -22,7 +22,7 @@ export default function HomeHeader({ displayName }: HomeHeaderProps) {
         </View>
       </View>
       <Text style={styles.greetingTitle}>{greeting}</Text>
-      <Text style={styles.greetingSub}>Prêt cuisiner quelque chose de délicieux ?</Text>
+      <Text style={styles.greetingSub}>Prêt à cuisiner quelque chose de délicieux ?</Text>
     </View>
   );  
 }

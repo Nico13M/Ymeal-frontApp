@@ -372,7 +372,6 @@ export default function RecipesScreen() {
                 <Text style={styles.pillText}>{item.favorites_count} favoris</Text>
               </View>
               <View style={styles.recipeStatPill}>
-                <Ionicons name="chatbubble-outline" size={12} color="#666" />
                 <Text style={styles.pillText}>{getRatingsCount(item)} avis</Text>
               </View>
               <View style={styles.recipeStatPill}>

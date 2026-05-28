@@ -25,7 +25,7 @@ type TrendingSectionProps = {
 };
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'ratings_count_desc', label: 'Plus de ratings' },
+  { value: 'ratings_count_desc', label: 'Plus d\'avis' },
   { value: 'average_rating_desc', label: 'Meilleure moyenne' },
   { value: 'created_at_desc', label: 'Plus récent' },
   { value: 'created_at_asc', label: 'Plus ancien' },

@@ -2,7 +2,7 @@ import type { TrendingRecipeItem } from '@/components/home/types';
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type TrendingRecipeCardProps = {
   item: TrendingRecipeItem;
@@ -65,7 +65,6 @@ export default function TrendingRecipeCard({
                 <Text style={styles.recipeStatText}>{item.favorites_count} favoris</Text>
               </View>
               <View style={styles.recipeStatPill}>
-                <Ionicons name="chatbubble-outline" size={12} color="#666" />
                 <Text style={styles.recipeStatText}>{reviewCount} avis</Text>
               </View>
               {reviewCount > 0 && (
