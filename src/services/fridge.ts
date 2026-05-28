@@ -27,6 +27,12 @@ export type BackendFrigoIngredient = {
   unit: BackendUnit | null;
 };
 
+// Pour une v2 
+// export type BackendIngredientCreate = {
+//   name: string;
+//   category?: string;
+//   image?: string;
+// };
 
 /* ===================== HELPER ===================== */
 
@@ -181,3 +187,30 @@ export async function removeIngredientFromFrigo(ingredientId: number): Promise<v
     throw error;
   }
 }
+
+// Pour une v2 avec incrémentation des ingredients dans la bdd 
+// export async function createIngredient(
+//   data: BackendIngredientCreate
+// ): Promise<BackendIngredient> {
+//   try {
+//     const { token, userId } = await getToken();
+//     const csrfToken = await getCsrfToken();
+//     const result = await apiRequest<BackendIngredient>("/admin/ingredients/create", {
+//       method: "POST",
+//       token,
+//       credentials: "include",
+//       headers: {
+//         ...buildHeaders(userId),
+//         "X-CSRF-TOKEN": csrfToken,
+//       },
+//       body: data,
+//     });
+//     return result!;
+//   } catch (error) {
+//     console.error(
+//       "[FRIGO] ❌ createIngredient:",
+//       error instanceof ApiError ? error.message : error
+//     );
+//     throw error;
+//   }
+// }
