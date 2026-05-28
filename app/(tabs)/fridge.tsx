@@ -9,7 +9,7 @@ import {
   removeIngredientFromFrigo,
   searchAvailableIngredients,
   updateIngredientQuantity,
-  type BackendIngredient,
+  type BackendIngredient
 } from "@/src/services/fridge";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -326,10 +326,28 @@ export default function FridgeScreen() {
       } else {
         let newId: string | number = `local_${Date.now()}`;
 
-        // Si on a lié un ingrédient du backend (via clic ou via correspondance de nom)
         if (targetIngredientId) {
           await addIngredientToFrigo(Number(targetIngredientId), qty, editUnitId ?? undefined);
           newId = targetIngredientId;
+        // } else {
+        //   try {
+        //     const created = await createIngredient({
+        //       name: finalName,
+        //       category: finalCategory,
+        //       image: finalEmoji,
+        //     });
+        //     // Puis on l'ajoute au frigo
+        //     await addIngredientToFrigo(created.id, qty, editUnitId ?? undefined);
+        //     newId = created.id;
+        //     finalEmoji = extractEmoji(created);
+        //     finalCategory = extractCategory(created);
+
+        //     // Mettre à jour les suggestions locales pour éviter les doublons futurs
+        //     setAllSuggestions((prev) => [...prev, toSuggested(created)]);
+        //   } catch (err) {
+        //     // Fallback local si la création backend échoue
+        //     console.warn("[FRIGO] Création backend échouée, stockage local uniquement", err);
+        //   }
         }
 
         const newIng: Ingredient = {
@@ -346,7 +364,6 @@ export default function FridgeScreen() {
         setIngredients(updated);
         persistQuantities(updated);
       }
-
       setModalVisible(false);
       setSearch("");
       setEditingExistingId(null);
@@ -544,7 +561,10 @@ export default function FridgeScreen() {
                   <Ionicons name="close" size={24} color="#333" />
                 </TouchableOpacity>
               </View>
-
+                  {editingExistingId === null && (
+                    <Text style={styles.newProductWarning}>
+                      ⚠️ Ce produit ne sera pas utilisé dans la génération de recettes par IA.
+                    </Text> )}
               <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
                 {/* NOM DU PRODUIT */}
                 <View style={styles.inputGroup}>
@@ -695,4 +715,6 @@ const styles = StyleSheet.create({
   btnCancelText: { fontSize: 14, fontWeight: "600", color: "#666" },
   btnConfirm: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: "#FFB347", justifyContent: "center", alignItems: "center" },
   btnConfirmText: { fontSize: 14, fontWeight: "600", color: "#FFF" },
+  newProductWarning: {fontSize: 11,color: "#9CA3AF",textAlign: "center",paddingHorizontal: 20,paddingVertical: 8,fontStyle: "italic",borderBottomWidth: 1,borderBottomColor: "#FFEAD9",backgroundColor: "#FFF8F2",
+},
 });
