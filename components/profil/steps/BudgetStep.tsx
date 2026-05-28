@@ -1,24 +1,15 @@
-import React from "react";
-
-import {
-  Pressable,
-  Text,
-  View,
-} from "react-native";
-
-import { Ionicons } from "@expo/vector-icons";
-
 import { COLORS } from "@/constants/profileConfig";
-
+import { BudgetOption } from "@/src/services/profile";
 import { BudgetChoice } from "@/types/profil";
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 type Props = {
   budget: BudgetChoice | null;
-
-  setBudget: (
-    value: BudgetChoice
-  ) => void;
-
+  setBudget: (value: BudgetChoice) => void;
+  availableBudgets: BudgetOption[];
+  isLoading?: boolean;
   styles: any;
   isWebDesktop?: boolean;
 };
@@ -26,102 +17,54 @@ type Props = {
 export default function BudgetStep({
   budget,
   setBudget,
+  availableBudgets,
+  isLoading = false,
   styles,
   isWebDesktop,
 }: Props) {
   return (
     <>
       <View style={[styles.questionRow, isWebDesktop && styles.questionRowDesktop]}>
-        <Ionicons
-          name="wallet-outline"
-          size={18}
-          color={COLORS.orange}
-        />
-
+        <Ionicons name="wallet-outline" size={18} color={COLORS.orange} />
         <Text style={[styles.question, isWebDesktop && styles.questionDesktop]}>
           Quel est ton budget mensuel ?
         </Text>
       </View>
 
-      <View style={[{ marginTop: 8 }, isWebDesktop && { maxWidth: 600, alignSelf: "center", width: "100%" }]}>
-        <Pressable
-          onPress={() =>
-            setBudget("PETIT")
-          }
+      {isLoading ? (
+        <ActivityIndicator color={COLORS.orange} style={{ marginTop: 24 }} />
+      ) : (
+        <View
           style={[
-            styles.choiceRow,
-
-            budget === "PETIT" &&
-              styles.choiceRowSelected,
+            { marginTop: 8 },
+            isWebDesktop && { maxWidth: 600, alignSelf: "center", width: "100%" },
           ]}
         >
-          <Text style={styles.choiceIcon}>
-            💰
-          </Text>
+          {availableBudgets.map((b) => {
+            const key = b.key as BudgetChoice;
+            const isValid = key === "PETIT" || key === "MOYEN" || key === "LARGE";
+            if (!isValid) return null;
 
-          <View style={{ flex: 1 }}>
-            <Text style={styles.choiceTitle}>
-              Petit budget
-            </Text>
-
-            <Text style={styles.choiceSub}>
-              &lt; 100€/mois
-            </Text>
-          </View>
-        </Pressable>
-
-        <Pressable
-          onPress={() =>
-            setBudget("MOYEN")
-          }
-          style={[
-            styles.choiceRow,
-
-            budget === "MOYEN" &&
-              styles.choiceRowSelected,
-          ]}
-        >
-          <Text style={styles.choiceIcon}>
-            💵
-          </Text>
-
-          <View style={{ flex: 1 }}>
-            <Text style={styles.choiceTitle}>
-              Budget moyen
-            </Text>
-
-            <Text style={styles.choiceSub}>
-              100-200€/mois
-            </Text>
-          </View>
-        </Pressable>
-
-        <Pressable
-          onPress={() =>
-            setBudget("LARGE")
-          }
-          style={[
-            styles.choiceRow,
-
-            budget === "LARGE" &&
-              styles.choiceRowSelected,
-          ]}
-        >
-          <Text style={styles.choiceIcon}>
-            💸
-          </Text>
-
-          <View style={{ flex: 1 }}>
-            <Text style={styles.choiceTitle}>
-              Budget large
-            </Text>
-
-            <Text style={styles.choiceSub}>
-              &gt; 200€/mois
-            </Text>
-          </View>
-        </Pressable>
-      </View>
+            return (
+              <Pressable
+                key={b.id}
+                onPress={() => setBudget(key)}
+                style={[
+                  styles.choiceRow,
+                  budget === key && styles.choiceRowSelected,
+                ]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.choiceTitle}>{b.label}</Text>
+                  {b.amount != null && (
+                    <Text style={styles.choiceSub}>≤ {b.amount}€/mois</Text>
+                  )}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
     </>
   );
 }

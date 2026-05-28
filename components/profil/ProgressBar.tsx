@@ -1,6 +1,6 @@
+import { COLORS } from "@/constants/profileConfig";
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { COLORS } from "@/constants/profileConfig";
 
 interface ProgressBarProps {
   progress: number;
