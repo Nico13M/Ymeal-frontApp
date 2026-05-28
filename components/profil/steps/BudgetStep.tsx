@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
-interface BudgetStepProps {
+type Props = {
   budget: BudgetChoice | null;
   setBudget: (value: BudgetChoice) => void;
   availableBudgets: BudgetOption[];

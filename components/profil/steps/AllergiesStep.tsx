@@ -10,7 +10,8 @@ type Props = {
   availableAllergies: ReferenceItem[];
   isLoading?: boolean;
   styles: any;
-}
+  isWebDesktop?: boolean;
+};
 
 export default function AllergiesStep({
   allergies,
@@ -18,7 +19,8 @@ export default function AllergiesStep({
   availableAllergies,
   isLoading = false,
   styles,
-}: AllergiesStepProps) {
+  isWebDesktop,
+}: Props) {
   return (
     <>
       <View style={[styles.questionRow, isWebDesktop && styles.questionRowDesktop]}>
@@ -60,6 +62,7 @@ export default function AllergiesStep({
           })}
         </View>
       )}
+
       {allergies.length > 0 && (
         <Text style={[styles.helper, isWebDesktop && styles.helperDesktop, { marginTop: 12 }]}>
           {allergies.length} allergie{allergies.length > 1 ? "s" : ""} sélectionnée{allergies.length > 1 ? "s" : ""}

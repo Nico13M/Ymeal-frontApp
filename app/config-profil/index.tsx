@@ -8,6 +8,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 
 import {
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -416,18 +417,21 @@ export default function ConfigProfilScreen() {
         enabled={Platform.OS === "ios"}
       >
         <ScrollView
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={[
+            { paddingBottom: 100 },
+            isWebDesktop && styles.desktopScrollContent,
+          ]}
           keyboardShouldPersistTaps="always"
           scrollEventThrottle={16}
         >
-          <View style={styles.screen}>
+          <View style={[styles.screen, isWebDesktop && styles.screenDesktop]}>
             <StepHeader
               step={step}
               totalSteps={TOTAL_STEPS}
               onBack={goBack}
             />
 
-            <ProgressBar progress={progress} />
+            <ProgressBar progress={progress} isWebDesktop={isWebDesktop} />
 
             <ProfilCard isWebDesktop={isWebDesktop}>
               {step === 0 && (
@@ -442,6 +446,7 @@ export default function ConfigProfilScreen() {
                   availableDiets={refDiets}
                   isLoading={isLoadingRefs}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
@@ -456,6 +461,7 @@ export default function ConfigProfilScreen() {
                   setCitySuggestions={setCitySuggestions}
                   setCityLookupError={setCityLookupError}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
@@ -479,6 +485,7 @@ export default function ConfigProfilScreen() {
                   availableCuisines={refCuisines}
                   isLoading={isLoadingRefs}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
@@ -493,6 +500,7 @@ export default function ConfigProfilScreen() {
                   removeAt={removeAt}
                   setAvoidVeg={setAvoidVeg}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
@@ -503,6 +511,7 @@ export default function ConfigProfilScreen() {
                   availableAllergies={refAllergies}
                   isLoading={isLoadingRefs}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
@@ -520,11 +529,12 @@ export default function ConfigProfilScreen() {
                   isSavingConfig={isSavingConfig}
                   next={next}
                   styles={styles}
+                  isWebDesktop={isWebDesktop}
                 />
               )}
 
               {step <= 7 && (
-                <View style={styles.actions}>
+                <View style={[styles.actions, isWebDesktop && styles.actionsDesktop]}>
                   <PrimaryButton
                     onPress={next}
                     loading={isSavingConfig}
@@ -603,6 +613,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.bg,
   },
+
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",

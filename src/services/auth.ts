@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { apiRequest } from "@/src/lib/api";
+import { ApiError, apiRequest } from "@/src/lib/api";
 
 const SESSION_KEY = "@ymeal/session";
 const COOKIE_SESSION_TOKEN = "__cookie_session__";
@@ -13,7 +13,7 @@ export type AuthCredentials = {
 export type RegisterPayload = AuthCredentials & {
   firstname: string;
   lastname: string;
-  nickname?: string;
+  pseudo?: string;
 };
 
 export type UserProfile = {
@@ -25,6 +25,14 @@ export type UserProfile = {
 export type AuthSession = {
   token: string;
   user?: UserProfile | null;
+  csrfToken?: string;
+};
+
+export type UpdateUserPayload = {
+  firstname: string;
+  lastname: string;
+  email: string;
+  pseudo?: string;
 };
 
 function getTokenFromPayload(payload: unknown): string | null {
@@ -32,7 +40,9 @@ function getTokenFromPayload(payload: unknown): string | null {
 
   const data = payload as Record<string, unknown>;
   const nestedData =
-    data.data && typeof data.data === "object" ? (data.data as Record<string, unknown>) : null;
+    data.data && typeof data.data === "object"
+      ? (data.data as Record<string, unknown>)
+      : null;
 
   const candidates = [
     data.token,
@@ -59,7 +69,9 @@ function getUserFromPayload(payload: unknown): UserProfile | null {
 
   const data = payload as Record<string, unknown>;
   const nestedData =
-    data.data && typeof data.data === "object" ? (data.data as Record<string, unknown>) : null;
+    data.data && typeof data.data === "object"
+      ? (data.data as Record<string, unknown>)
+      : null;
 
   const candidates = [data.user, nestedData?.user, nestedData, data];
 
@@ -69,6 +81,31 @@ function getUserFromPayload(payload: unknown): UserProfile | null {
       if ("email" in maybeUser || "id" in maybeUser) {
         return maybeUser as UserProfile;
       }
+    }
+  }
+
+  return null;
+}
+
+export function resolveUserId(
+  user: UserProfile | null | undefined,
+): string | number | null {
+  if (!user || typeof user !== "object") return null;
+
+  const candidates = [
+    user.id,
+    user.userId,
+    user.user_id,
+    user.idUser,
+    user.id_user,
+    user.userid,
+    user.uid,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" || typeof candidate === "number") {
+      const normalized = String(candidate).trim();
+      if (normalized.length > 0) return candidate;
     }
   }
 
@@ -85,9 +122,54 @@ function extractSession(payload: unknown): AuthSession | null {
   };
 }
 
-export async function loginRequest(credentials: AuthCredentials): Promise<AuthSession> {
+function extractCsrfToken(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+
+  const data = payload as Record<string, unknown>;
+  const nestedData =
+    data.data && typeof data.data === "object"
+      ? (data.data as Record<string, unknown>)
+      : null;
+
+  const candidates = [
+    data.csrfToken,
+    data.csrf_token,
+    data.token,
+    nestedData?.csrfToken,
+    nestedData?.csrf_token,
+    nestedData?.token,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
+export async function getCsrfToken(): Promise<string> {
+  const payload = await apiRequest<unknown>("/admin/security/csrf-token", {
+    method: "GET",
+    credentials: "include",
+  });
+
+  const token = extractCsrfToken(payload);
+  if (!token) {
+    console.error("[CSRF] Token extraction failed from payload:", payload);
+    throw new Error("Jeton CSRF introuvable. Reessaye dans quelques instants.");
+  }
+
+  return token;
+}
+
+export async function loginRequest(
+  credentials: AuthCredentials,
+): Promise<AuthSession> {
   const payload = await apiRequest<unknown>("/admin/auth/login", {
     method: "POST",
+    credentials: "include",
     body: credentials,
   });
 
@@ -100,23 +182,26 @@ export async function loginRequest(credentials: AuthCredentials): Promise<AuthSe
   };
 }
 
-export async function registerRequest(credentials: RegisterPayload): Promise<AuthSession | null> {
+export async function registerRequest(
+  credentials: RegisterPayload,
+): Promise<AuthSession | null> {
   const registerBody = {
     firstname: credentials.firstname,
     lastname: credentials.lastname,
-    firstName: credentials.firstname,
-    lastName: credentials.lastname,
-    nickname: credentials.nickname,
     email: credentials.email,
     password: credentials.password,
   };
 
   const payload = await apiRequest<unknown>("/admin/auth/register", {
     method: "POST",
+    credentials: "include",
     body: registerBody,
   });
 
-  return extractSession(payload);
+  const session = extractSession(payload);
+  if (!session) return null;
+
+  return session;
 }
 
 export async function saveSession(session: AuthSession): Promise<void> {
@@ -129,7 +214,11 @@ export async function getSession(): Promise<AuthSession | null> {
 
   try {
     const parsed = JSON.parse(raw) as AuthSession;
-    if (!parsed || typeof parsed.token !== "string" || parsed.token.trim().length === 0) {
+    if (
+      !parsed ||
+      typeof parsed.token !== "string" ||
+      parsed.token.trim().length === 0
+    ) {
       return null;
     }
     return parsed;
@@ -142,3 +231,62 @@ export async function clearSession(): Promise<void> {
   await AsyncStorage.removeItem(SESSION_KEY);
 }
 
+export async function updateUserRequest(
+  userId: string | number,
+  payload: UpdateUserPayload,
+  options?: {
+    onDebug?: (message: string) => void;
+  },
+): Promise<void> {
+  const session = await getSession();
+  if (!session?.token) {
+    console.error("[UPDATE_USER] No session token found");
+    throw new Error(
+      "Session utilisateur introuvable. Reconnecte-toi puis reessaie.",
+    );
+  }
+
+  const normalizedUserId = String(userId).trim();
+  if (!normalizedUserId) {
+    console.error("[UPDATE_USER] Invalid user ID");
+    throw new Error("Identifiant utilisateur manquant.");
+  }
+
+  let csrfToken: string;
+  try {
+    csrfToken = await getCsrfToken();
+  } catch (csrfError) {
+    const csrfErrorMsg =
+      csrfError instanceof Error ? csrfError.message : String(csrfError);
+    console.error("[UPDATE_USER] CSRF fetch error:", csrfErrorMsg);
+    throw csrfError;
+  }
+
+  try {
+    const response = await apiRequest(`/admin/user/${normalizedUserId}/edit`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "X-CSRF-TOKEN": csrfToken,
+      },
+      body: {
+        firstname: payload.firstname,
+        lastname: payload.lastname,
+        email: payload.email,
+        pseudo: (payload as any).pseudo,
+      },
+    });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("[UPDATE_USER] PATCH error:", errorMessage);
+    if (error instanceof ApiError) {
+      console.error("[UPDATE_USER] ApiError details:", {
+        status: error.status,
+        details: error.details,
+      });
+      throw error;
+    }
+
+    throw new Error(errorMessage);
+  }
+}

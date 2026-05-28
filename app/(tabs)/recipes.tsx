@@ -10,19 +10,46 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Keyboard,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
-import { RECIPES } from "../../constants/recipesData";
+
+const EMOJI_MAP: Record<string, string> = {
+  poulet: "🍗",
+  boeuf: "🥩",
+  poisson: "🐟",
+  oeuf: "🥚",
+  lait: "🥛",
+  farine: "🌾",
+  sucre: "🍬",
+  sel: "🧂",
+  poivre: "🧂",
+  tomate: "🍅",
+  carotte: "🥕",
+  oignon: "🧅",
+  ail: "🧄",
+  "pomme de terre": "🥔",
+  riz: "🍚",
+  pates: "🍝",
+  fromage: "🧀",
+  beurre: "🧈",
+  huile: "🍾",
+};
 
 export default function RecipesScreen() {
+  const router = useRouter();
+
+  const { checking } = useRequireAuth();
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showGenerator, setShowGenerator] = useState(false);
@@ -650,12 +677,20 @@ export default function RecipesScreen() {
                 </View>
               ) : (
                 <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={generateFromFridge}
+                  style={[styles.saveBtn, isSaving && { opacity: 0.6 }]}
+                  onPress={handleSaveRecipe}
+                  disabled={isSaving}
                 >
-                  <Ionicons name="sparkles" size={20} color="#FFF" />
-                  <Text style={styles.actionText}>Générer depuis le frigo</Text>
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="bookmark" size={18} color="#FFF" />
+                      <Text style={styles.saveBtnText}>Sauvegarder cette recette</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
+              )}
 
               {saveError && (
                 <Text style={styles.saveErrorText}>{saveError}</Text>
@@ -800,33 +835,29 @@ export default function RecipesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F5F5F5" },
-
   header: {
     backgroundColor: "#00C853",
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
+    paddingTop: 20,
+    paddingBottom: 15,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    justifyContent: "flex-end",
-    minHeight: 170,
   },
-
-  headerTop: {
+  headerDesktop: { paddingTop: 20 },
+  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  headerTitle: { fontSize: 20, fontWeight: "bold", color: "#FFF", flex: 1, marginRight: 10 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  headerIconBtn: { padding: 4 },
+  generatorBtn: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 5,
+    backgroundColor: "#FFF",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 5,
   },
-
-  headerTitle: { fontSize: 22, fontWeight: "bold", color: "#FFF" },
-  headerSub: {
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: 10,
-  },
-
+  generatorBtnText: { color: "#00C853", fontSize: 12, fontWeight: "bold" },
   searchBarContainer: {
     flexDirection: "row",
     backgroundColor: "#FFF",
@@ -836,26 +867,48 @@ const styles = StyleSheet.create({
     alignItems: "center",
     height: 45,
   },
-
   searchInput: { flex: 1, fontSize: 16, color: "#333" },
-
-  listContent: { padding: 20, paddingBottom: 100 },
-
-  promoCard: { borderRadius: 15, padding: 20, marginBottom: 20 },
+  scrollForm: { padding: 20, paddingBottom: 50 },
+  selectorContainer: { marginBottom: 20 },
+  selectorLabel: { fontSize: 14, fontWeight: "bold", color: "#555", marginBottom: 10, marginLeft: 5 },
+  chipRow: { flexDirection: "row", gap: 10 },
+  chip: { backgroundColor: "#FFF", paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: "#DDD" },
+  chipActive: { backgroundColor: "#00C853", borderColor: "#00C853" },
+  chipText: { color: "#666", fontWeight: "600" },
+  chipTextActive: { color: "#FFF" },
+  row: { flexDirection: "row", alignItems: "center" },
+  frigoBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF",
+    paddingHorizontal: 15,
+    height: 45,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#00C853",
+  },
+  frigoBtnActive: { backgroundColor: "#00C853" },
+  frigoBtnText: { marginLeft: 5, color: "#00C853", fontWeight: "bold" },
+  counterGroup: { marginBottom: 20, alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  counter: { flexDirection: "row", alignItems: "center", backgroundColor: "#FFF", borderRadius: 15, padding: 5 },
+  counterText: { fontSize: 20, fontWeight: "bold", marginHorizontal: 20, color: "#333" },
+  textArea: { backgroundColor: "#FFF", borderRadius: 12, padding: 15, height: 80, textAlignVertical: "top", borderWidth: 1, borderColor: "#DDD" },
+  inputGroup: { marginBottom: 20 },
+  generateBtn: { marginTop: 10, borderRadius: 15, overflow: "hidden", elevation: 4 },
+  gradientBtn: { paddingVertical: 18, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 10 },
+  generateBtnText: { color: "#FFF", fontSize: 18, fontWeight: "bold" },
+  listContent: { padding: 15, paddingBottom: 0 },
+  listContentDesktop: { paddingHorizontal: 24 },
+  columnWrapperDesktop: { marginHorizontal: "3.60%" },
+  columnWrapperTablet: { marginHorizontal: "1%" },
+  promoCardDesktop: { borderRadius: 15, padding: 20, marginBottom: 20, marginTop: 15, marginHorizontal: "3.60%" },
+  promoCard: { borderRadius: 15, padding: 20, marginBottom: 20, marginTop: 15, marginHorizontal: 0 },
   promoTitle: { color: "#FFF", fontWeight: "bold", fontSize: 16, marginLeft: 10 },
   promoDesc: { color: "#FFF", marginTop: 5, lineHeight: 20 },
-
-  card: {
-    backgroundColor: "#FFF",
-    borderRadius: 15,
-    marginBottom: 15,
-    overflow: "hidden",
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-  },
-
+  card: { backgroundColor: "#FFF", borderRadius: 15, overflow: "hidden", elevation: 3, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 5, marginVertical: 8 },
+  cardMobile: { width: "100%", marginRight: 0 },
+  cardTablet: { width: "48%", marginRight: "2%" },
+  cardDesktop: { width: "23.3%", flexGrow: 0, flexShrink: 0, marginRight: "2.2%" },
   cardImage: { width: "100%", height: 180 },
   cardContent: { flex: 1, padding: 16, justifyContent: "space-between" },
   cardFooter: { marginTop: 12, alignItems: "center" },
@@ -870,15 +923,8 @@ const styles = StyleSheet.create({
   metaContainer: { width: "100%", marginTop: 4, marginBottom: 4 },
   metaItem: { flexDirection: "row", alignItems: "center", gap: 5 },
   metaText: { color: "#666", fontSize: 13 },
-
-  tag: {
-    backgroundColor: "#E8F5E9",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 5,
-  },
-  tagText: { color: "#2E7D32", fontSize: 12, fontWeight: "bold" },
-
+  tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 5 },
+  tagText: { fontSize: 12, fontWeight: "bold" },
   linkText: { color: "#FF9F1C", fontWeight: "bold", fontSize: 14 },
   paginationContainer: { flexDirection: "row", justifyContent: "center", alignItems: "center", paddingVertical: 10, paddingHorizontal: 20, backgroundColor: "#FFF", borderTopWidth: 1, borderTopColor: "#EEE", gap: 10 },
   paginationBtn: { padding: 10, borderRadius: 8, backgroundColor: "#F5F5F5" },
