@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { router, useLocalSearchParams } from "expo-router";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   KeyboardAvoidingView,
@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getHumanErrorMessage } from "@/src/lib/api";
+import { CuisineOption, resolveCuisineOptionIds, toggleCuisinePreference } from "@/src/lib/cuisine-preferences";
 import {
   BudgetOption,
   ReferenceItem,
@@ -42,6 +43,7 @@ import { BudgetChoice, PeopleChoice } from "@/types/profil";
 import ProfilCard from "@/components/profil/ProfilCard";
 import ProgressBar from "@/components/profil/ProgressBar";
 import StepHeader from "@/components/profil/StepHeader";
+import StepBackButton from "@/components/profil/StepBackButton";
 
 import AllergiesStep from "@/components/profil/steps/AllergiesStep";
 import AvoidIngredientsStep from "@/components/profil/steps/AvoidIngredientsStep";
@@ -74,7 +76,7 @@ function removeAt(list: string[], idx: number): string[] {
 }
 
 // Convertit un tableau de ReferenceItem en tableau de noms (strings)
-function itemsToNames(items: ReferenceItem[]): string[] {
+function itemsToNames(items: readonly { name: string }[]): string[] {
   return items.map((i) => i.name);
 }
 
@@ -89,7 +91,8 @@ function namesToIds(names: string[], reference: ReferenceItem[]): number[] {
 export default function ConfigProfilScreen() {
   // ── Desktop detection ────────────────────────────────────
   const { width } = useWindowDimensions();
-  const isWebDesktop = Platform.OS === "web" && width > 900;
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
+  const isWebDesktop = Platform.OS === "web" && width > 900 && isLayoutReady;
 
   // ── Paramètres de navigation ─────────────────────────────
   const params = useLocalSearchParams<{ step?: string; editMode?: string }>();
@@ -97,7 +100,14 @@ export default function ConfigProfilScreen() {
   const editMode = params.editMode === "true";
 
   // ── State – navigation ───────────────────────────────────
-  const [step, setStep] = useState<StepIndex>(initialStep);
+  // The static web export starts at step 0 with no viewport or query string.
+  // Match that first render, then apply the actual route and desktop layout.
+  const initialRouteStep = useRef(initialStep);
+  const [step, setStep] = useState<StepIndex>(Platform.OS === "web" ? 0 : initialStep);
+  useEffect(() => {
+    if (Platform.OS === "web") setStep(initialRouteStep.current);
+    setIsLayoutReady(true);
+  }, []);
 
   // ── State – préférences utilisateur (noms/strings) ───────
   const [diets, setDiets] = useState<string[]>([]);
@@ -113,7 +123,7 @@ export default function ConfigProfilScreen() {
   // ── State – référentiels chargés depuis l'API ────────────
   const [refDiets, setRefDiets] = useState<ReferenceItem[]>([]);
   const [refAllergies, setRefAllergies] = useState<ReferenceItem[]>([]);
-  const [refCuisines, setRefCuisines] = useState<ReferenceItem[]>([]);
+  const [refCuisines, setRefCuisines] = useState<CuisineOption[]>([]);
   const [refBudgets, setRefBudgets] = useState<BudgetOption[]>([]);
   const [isLoadingRefs, setIsLoadingRefs] = useState(true);
 
@@ -143,6 +153,7 @@ export default function ConfigProfilScreen() {
 
     const loadAll = async () => {
       setIsLoadingRefs(true);
+      let availableCuisines: CuisineOption[] = [];
       try {
         // 1. Référentiels et préférences en parallèle
         const [dietsRef, allergiesRef, cuisinesRef, budgetsRef, userProfile] =
@@ -151,7 +162,7 @@ export default function ConfigProfilScreen() {
             fetchAllAllergies(),
             fetchAllCuisines(),
             fetchAllBudgets(),
-            getProfileRequest(),
+            getProfileRequest().catch(() => null),
           ]);
 
         if (cancelled) return;
@@ -160,7 +171,11 @@ export default function ConfigProfilScreen() {
         setRefDiets(dietsRef);
         setRefAllergies(allergiesRef);
         setRefCuisines(cuisinesRef);
+        availableCuisines = cuisinesRef;
         setRefBudgets(budgetsRef);
+
+        // Keep the loaded reference data even if the user's preferences could not be fetched.
+        if (!userProfile) throw new Error("Impossible de charger le profil API. Utilisation des préférences locales.");
 
         // 3. Hydrater les préférences depuis le profil API
         if (userProfile.diets.length > 0) {
@@ -169,9 +184,7 @@ export default function ConfigProfilScreen() {
         if (userProfile.allergies.length > 0) {
           setAllergies(itemsToNames(userProfile.allergies));
         }
-        if (userProfile.cuisines.length > 0) {
-          setCuisines(itemsToNames(userProfile.cuisines));
-        }
+        setCuisines(itemsToNames(userProfile.cuisines));
         if (userProfile.blacklist.length > 0) {
           setAvoidVeg(itemsToNames(userProfile.blacklist));
           // Alimenter le cache avec les ingrédients déjà enregistrés
@@ -217,7 +230,11 @@ export default function ConfigProfilScreen() {
           if (parsed?.diets?.length) setDiets(parsed.diets);
           if (parsed?.location) setLocation(parsed.location);
           if (parsed?.budget) setBudget(parsed.budget);
-          if (parsed?.cuisines?.length) setCuisines(parsed.cuisines);
+          if (Array.isArray(parsed?.cuisines)) {
+            setCuisines(parsed.cuisines.filter((name: unknown): name is string =>
+              typeof name === "string" && availableCuisines.some((item) => item.name === name)
+            ));
+          }
           if (parsed?.avoidVeg?.length) setAvoidVeg(parsed.avoidVeg);
           if (parsed?.allergies?.length) setAllergies(parsed.allergies);
           if (parsed?.people) setPeople(parsed.people);
@@ -260,20 +277,13 @@ export default function ConfigProfilScreen() {
   }, [vegQuery, step, avoidVeg]);
 
   // ── Dérivés ──────────────────────────────────────────────
-  const progress = useMemo(() => {
-    if (step <= 0) return 0;
-    if (step >= 8) return 1;
-    return step / TOTAL_STEPS;
-  }, [step]);
-
   const canContinue = useMemo(() => {
     if (step === 1) return diets.length > 0;
     if (step === 2) return location.trim().length >= 3;
     if (step === 3) return !!budget;
-    if (step === 4) return cuisines.length > 0;
     if (step === 7) return !!people;
     return true;
-  }, [step, diets, location, budget, cuisines, people]);
+  }, [step, diets, location, budget, people]);
 
   // Toggle allergy par nom
   const toggleAllergy = (name: string) => {
@@ -292,7 +302,8 @@ export default function ConfigProfilScreen() {
   const saveAllPreferences = async () => {
     const dietIds = namesToIds(diets, refDiets);
     const allergyIds = namesToIds(allergies, refAllergies);
-    const cuisineIds = namesToIds(cuisines, refCuisines);
+    const shouldSaveCuisines = !editMode || initialStep === 4;
+    const cuisineIds = shouldSaveCuisines ? resolveCuisineOptionIds(cuisines, refCuisines) : [];
     const blacklistIds = avoidVeg
       .map((name) => blacklistCache[name])
       .filter((id): id is number => id !== undefined);
@@ -315,26 +326,28 @@ export default function ConfigProfilScreen() {
     await Promise.all([
       dietIds.length > 0 ? saveUserDiets(dietIds) : Promise.resolve(),
       allergyIds.length > 0 ? saveUserAllergies(allergyIds) : Promise.resolve(),
-      cuisineIds.length > 0 ? saveUserCuisines(cuisineIds) : Promise.resolve(),
+      shouldSaveCuisines ? saveUserCuisines(cuisineIds, refCuisines) : Promise.resolve(),
       blacklistIds.length > 0 ? saveUserBlacklist(blacklistIds) : Promise.resolve(),
       budgetObj ? saveUserBudget(budgetObj.id) : Promise.resolve(),
       peopleCount != null ? saveUserPersonCount(peopleCount) : Promise.resolve(),
     ]);
 
     // Conserver la localisation localement (non gérée par l'API profil)
+    const storedRaw = await AsyncStorage.getItem(STORAGE_KEYS.profileConfig);
+    let stored: Record<string, unknown> = {};
+    try {
+      const parsed = storedRaw ? JSON.parse(storedRaw) : null;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) stored = parsed;
+    } catch { /* Preserve the newly saved cuisine preference if the old cache is unreadable. */ }
     await AsyncStorage.setItem(
       STORAGE_KEYS.profileConfig,
-      JSON.stringify({ location: location.trim() })
+      JSON.stringify({ ...stored, location: location.trim() })
     );
   };
 
   // ── Handlers ─────────────────────────────────────────────
   const toggleCuisine = (c: string) => {
-    setCuisines((prev) => {
-      if (prev.includes(c)) return prev.filter((x) => x !== c);
-      if (prev.length >= Math.min(MAX_CUISINE_SELECTIONS, refCuisines.length)) return prev;
-      return [...prev, c];
-    });
+    setCuisines((prev) => toggleCuisinePreference(prev, c, Math.min(MAX_CUISINE_SELECTIONS, refCuisines.length)));
   };
 
   const toggleDiet = (key: string) => {
@@ -447,13 +460,18 @@ export default function ConfigProfilScreen() {
               isWebDesktop={isWebDesktop}
             />
 
-            <ProgressBar progress={progress} isWebDesktop={isWebDesktop} />
+            <ProgressBar step={step} totalSteps={TOTAL_STEPS} isWebDesktop={isWebDesktop} />
 
             <ProfilCard
               isWebDesktop={isWebDesktop}
               containerStyle={styles.fullHeightCardContainer}
-              style={styles.fullHeightCard}
+              style={[styles.fullHeightCard, isWebDesktop && styles.fullHeightCardDesktop]}
             >
+              {isWebDesktop && step > 0 && (
+                <View style={styles.desktopCardNavigation}>
+                  <StepBackButton onPress={goBack} isWebDesktop />
+                </View>
+              )}
               {step === 0 && (
                 <WelcomeStep isWebDesktop={isWebDesktop} />
               )}
@@ -620,6 +638,8 @@ const styles = StyleSheet.create({
   fullHeightScreen: { paddingBottom: 0 },
   fullHeightCardContainer: { flexGrow: 1, paddingBottom: 0 },
   fullHeightCard: { flexGrow: 1, padding: 20, borderRadius: 28 },
+  fullHeightCardDesktop: { minHeight: 760, padding: 32 },
+  desktopCardNavigation: { width: "100%", minHeight: 44 },
   stepContent: {
     flexGrow: 1,
     justifyContent: "center",
@@ -673,9 +693,10 @@ const styles = StyleSheet.create({
 
   inputWrap: {
     borderWidth: 1,
-    borderColor: "rgba(15,23,42,0.08)",
+    borderColor: COLORS.orange,
     borderRadius: 18,
-    paddingHorizontal: 14,
+    paddingLeft: 14,
+    paddingRight: 14,
     height: 60,
     flexDirection: "row",
     alignItems: "center",
@@ -690,8 +711,6 @@ const styles = StyleSheet.create({
     height: "100%",
     fontSize: 16,
     color: COLORS.text,
-    marginLeft: 8,
-    ...Platform.select({ web: { outlineWidth: 0 } }),
   },
 
   label: {

@@ -1,6 +1,11 @@
 // src/services/profile.ts
 
 import { apiRequest } from "@/src/lib/api";
+import { STORAGE_KEYS } from "@/constants/storage";
+import {
+  buildCuisinePayload, CuisineOption, CuisineOptionId, parseCuisineReferences,
+} from "@/src/lib/cuisine-preferences";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getCsrfToken, getSession } from "./auth";
 
 const COOKIE_SESSION_TOKEN = "__cookie_session__";
@@ -29,7 +34,7 @@ export type ReferenceItem = { id: number; name: string };
 export type UserProfile = {
   diets: ReferenceItem[];
   allergies: ReferenceItem[];
-  cuisines: ReferenceItem[];
+  cuisines: CuisineOption[];
   blacklist: ReferenceItem[];
   budget: { id: number | null; key: string | null; label: string | null; amount: number | null } | null;
   personCount: number | null;
@@ -51,7 +56,7 @@ export async function getProfileRequest(): Promise<UserProfile> {
   const [diets, allergies, cuisines, blacklist, budget, personCount] = await Promise.all([
     apiRequest<ReferenceItem[]>("/admin/user/preferences/diets", opts).then(r => Array.isArray(r) ? r : []),
     apiRequest<ReferenceItem[]>("/admin/user/preferences/allergies", opts).then(r => Array.isArray(r) ? r : []),
-    apiRequest<ReferenceItem[]>("/admin/user/preferences/favorite-cuisines", opts).then(r => Array.isArray(r) ? r : []),
+    apiRequest<unknown>("/admin/user/preferences/favorite-cuisines", opts).then(parseCuisineReferences),
     apiRequest<ReferenceItem[]>("/admin/user/preferences/blacklist", opts).then(r => Array.isArray(r) ? r : []),
     apiRequest<{ id: number | null; key: string | null; label: string | null; amount: number | null }>(
     "/admin/user/preferences/budget", opts
@@ -59,6 +64,7 @@ export async function getProfileRequest(): Promise<UserProfile> {
     apiRequest<{ count: number | null }>("/admin/user/preferences/person-count", opts).then(r => r?.count ?? null),
   ]);
 
+  await cacheUserCuisines(cuisines).catch((error) => console.warn("Impossible de mettre à jour le cache des cuisines:", error));
   return { diets, allergies, cuisines, blacklist, budget, personCount };
 }
 
@@ -90,13 +96,13 @@ export async function fetchAllAllergies(): Promise<ReferenceItem[]> {
   }
 }
 
-export async function fetchAllCuisines(): Promise<ReferenceItem[]> {
+export async function fetchAllCuisines(): Promise<CuisineOption[]> {
   try {
     const { token, userId } = await getToken();
     const result = await apiRequest<ReferenceItem[]>("/admin/reference/favorite-cuisines", {
       method: "GET", token, credentials: "include", headers: buildHeaders(userId),
     });
-    return Array.isArray(result) ? result : [];
+    return parseCuisineReferences(result);
   } catch (error) {
     console.error("Error fetching cuisines:", error);
     return [];
@@ -148,12 +154,48 @@ export async function saveUserAllergies(allergyIds: number[]) {
   });
 }
 
-export async function saveUserCuisines(cuisineIds: number[]) {
+async function cacheUserCuisines(cuisines: readonly CuisineOption[]): Promise<void> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEYS.profileConfig);
+  let stored: Record<string, unknown> = {};
+  try {
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) stored = parsed;
+  } catch { /* Replace an unreadable cache with the API's preferences. */ }
+  // Remove the former frontend-only choices; only server data may be cached.
+  delete stored.localCuisines;
+  await AsyncStorage.setItem(STORAGE_KEYS.profileConfig, JSON.stringify({
+    ...stored,
+    cuisines: cuisines.map((item) => item.name),
+  }));
+}
+
+export async function getUserCuisines(): Promise<CuisineOption[]> {
   const { token, userId } = await getToken();
-  return apiRequest("/admin/user/preferences/favorite-cuisines", {
-    method: "POST", token, credentials: "include",
-    headers: await buildPostHeaders(userId), body: { cuisine_ids: cuisineIds },
+  const result = await apiRequest<unknown>("/admin/user/preferences/favorite-cuisines", {
+    method: "GET", token, credentials: "include", headers: buildHeaders(userId),
   });
+  const cuisines = parseCuisineReferences(result);
+  await cacheUserCuisines(cuisines).catch((error) => console.warn("Impossible de mettre à jour le cache des cuisines:", error));
+  return cuisines;
+}
+
+export async function saveUserCuisines(cuisineIds: CuisineOptionId[], reference?: readonly CuisineOption[]) {
+  const body = buildCuisinePayload(cuisineIds);
+  const selected = cuisineIds.length === 0 ? [] : reference ? [...new Set(cuisineIds)].map((id) => {
+    const item = reference.find((candidate) => candidate.id === id);
+    if (!item) throw new Error("Une cuisine sélectionnée n’est plus disponible. Recharge les préférences.");
+    return item;
+  }) : undefined;
+  const { token, userId } = await getToken();
+  const result = await apiRequest("/admin/user/preferences/favorite-cuisines", {
+    method: "POST", token, credentials: "include",
+    headers: await buildPostHeaders(userId), body,
+  });
+
+  if (selected !== undefined) {
+    await cacheUserCuisines(selected);
+  }
+  return result;
 }
 
 export async function saveUserBlacklist(ingredientIds: number[]) {

@@ -1,87 +1,48 @@
+import CuisineSelector from "@/components/profil/CuisineSelector";
 import StepIntro from "@/components/profil/StepIntro";
-import { COLORS, MAX_CUISINE_SELECTIONS } from "@/constants/profileConfig";
-import { ReferenceItem } from "@/src/services/profile";
-import { Ionicons } from "@expo/vector-icons";
+import { MAX_CUISINE_SELECTIONS } from "@/constants/profileConfig";
+import { CuisineOption } from "@/src/lib/cuisine-preferences";
 import React from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { View } from "react-native";
 
 type Props = {
-  cuisines: string[];           // noms sélectionnés
+  cuisines: string[];
   toggleCuisine: (name: string) => void;
-  availableCuisines: ReferenceItem[];
+  availableCuisines: CuisineOption[];
   isLoading?: boolean;
   styles: any;
   isWebDesktop?: boolean;
 };
 
-export default function CuisineStep({
-  cuisines,
-  toggleCuisine,
-  availableCuisines,
-  isLoading = false,
-  styles,
-  isWebDesktop,
-}: Props) {
-  const selectionLimit = Math.min(MAX_CUISINE_SELECTIONS, availableCuisines.length);
+export default function CuisineStep({ cuisines, toggleCuisine, availableCuisines, isLoading = false, styles, isWebDesktop }: Props) {
+  const limit = Math.min(MAX_CUISINE_SELECTIONS, availableCuisines.length);
+  const selectedIds = availableCuisines
+    .filter((item) => cuisines.includes(item.name))
+    .map((item) => item.id);
 
   return (
     <>
       <StepIntro
         icon="restaurant-outline"
         title="Quelles cuisines te font envie ?"
-        subtitle={isLoading
-          ? "Chargement des styles de cuisine…"
-          : selectionLimit === 0
-            ? "Aucun style de cuisine disponible pour le moment."
-            : `Choisis jusqu’à ${selectionLimit} style${selectionLimit > 1 ? "s" : ""} de cuisine pour inspirer tes prochains repas.`}
+        subtitle={limit > 0
+          ? `Choisis jusqu’à ${limit} style${limit > 1 ? "s" : ""} de cuisine, ou continue sans sélection pour les découvrir toutes.`
+          : "Sans sélection, toutes les cuisines conviennent."}
         isWebDesktop={isWebDesktop}
       />
-
-      {isLoading ? (
-        <ActivityIndicator color={COLORS.orange} style={{ marginTop: 24 }} />
-      ) : (
-        <View style={[styles.grid, isWebDesktop && styles.gridDesktop]}>
-          {availableCuisines.map((c) => {
-            const selected = cuisines.includes(c.name);
-            const atLimit = !selected && cuisines.length >= selectionLimit;
-            return (
-              <Pressable
-                key={c.id}
-                onPress={() => toggleCuisine(c.name)}
-                disabled={atLimit}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: selected, disabled: atLimit }}
-                style={[
-                  styles.tile,
-                  isWebDesktop && styles.tileDesktop,
-                  selected && styles.tileSelected,
-                  atLimit && styles.chipDisabled,
-                ]}
-              >
-                {selected && (
-                  <Ionicons name="checkmark-circle" size={20} color={COLORS.orange} style={styles.tileCheck} />
-                )}
-                <Ionicons name="restaurant-outline" size={26} color={atLimit ? COLORS.muted : COLORS.orange} />
-                <Text
-                  style={[
-                    styles.tileText,
-                    selected && styles.tileTextSelected,
-                    atLimit && styles.chipTextDisabled,
-                  ]}
-                >
-                  {c.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-
-      {!isLoading && selectionLimit > 0 && (
-        <Text style={styles.selectionSummary} accessibilityLiveRegion="polite">
-          Sélection : {cuisines.length}/{selectionLimit}
-        </Text>
-      )}
+      <View style={styles.stepControls}>
+        <CuisineSelector
+          options={availableCuisines}
+          selectedIds={selectedIds}
+          onToggle={(id) => {
+            const item = availableCuisines.find((cuisine) => cuisine.id === id);
+            if (item) toggleCuisine(item.name);
+          }}
+          columns={isWebDesktop ? 3 : 2}
+          maxSelections={limit}
+          isLoading={isLoading}
+        />
+      </View>
     </>
   );
 }

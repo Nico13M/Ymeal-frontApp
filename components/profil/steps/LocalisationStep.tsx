@@ -1,9 +1,10 @@
 import StepIntro from "@/components/profil/StepIntro";
+import InputField from "@/components/ui/InputField";
 import { COLORS } from "@/constants/profileConfig";
 import { CitySuggestion } from "@/types/profil";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import React from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 type Props = {
   location: string;
@@ -30,8 +31,6 @@ export default function LocationStep({
   styles,
   isWebDesktop,
 }: Props) {
-  const [isInputFocused, setIsInputFocused] = useState(false);
-
   return (
     <>
       <StepIntro
@@ -44,17 +43,17 @@ export default function LocationStep({
       <View style={styles.stepControls}>
         <View>
           <Text style={styles.label}>Ville ou code postal</Text>
-          <View style={[styles.inputWrap, isInputFocused && styles.inputWrapFocused]}>
-            <Ionicons name="search-outline" size={20} color={COLORS.muted} />
-            <TextInput
+            <InputField
+              icon="search-outline"
+              iconSize={20}
+              containerStyle={styles.inputWrap}
+              focusedContainerStyle={styles.inputWrapFocused}
               value={location}
               onChangeText={(value) => {
                 setLocation(value);
                 setCitySuggestions([]);
                 if (cityLookupError) setCityLookupError(null);
               }}
-              onFocus={() => setIsInputFocused(true)}
-              onBlur={() => setIsInputFocused(false)}
               placeholder="Ex. : Paris ou 84300"
               placeholderTextColor={COLORS.muted}
               accessibilityLabel="Ville ou code postal"
@@ -69,7 +68,6 @@ export default function LocationStep({
               spellCheck={false}
               clearButtonMode="while-editing"
             />
-          </View>
 
           {citySuggestions.length > 0 && (
             <View style={styles.suggestions}>

@@ -836,7 +836,7 @@ renderItem={() => (
         </Text>
 
         <Text style={styles.mainDesc}>
-          L'app qui transforme ton budget étudiant en repas savoureux.
+          L&apos;app qui transforme ton budget étudiant en repas savoureux.
         </Text>
 
         <Image
@@ -849,7 +849,7 @@ renderItem={() => (
       {/* CARD 2 */}
       <View style={styles.webCard}>
         <Text style={styles.darkTitle}>
-          Tout ce qu'il te faut
+          Tout ce qu&apos;il te faut
         </Text>
 
         <Text style={styles.darkSubtitle}>
@@ -937,7 +937,7 @@ renderItem={() => (
         </Text>
 
         <Text style={styles.mainDesc}>
-          Rejoins des milliers d'étudiants.
+          Rejoins des milliers d&apos;étudiants.
         </Text>
 
         <TouchableOpacity

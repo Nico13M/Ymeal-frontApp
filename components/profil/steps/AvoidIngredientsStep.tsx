@@ -1,8 +1,9 @@
 import StepIntro from "@/components/profil/StepIntro";
+import InputField from "@/components/ui/InputField";
 import { COLORS } from "@/constants/profileConfig";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import React from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 type Props = {
   vegQuery: string;
@@ -29,8 +30,6 @@ export default function AvoidIngredientsStep({
   styles,
   isWebDesktop,
 }: Props) {
-  const [isInputFocused, setIsInputFocused] = useState(false);
-
   return (
     <>
       <StepIntro
@@ -41,13 +40,13 @@ export default function AvoidIngredientsStep({
       />
 
       <View style={[ingredientStyles.content, isWebDesktop && ingredientStyles.contentDesktop]}>
-        <View style={[styles.inputWrap, ingredientStyles.searchField, isInputFocused && styles.inputWrapFocused]}>
-          <Ionicons name="search-outline" size={20} color={COLORS.muted} />
-          <TextInput
+          <InputField
+            icon="search-outline"
+            iconSize={20}
+            containerStyle={[styles.inputWrap, ingredientStyles.searchField]}
+            focusedContainerStyle={styles.inputWrapFocused}
             value={vegQuery}
             onChangeText={setVegQuery}
-            onFocus={() => setIsInputFocused(true)}
-            onBlur={() => setIsInputFocused(false)}
             accessibilityLabel="Rechercher un ingrédient à éviter"
             placeholder="Ex. : brocoli, oignon, champignon…"
             placeholderTextColor={COLORS.muted}
@@ -55,18 +54,17 @@ export default function AvoidIngredientsStep({
             autoCorrect={false}
             returnKeyType="search"
             submitBehavior="submit"
+            trailing={vegQuery.length > 0 ? (
+              <Pressable
+                onPress={() => setVegQuery("")}
+                accessibilityRole="button"
+                accessibilityLabel="Effacer la recherche"
+                style={ingredientStyles.clearButton}
+              >
+                <Ionicons name="close-circle" size={20} color={COLORS.muted} />
+              </Pressable>
+            ) : undefined}
           />
-          {vegQuery.length > 0 && (
-            <Pressable
-              onPress={() => setVegQuery("")}
-              accessibilityRole="button"
-              accessibilityLabel="Effacer la recherche"
-              style={ingredientStyles.clearButton}
-            >
-              <Ionicons name="close-circle" size={20} color={COLORS.muted} />
-            </Pressable>
-          )}
-        </View>
 
         {isLoading ? (
           <View style={ingredientStyles.searchState} accessibilityLiveRegion="polite">

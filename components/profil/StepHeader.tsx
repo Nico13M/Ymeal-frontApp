@@ -1,7 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import { COLORS } from "@/constants/profileConfig";
+import { getProfileProgress } from "@/src/lib/profile-progress";
+import StepBackButton from "./StepBackButton";
 
 type Props = {
   step: number;
@@ -16,6 +17,7 @@ export default function StepHeader({
   onBack,
   isWebDesktop,
 }: Props) {
+  const { currentStep } = getProfileProgress(step, totalSteps);
   return (
     <>
       <View style={[styles.header, isWebDesktop && styles.headerDesktop]}>
@@ -23,31 +25,10 @@ export default function StepHeader({
           Personnalise ton profil
         </Text>
 
-        <Text style={styles.headerStep}>
-          {step === 0
-            ? `0/${totalSteps}`
-            : step >= 8
-            ? `${totalSteps}/${totalSteps}`
-            : `${step}/${totalSteps}`}
-        </Text>
+        {!isWebDesktop && <Text style={styles.headerStep}>{currentStep}/{totalSteps}</Text>}
       </View>
 
-      {step > 0 && (
-        <TouchableOpacity
-          onPress={onBack}
-          style={[styles.backButton, isWebDesktop && styles.backButtonDesktop]}
-        >
-          <Ionicons
-            name="arrow-back"
-            size={20}
-            color={COLORS.text}
-          />
-
-          <Text style={styles.backText}>
-            Retour
-          </Text>
-        </TouchableOpacity>
-      )}
+      {!isWebDesktop && step > 0 && <StepBackButton onPress={onBack} />}
     </>
   );
 }
@@ -64,7 +45,9 @@ const styles = StyleSheet.create({
 
   headerDesktop: {
     paddingHorizontal: 0,
-    marginBottom: 8,
+    minHeight: 64,
+    justifyContent: "center",
+    marginBottom: 16,
   },
 
   headerTitle: {
@@ -78,8 +61,10 @@ const styles = StyleSheet.create({
   },
 
   headerTitleDesktop: {
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: 28,
+    lineHeight: 36,
+    marginRight: 0,
+    textAlign: "center",
   },
 
   headerStep: {
@@ -93,21 +78,4 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.orangeSoft,
   },
 
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-    alignSelf: "flex-start",
-  },
-
-  backButtonDesktop: {
-    marginBottom: 16,
-  },
-
-  backText: {
-    marginLeft: 6,
-    fontSize: 13,
-    fontWeight: "700",
-    color: COLORS.text,
-  },
 });

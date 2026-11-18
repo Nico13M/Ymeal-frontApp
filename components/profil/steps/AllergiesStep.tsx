@@ -3,7 +3,7 @@ import { COLORS } from "@/constants/profileConfig";
 import { ReferenceItem } from "@/src/services/profile";
 import { FontAwesome6, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 type Props = {
   allergies: string[];          // noms sélectionnés
@@ -57,7 +57,7 @@ export default function AllergiesStep({
       {isLoading ? (
         <ActivityIndicator color={COLORS.orange} style={{ marginTop: 24 }} />
       ) : (
-        <View style={[styles.grid, isWebDesktop && styles.gridDesktop]}>
+        <View style={[styles.grid, isWebDesktop && styles.gridDesktop, isWebDesktop && allergyStyles.gridDesktop]}>
           {availableAllergies.map((a) => {
             const selected = allergies.includes(a.name);
             return (
@@ -100,3 +100,7 @@ export default function AllergiesStep({
     </>
   );
 }
+
+const allergyStyles = StyleSheet.create({
+  gridDesktop: { justifyContent: "flex-start" },
+});

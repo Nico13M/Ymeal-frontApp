@@ -4,7 +4,7 @@ import { BudgetOption } from "@/src/services/profile";
 import { BudgetChoice } from "@/types/profil";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
 type Props = {
   budget: BudgetChoice | null;
@@ -60,16 +60,15 @@ export default function BudgetStep({
                   />
                 </View>
                 <View style={styles.choiceLabel}>
-                  <Text style={styles.choiceTitle}>{b.label}</Text>
-                  {b.amount != null && (
-                    <Text style={styles.choiceSub}>≤ {b.amount}€/mois</Text>
-                  )}
+                  <Text style={[styles.choiceTitle, budgetStyles.title]}>{b.label}</Text>
                 </View>
-                <Ionicons
-                  name={budget === key ? "radio-button-on" : "radio-button-off"}
-                  size={22}
-                  color={budget === key ? COLORS.orange : COLORS.muted}
-                />
+                <View style={budgetStyles.selection}>
+                  <Ionicons
+                    name={budget === key ? "radio-button-on" : "radio-button-off"}
+                    size={22}
+                    color={budget === key ? COLORS.orange : COLORS.muted}
+                  />
+                </View>
               </Pressable>
             );
           })}
@@ -78,3 +77,8 @@ export default function BudgetStep({
     </>
   );
 }
+
+const budgetStyles = StyleSheet.create({
+  title: { textAlign: "center" },
+  selection: { width: 44, alignItems: "center", justifyContent: "center" },
+});

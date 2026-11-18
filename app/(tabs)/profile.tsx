@@ -1,4 +1,8 @@
+import CuisineSelector from "@/components/profil/CuisineSelector";
+import PrimaryButton from "@/components/ui/PrimaryButton";
 import { DIETS } from "@/constants/profileConfig";
+import { ALL_CUISINES_LABEL, CuisineOption, CuisineOptionId, resolveCuisineOptionIds } from "@/src/lib/cuisine-preferences";
+import { getHumanErrorMessage } from "@/src/lib/api";
 import { STORAGE_KEYS } from "@/constants/storage";
 import useRequireAuth from "@/src/hooks/useRequireAuth";
 import {
@@ -40,6 +44,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 import {
@@ -101,33 +106,9 @@ const DIET_LABELS = DIETS.reduce<Record<string, string>>((acc, diet) => {
   return acc;
 }, {});
 
-const CONFIG_STEPS = {
-  diet: 1,
-  budget: 3,
-  people: 7,
-  cuisines: 4,
-  avoidIngredients: 5,
-  allergies: 6,
-} as const;
-
-function goToConfigurationStep(step: number): void {
-  router.push({
-    pathname: "/config-profil",
-    params: {
-      step: String(step),
-      editMode: "true",
-    },
-  });
-}
-
-function toDisplayArray(values?: string[]): string[] {
-  if (!values || values.length === 0) return [];
-  return values;
-}
-
 function MultiLineValue({
   values,
-  fallback = "Non renseigne",
+  fallback = "Non renseigné",
 }: {
   values: string[];
   fallback?: string;
@@ -199,6 +180,8 @@ function InfoRow({
 export default function ProfileScreen() {
   const { checking } = useRequireAuth();
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const isWideLayout = width >= 1024;
 
   const [loading, setLoading] = useState(true);
   const [account, setAccount] = useState<StoredAccount | null>(null);
@@ -221,7 +204,9 @@ export default function ProfileScreen() {
   // Référentiels
   const [allDiets, setAllDiets] = useState<ReferenceItem[]>([]);
   const [allAllergies, setAllAllergies] = useState<ReferenceItem[]>([]);
-  const [allCuisines, setAllCuisines] = useState<ReferenceItem[]>([]);
+  const [allCuisines, setAllCuisines] = useState<CuisineOption[]>([]);
+  const [isCuisineLoading, setIsCuisineLoading] = useState(false);
+  const [cuisineSaveError, setCuisineSaveError] = useState<string | null>(null);
   const [ingredientResults, setIngredientResults] = useState<ReferenceItem[]>(
     [],
   );
@@ -229,9 +214,8 @@ export default function ProfileScreen() {
   // Valeurs temporaires d'édition
   const [tmpDietIds, setTmpDietIds] = useState<number[]>([]);
   const [tmpAllergyIds, setTmpAllergyIds] = useState<number[]>([]);
-  const [tmpCuisineIds, setTmpCuisineIds] = useState<number[]>([]);
+  const [tmpCuisineIds, setTmpCuisineIds] = useState<CuisineOptionId[]>([]);
   const [tmpBlacklist, setTmpBlacklist] = useState<ReferenceItem[]>([]);
-  const [tmpBudget, setTmpBudget] = useState<string>("");
   const [allBudgets, setAllBudgets] = useState<BudgetOption[]>([]);
   const [tmpBudgetId, setTmpBudgetId] = useState<number | null>(null);
   const [tmpPersonCount, setTmpPersonCount] = useState<number>(2);
@@ -287,14 +271,14 @@ export default function ProfileScreen() {
   }, [account]);
 
   const email = useMemo(() => {
-    return account?.email?.trim() || "Email non renseigne";
+    return account?.email?.trim() || "Email non renseigné";
   }, [account]);
 
   const topName = useMemo(() => {
     const pseudo = account?.pseudo?.trim();
     if (pseudo) return pseudo;
     if (fullName) return fullName;
-    return "Etudiant Ymeal";
+    return "Étudiant Ymeal";
   }, [account, fullName]);
 
   const subLine = useMemo(() => {
@@ -303,29 +287,15 @@ export default function ProfileScreen() {
     return email;
   }, [account, fullName, email]);
 
-  const location = config?.location?.trim() || "Localisation non renseignee";
-
-  const diets = useMemo(() => {
-    if (!config?.diets || config.diets.length === 0) return "Non renseigne";
-    return config.diets
-      .map((dietKey) => DIET_LABELS[dietKey] || dietKey)
-      .join(", ");
-  }, [config]);
-
-  const budget = config?.budget
-    ? BUDGET_LABELS[config.budget]
-    : "Non renseigne";
+  const location = config?.location?.trim() || "Localisation non renseignée";
+  const budgetLabel = profile?.budget?.label ?? (
+    config?.budget ? BUDGET_LABELS[config.budget] : "Non renseigné"
+  );
   const peopleKey = resolvePeople(config);
-  const people = peopleKey ? PEOPLE_LABELS[peopleKey] : "Non renseigne";
 
   const onOpenSettings = () => setSettingsOpen(true);
   const onCloseSettings = () => {
     if (!isLoggingOut) setSettingsOpen(false);
-  };
-
-  const onEditConfiguration = () => {
-    setSettingsOpen(false);
-    router.push("/modifier-profil");
   };
 
   const onOpenEditUser = () => {
@@ -430,11 +400,21 @@ export default function ProfileScreen() {
         setTmpAllergyIds(profile?.allergies.map((a) => a.id) ?? []);
       }
       if (key === "cuisines") {
-        if (!allCuisines.length) {
-          const cuisines = await fetchAllCuisines();
-          setAllCuisines(Array.isArray(cuisines) ? cuisines : []);
-        }
+        setCuisineSaveError(null);
         setTmpCuisineIds(profile?.cuisines.map((c) => c.id) ?? []);
+        let options = allCuisines;
+        if (!options.length) {
+          setIsCuisineLoading(true);
+          try {
+            options = await fetchAllCuisines();
+            setAllCuisines(options);
+          } finally {
+            setIsCuisineLoading(false);
+          }
+        }
+        setTmpCuisineIds(resolveCuisineOptionIds(
+          profile?.cuisines.map((item) => item.name) ?? config?.cuisines ?? [], options,
+        ));
       }
       if (key === "blacklist") setTmpBlacklist(profile?.blacklist ?? []);
       if (key === "budget") {
@@ -457,11 +437,13 @@ export default function ProfileScreen() {
   };
 
   const handleSave = async () => {
+    if (saving || (editModal === "cuisines" && isCuisineLoading)) return;
     setSaving(true);
+    setCuisineSaveError(null);
     try {
       if (editModal === "diet") await saveUserDiets(tmpDietIds);
       if (editModal === "allergies") await saveUserAllergies(tmpAllergyIds);
-      if (editModal === "cuisines") await saveUserCuisines(tmpCuisineIds);
+      if (editModal === "cuisines") await saveUserCuisines(tmpCuisineIds, allCuisines);
       if (editModal === "blacklist")
         await saveUserBlacklist(tmpBlacklist.map((b) => b.id));
       if (editModal === "budget" && tmpBudgetId !== null) {
@@ -470,15 +452,21 @@ export default function ProfileScreen() {
       if (editModal === "people") await saveUserPersonCount(tmpPersonCount);
       await loadProfile();
       closeModal();
+    } catch (error) {
+      if (editModal === "cuisines") {
+        setCuisineSaveError(getHumanErrorMessage(error, "Impossible d’enregistrer tes préférences de cuisine."));
+      } else {
+        throw error;
+      }
     } finally {
       setSaving(false);
     }
   };
 
-  const toggle = (
-    id: number,
-    list: number[],
-    setter: (v: number[]) => void,
+  const toggle = <T extends CuisineOptionId>(
+    id: T,
+    list: T[],
+    setter: (v: T[]) => void,
   ) => {
     setter(list.includes(id) ? list.filter((i) => i !== id) : [...list, id]);
   };
@@ -556,7 +544,8 @@ export default function ProfileScreen() {
               onPress={onOpenSettings}
               activeOpacity={0.85}
               style={styles.settingsIconButton}
-              accessibilityLabel="Ouvrir les parametres"
+              accessibilityRole="button"
+              accessibilityLabel="Ouvrir les paramètres du profil"
             >
               <Ionicons name="settings-outline" size={20} color="#FFF" />
             </TouchableOpacity>
@@ -575,7 +564,7 @@ export default function ProfileScreen() {
 
           <InfoRow
             icon="leaf-outline"
-            label="Regime alimentaire"
+            label="Régime alimentaire"
             onPress={() => openModal("diet")}
           >
             <MultiLineValue
@@ -593,7 +582,7 @@ export default function ProfileScreen() {
             onPress={() => openModal("budget")}
           >
             <Text style={styles.infoValue}>
-              {profile?.budget?.label ?? "Non renseigné"}
+              {budgetLabel}
             </Text>
           </InfoRow>
 
@@ -620,12 +609,13 @@ export default function ProfileScreen() {
               values={
                 profile?.cuisines.map((c) => c.name) ?? config?.cuisines ?? []
               }
+              fallback={ALL_CUISINES_LABEL}
             />
           </InfoRow>
 
           <InfoRow
             icon="ban-outline"
-            label="Ingredients a eviter"
+            label="Ingrédients à éviter"
             onPress={() => openModal("blacklist")}
           >
             <MultiLineValue
@@ -663,7 +653,7 @@ export default function ProfileScreen() {
             style={styles.settingsSheet}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text style={styles.settingsTitle}>Parametres du profil</Text>
+            <Text style={styles.settingsTitle}>Paramètres du profil</Text>
 
             <TouchableOpacity
               style={styles.settingsAction}
@@ -698,7 +688,7 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.settingsActionTextWrap}>
                 <Text style={styles.settingsDangerTitle}>
-                  {isLoggingOut ? "Deconnexion..." : "Se deconnecter"}
+                  {isLoggingOut ? "Déconnexion..." : "Se déconnecter"}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -718,90 +708,96 @@ export default function ProfileScreen() {
             style={styles.settingsSheet}
             onPress={(event) => event.stopPropagation()}
           >
-            <Text style={styles.settingsTitle}>Modifier mes infos</Text>
-            <Text style={styles.settingsSubtitle}>
-              Mets à jour ton prénom, ton nom et ton email.
-            </Text>
+            <ScrollView
+              style={{ maxHeight: height * 0.75 }}
+              contentContainerStyle={styles.editUserForm}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.settingsTitle}>Modifier mes infos</Text>
+              <Text style={styles.settingsSubtitle}>
+                Mets à jour ton prénom, ton nom et ton email.
+              </Text>
 
-            <View style={styles.editField}>
-              <Text style={styles.editLabel}>Prénom</Text>
-              <TextInput
-                value={editDraft.firstName}
-                onChangeText={(value) =>
-                  setEditDraft((prev) => ({ ...prev, firstName: value }))
-                }
-                placeholder="Prénom"
-                style={styles.editInput}
-                autoCapitalize="words"
-              />
-            </View>
+              <View style={styles.editField}>
+                <Text style={styles.editLabel}>Prénom</Text>
+                <TextInput
+                  value={editDraft.firstName}
+                  onChangeText={(value) =>
+                    setEditDraft((prev) => ({ ...prev, firstName: value }))
+                  }
+                  placeholder="Prénom"
+                  style={styles.editInput}
+                  autoCapitalize="words"
+                />
+              </View>
 
-            <View style={styles.editField}>
-              <Text style={styles.editLabel}>Nom</Text>
-              <TextInput
-                value={editDraft.lastName}
-                onChangeText={(value) =>
-                  setEditDraft((prev) => ({ ...prev, lastName: value }))
-                }
-                placeholder="Nom"
-                style={styles.editInput}
-                autoCapitalize="words"
-              />
-            </View>
+              <View style={styles.editField}>
+                <Text style={styles.editLabel}>Nom</Text>
+                <TextInput
+                  value={editDraft.lastName}
+                  onChangeText={(value) =>
+                    setEditDraft((prev) => ({ ...prev, lastName: value }))
+                  }
+                  placeholder="Nom"
+                  style={styles.editInput}
+                  autoCapitalize="words"
+                />
+              </View>
 
-            <View style={styles.editField}>
-              <Text style={styles.editLabel}>Pseudo</Text>
-              <TextInput
-                value={editDraft.pseudo}
-                onChangeText={(value) =>
-                  setEditDraft((prev) => ({ ...prev, pseudo: value }))
-                }
-                placeholder="Pseudo"
-                style={styles.editInput}
-                autoCapitalize="none"
-              />
-            </View>
+              <View style={styles.editField}>
+                <Text style={styles.editLabel}>Pseudo</Text>
+                <TextInput
+                  value={editDraft.pseudo}
+                  onChangeText={(value) =>
+                    setEditDraft((prev) => ({ ...prev, pseudo: value }))
+                  }
+                  placeholder="Pseudo"
+                  style={styles.editInput}
+                  autoCapitalize="none"
+                />
+              </View>
 
-            <View style={styles.editField}>
-              <Text style={styles.editLabel}>Email</Text>
-              <TextInput
-                value={editDraft.email}
-                onChangeText={(value) =>
-                  setEditDraft((prev) => ({ ...prev, email: value }))
-                }
-                placeholder="email@exemple.fr"
-                style={styles.editInput}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+              <View style={styles.editField}>
+                <Text style={styles.editLabel}>Email</Text>
+                <TextInput
+                  value={editDraft.email}
+                  onChangeText={(value) =>
+                    setEditDraft((prev) => ({ ...prev, email: value }))
+                  }
+                  placeholder="email@exemple.fr"
+                  style={styles.editInput}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
 
-            {editUserError ? (
-              <Text style={styles.editError}>{editUserError}</Text>
-            ) : null}
+              {editUserError ? (
+                <Text style={styles.editError}>{editUserError}</Text>
+              ) : null}
 
-            <View style={styles.editActionsRow}>
-              <TouchableOpacity
-                style={[styles.editAction, styles.editCancelAction]}
-                onPress={onCloseEditUser}
-                activeOpacity={0.85}
-                disabled={editUserSaving}
-              >
-                <Text style={styles.editCancelText}>Annuler</Text>
-              </TouchableOpacity>
+              <View style={styles.editActionsRow}>
+                <TouchableOpacity
+                  style={[styles.editAction, styles.editCancelAction]}
+                  onPress={onCloseEditUser}
+                  activeOpacity={0.85}
+                  disabled={editUserSaving}
+                >
+                  <Text style={styles.editCancelText}>Annuler</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.editAction, styles.editSaveAction]}
-                onPress={onSaveUser}
-                activeOpacity={0.85}
-                disabled={editUserSaving}
-              >
-                <Text style={styles.editSaveText}>
-                  {editUserSaving ? "Enregistrement..." : "Enregistrer"}
-                </Text>
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={[styles.editAction, styles.editSaveAction]}
+                  onPress={onSaveUser}
+                  activeOpacity={0.85}
+                  disabled={editUserSaving}
+                >
+                  <Text style={styles.editSaveText}>
+                    {editUserSaving ? "Enregistrement..." : "Enregistrer"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1002,65 +998,17 @@ export default function ProfileScreen() {
                 <Ionicons name="close" size={22} color="#334155" />
               </TouchableOpacity>
             </View>
-            <ScrollView style={{ maxHeight: 350 }}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  padding: 4,
-                }}
-              >
-                {allCuisines.map((item) => {
-                  const active = tmpCuisineIds.includes(item.id);
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      onPress={() =>
-                        toggle(item.id, tmpCuisineIds, setTmpCuisineIds)
-                      }
-                      style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
-                        borderRadius: 20,
-                        borderWidth: 1,
-                        backgroundColor: active ? "#FF7A00" : "#FFF",
-                        borderColor: active ? "#FF7A00" : "#DDD",
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: active ? "#FFF" : "#555",
-                          fontWeight: "600",
-                        }}
-                      >
-                        {item.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-            <TouchableOpacity
-              style={[
-                styles.editSaveAction,
-                {
-                  minHeight: 46,
-                  borderRadius: 12,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  opacity: saving ? 0.6 : 1,
-                },
-              ]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#FFF" />
-              ) : (
-                <Text style={styles.editSaveText}>Sauvegarder</Text>
-              )}
-            </TouchableOpacity>
+            <CuisineSelector
+              options={allCuisines}
+              selectedIds={tmpCuisineIds}
+              onToggle={(id) => toggle(id, tmpCuisineIds, setTmpCuisineIds)}
+              columns={isWideLayout ? 3 : 2}
+              isLoading={isCuisineLoading}
+            />
+            {cuisineSaveError && <Text style={styles.editError} accessibilityRole="alert">{cuisineSaveError}</Text>}
+            <PrimaryButton onPress={handleSave} loading={saving} disabled={isCuisineLoading}>
+              Sauvegarder
+            </PrimaryButton>
           </Pressable>
         </Pressable>
       </Modal>
@@ -1567,6 +1515,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
     marginTop: 1,
   },
+  editUserForm: { gap: 14 },
   editField: { gap: 6 },
   editLabel: { fontSize: 12, fontWeight: "800", color: "#334155" },
   editInput: {

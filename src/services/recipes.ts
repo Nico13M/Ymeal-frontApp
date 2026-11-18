@@ -1,5 +1,7 @@
 import { ApiError, apiRequest } from "@/src/lib/api";
+import { withCuisinePreferences } from "@/src/lib/cuisine-preferences";
 import { getCsrfToken, getSession } from "./auth";
+import { getUserCuisines } from "./profile";
 
 const COOKIE_SESSION_TOKEN = "__cookie_session__";
 
@@ -618,6 +620,7 @@ export async function generateAiRecipe(
 ): Promise<RecipePredictionResponse> {
   try {
     const { token, userId } = await getToken();
+    const cuisines = await getUserCuisines();
 
     // Récupération du jeton CSRF
     const csrfToken = await getCsrfToken();
@@ -632,7 +635,7 @@ export async function generateAiRecipe(
           ...buildHeaders(userId),
           "X-CSRF-TOKEN": csrfToken,
         },
-        body: payload,
+        body: withCuisinePreferences(payload, cuisines.map((item) => item.name)),
       },
     );
 

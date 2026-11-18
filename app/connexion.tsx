@@ -1,3 +1,4 @@
+import InputField from "@/components/ui/InputField";
 import { STORAGE_KEYS } from "@/constants/storage";
 import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
 import { loginRequest, resolveUserId, saveSession } from "@/src/services/auth";
@@ -13,7 +14,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -202,40 +202,46 @@ export default function ConnexionScreen() {
             <Text style={styles.cardTitle}>Se connecter</Text>
 
         <Text style={styles.label}>Adresse email</Text>
-        <View style={styles.inputWrap}>
-          <Ionicons name="mail-outline" size={18} color="#9AA3AF" />
-          <TextInput
+          <InputField
+            icon="mail-outline"
+            containerStyle={styles.inputWrap}
             value={email}
             onChangeText={(value) => {
               setEmail(value);
               if (formError) setFormError(null);
             }}
             placeholder="ton.email@etudiant.fr"
+            accessibilityLabel="Adresse email"
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
             style={styles.input}
           />
-        </View>
 
         <Text style={styles.label}>Mot de passe</Text>
-        <View style={styles.inputWrap}>
-          <Ionicons name="lock-closed-outline" size={18} color="#9AA3AF" />
-          <TextInput
+          <InputField
+            icon="lock-closed-outline"
+            containerStyle={styles.inputWrap}
             value={password}
             onChangeText={(value) => {
               setPassword(value);
               if (formError) setFormError(null);
             }}
             placeholder="********"
+            accessibilityLabel="Mot de passe"
             secureTextEntry={!showPassword}
             autoCapitalize="none"
             style={styles.input}
+            trailing={(
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              >
+                <Ionicons name={showPassword ? "eye-off" : "eye"} size={18} color="#9AA3AF" />
+              </TouchableOpacity>
+            )}
           />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-            <Ionicons name={showPassword ? "eye-off" : "eye"} size={18} color="#9AA3AF" />
-          </TouchableOpacity>
-        </View>
 
         <TouchableOpacity
   onPress={() => router.push("/mot-de-passe")}
@@ -370,7 +376,6 @@ card: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 44,
@@ -379,7 +384,6 @@ card: {
   },
   input: {
     flex: 1,
-    marginLeft: 8,
     fontSize: 14,
     color: "#0F172A",
   },

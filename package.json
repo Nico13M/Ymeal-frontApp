@@ -3,6 +3,7 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
+    "test": "node --test tests/*.test.cjs",
     "build": "expo export --platform web",
     "heroku-postbuild": "expo export --platform web",
     "start": "serve dist --listen $PORT",

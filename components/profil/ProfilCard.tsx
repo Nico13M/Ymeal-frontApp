@@ -12,7 +12,7 @@ type Props = {
 export default function ProfilCard({ children, isWebDesktop, style, containerStyle }: Props) {
   return (
     <View style={[styles.cardContainer, isWebDesktop && styles.cardContainerDesktop, containerStyle]}>
-      <View style={[styles.card, isWebDesktop && styles.cardDesktop, style]}>
+      <View testID="profile-card" style={[styles.card, isWebDesktop && styles.cardDesktop, style]}>
         {children}
       </View>
     </View>
