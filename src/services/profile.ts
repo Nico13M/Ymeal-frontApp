@@ -1,7 +1,7 @@
 // src/services/profile.ts
 
-import { apiRequest } from "@/src/lib/api";
 import { STORAGE_KEYS } from "@/constants/storage";
+import { apiRequest } from "@/src/lib/api";
 import {
   buildCuisinePayload, CuisineOption, CuisineOptionId, parseCuisineReferences,
 } from "@/src/lib/cuisine-preferences";
@@ -16,17 +16,12 @@ async function getToken() {
   const isCookie = session.token === COOKIE_SESSION_TOKEN;
   return {
     token: isCookie ? undefined : session.token,
-    userId: session.user?.id as number | undefined,
   };
 }
 
-function buildHeaders(userId?: number): Record<string, string> {
-  return userId ? { "X-User-Id": String(userId) } : {};
-}
-
-async function buildPostHeaders(userId?: number): Promise<Record<string, string>> {
+async function buildPostHeaders(): Promise<Record<string, string>> {
   const csrf = await getCsrfToken();
-  return { ...buildHeaders(userId), "X-CSRF-TOKEN": csrf };
+  return { "X-CSRF-TOKEN": csrf };
 }
 
 export type ReferenceItem = { id: number; name: string };
@@ -49,9 +44,8 @@ export type BudgetOption = {
 // ============= FETCH TOUTES LES PREFS EN UNE FOIS =============
 
 export async function getProfileRequest(): Promise<UserProfile> {
-  const { token, userId } = await getToken();
-  const headers = buildHeaders(userId);
-  const opts = { method: "GET" as const, token, credentials: "include" as const, headers };
+  const { token } = await getToken();
+  const opts = { method: "GET" as const, token, credentials: "include" as const };
 
   const [diets, allergies, cuisines, blacklist, budget, personCount] = await Promise.all([
     apiRequest<ReferenceItem[]>("/admin/user/preferences/diets", opts).then(r => Array.isArray(r) ? r : []),
@@ -60,7 +54,7 @@ export async function getProfileRequest(): Promise<UserProfile> {
     apiRequest<ReferenceItem[]>("/admin/user/preferences/blacklist", opts).then(r => Array.isArray(r) ? r : []),
     apiRequest<{ id: number | null; key: string | null; label: string | null; amount: number | null }>(
     "/admin/user/preferences/budget", opts
-    ).then(r => r ?? null),    
+    ).then(r => r ?? null),
     apiRequest<{ count: number | null }>("/admin/user/preferences/person-count", opts).then(r => r?.count ?? null),
   ]);
 
@@ -72,9 +66,9 @@ export async function getProfileRequest(): Promise<UserProfile> {
 
 export async function fetchAllDiets(): Promise<ReferenceItem[]> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const result = await apiRequest<ReferenceItem[]>("/admin/reference/diets", {
-      method: "GET", token, credentials: "include", headers: buildHeaders(userId),
+      method: "GET", token, credentials: "include",
     });
     return Array.isArray(result) ? result : [];
   } catch (error) {
@@ -85,9 +79,9 @@ export async function fetchAllDiets(): Promise<ReferenceItem[]> {
 
 export async function fetchAllAllergies(): Promise<ReferenceItem[]> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const result = await apiRequest<ReferenceItem[]>("/admin/reference/allergies", {
-      method: "GET", token, credentials: "include", headers: buildHeaders(userId),
+      method: "GET", token, credentials: "include",
     });
     return Array.isArray(result) ? result : [];
   } catch (error) {
@@ -98,9 +92,9 @@ export async function fetchAllAllergies(): Promise<ReferenceItem[]> {
 
 export async function fetchAllCuisines(): Promise<CuisineOption[]> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const result = await apiRequest<ReferenceItem[]>("/admin/reference/favorite-cuisines", {
-      method: "GET", token, credentials: "include", headers: buildHeaders(userId),
+      method: "GET", token, credentials: "include",
     });
     return parseCuisineReferences(result);
   } catch (error) {
@@ -112,10 +106,10 @@ export async function fetchAllCuisines(): Promise<CuisineOption[]> {
 export async function searchIngredients(query: string): Promise<ReferenceItem[]> {
   if (query.trim().length < 3) return [];
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const result = await apiRequest<ReferenceItem[]>(
       `/admin/reference/ingredients/search?q=${encodeURIComponent(query)}`,
-      { method: "GET", token, credentials: "include", headers: buildHeaders(userId) }
+      { method: "GET", token, credentials: "include" }
     );
     return Array.isArray(result) ? result : [];
   } catch (error) {
@@ -126,9 +120,9 @@ export async function searchIngredients(query: string): Promise<ReferenceItem[]>
 
 export async function fetchAllBudgets(): Promise<BudgetOption[]> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const result = await apiRequest<BudgetOption[]>("/admin/reference/budgets", {
-      method: "GET", token, credentials: "include", headers: buildHeaders(userId),
+      method: "GET", token, credentials: "include",
     });
     return Array.isArray(result) ? result : [];
   } catch (error) {
@@ -139,18 +133,18 @@ export async function fetchAllBudgets(): Promise<BudgetOption[]> {
 // ============= SAVE =============
 
 export async function saveUserDiets(dietIds: number[]) {
-  const { token, userId } = await getToken();
+  const { token } = await getToken();
   return apiRequest("/admin/user/preferences/diets", {
     method: "POST", token, credentials: "include",
-    headers: await buildPostHeaders(userId), body: { diet_ids: dietIds },
+    headers: await buildPostHeaders(), body: { diet_ids: dietIds },
   });
 }
 
 export async function saveUserAllergies(allergyIds: number[]) {
-  const { token, userId } = await getToken();
+  const { token } = await getToken();
   return apiRequest("/admin/user/preferences/allergies", {
     method: "POST", token, credentials: "include",
-    headers: await buildPostHeaders(userId), body: { allergy_ids: allergyIds },
+    headers: await buildPostHeaders(), body: { allergy_ids: allergyIds },
   });
 }
 
@@ -170,9 +164,9 @@ async function cacheUserCuisines(cuisines: readonly CuisineOption[]): Promise<vo
 }
 
 export async function getUserCuisines(): Promise<CuisineOption[]> {
-  const { token, userId } = await getToken();
+  const { token } = await getToken();
   const result = await apiRequest<unknown>("/admin/user/preferences/favorite-cuisines", {
-    method: "GET", token, credentials: "include", headers: buildHeaders(userId),
+    method: "GET", token, credentials: "include",
   });
   const cuisines = parseCuisineReferences(result);
   await cacheUserCuisines(cuisines).catch((error) => console.warn("Impossible de mettre à jour le cache des cuisines:", error));
@@ -186,10 +180,10 @@ export async function saveUserCuisines(cuisineIds: CuisineOptionId[], reference?
     if (!item) throw new Error("Une cuisine sélectionnée n’est plus disponible. Recharge les préférences.");
     return item;
   }) : undefined;
-  const { token, userId } = await getToken();
+  const { token } = await getToken();
   const result = await apiRequest("/admin/user/preferences/favorite-cuisines", {
     method: "POST", token, credentials: "include",
-    headers: await buildPostHeaders(userId), body,
+    headers: await buildPostHeaders(), body,
   });
 
   if (selected !== undefined) {
@@ -199,24 +193,24 @@ export async function saveUserCuisines(cuisineIds: CuisineOptionId[], reference?
 }
 
 export async function saveUserBlacklist(ingredientIds: number[]) {
-  const { token, userId } = await getToken();
+  const { token } = await getToken();
   return apiRequest("/admin/user/preferences/blacklist", {
     method: "POST", token, credentials: "include",
-    headers: await buildPostHeaders(userId), body: { ingredient_ids: ingredientIds },
+    headers: await buildPostHeaders(), body: { ingredient_ids: ingredientIds },
   });
 }
 
 export async function saveUserBudget(budgetId: number) {
-  const { token, userId } = await getToken();
+  const { token } = await getToken();
   return apiRequest("/admin/user/preferences/budget", {
     method: "POST", token, credentials: "include",
-    headers: await buildPostHeaders(userId), body: { budget_id: budgetId },
+    headers: await buildPostHeaders(), body: { budget_id: budgetId },
   });
 }
 export async function saveUserPersonCount(count: number) {
-  const { token, userId } = await getToken();
+  const { token } = await getToken();
   return apiRequest("/admin/user/preferences/person-count", {
     method: "POST", token, credentials: "include",
-    headers: await buildPostHeaders(userId), body: { count },
+    headers: await buildPostHeaders(), body: { count },
   });
 }

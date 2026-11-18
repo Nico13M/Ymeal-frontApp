@@ -8,7 +8,6 @@ export type BackendUnit = {
   symbol: string;
 };
 
-
 export type BackendIngredient = {
   id: number;
   name: string;
@@ -27,7 +26,7 @@ export type BackendFrigoIngredient = {
   unit: BackendUnit | null;
 };
 
-// Pour une v2 
+// Pour une v2
 // export type BackendIngredientCreate = {
 //   name: string;
 //   category?: string;
@@ -38,12 +37,11 @@ export type BackendFrigoIngredient = {
 
 export async function getUnits(): Promise<BackendUnit[]> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<BackendUnit[]>("/admin/units/index", {
       method: "GET",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
     });
 
     return data ?? [];
@@ -53,30 +51,24 @@ export async function getUnits(): Promise<BackendUnit[]> {
   }
 }
 
-async function getToken(): Promise<{ token: string | undefined; userId: number | undefined }> {
+async function getToken(): Promise<{ token: string | undefined }> {
   const session = await getSession();
   if (!session?.token) throw new Error("Session utilisateur introuvable.");
   const isCookie = session.token === COOKIE_SESSION_TOKEN;
   return {
     token: isCookie ? undefined : session.token,
-    userId: session.user?.id as number | undefined,
   };
-}
-
-function buildHeaders(userId?: number): Record<string, string> {
-  return userId ? { "X-User-Id": String(userId) } : {};
 }
 
 /* ===================== API CALLS ===================== */
 
 export async function getAvailableIngredients(): Promise<BackendIngredient[]> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<BackendIngredient[]>("/admin/frigo/ingredients", {
       method: "GET",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
     });
     return data ?? [];
   } catch (error) {
@@ -95,14 +87,13 @@ export async function searchAvailableIngredients(
   }
 
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<BackendIngredient[]>(
       `/admin/frigo/ingredients/search?query=${encodeURIComponent(trimmedQuery)}`,
       {
         method: "GET",
         token,
         credentials: "include",
-        headers: buildHeaders(userId),
       },
     );
     return data ?? [];
@@ -117,12 +108,11 @@ export async function searchAvailableIngredients(
 
 export async function getFrigoIngredients(): Promise<BackendFrigoIngredient[]> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<BackendFrigoIngredient[]>("/admin/frigo/", {
       method: "GET",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
     });
     return data ?? [];
   } catch (error) {
@@ -137,12 +127,11 @@ export async function addIngredientToFrigo(
     unitId?: number
 ): Promise<BackendFrigoIngredient> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<BackendFrigoIngredient>(`/admin/frigo/${ingredientId}`, {
       method: "POST",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
       body: { quantity, unit_id: unitId ?? null },
     });
     return data!;
@@ -158,12 +147,11 @@ export async function updateIngredientQuantity(
     unitId?: number
 ): Promise<BackendFrigoIngredient> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<BackendFrigoIngredient>(`/admin/frigo/${ingredientId}`, {
       method: "POST",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
       body: { quantity, unit_id: unitId ?? null },
     });
     return data!;
@@ -175,12 +163,11 @@ export async function updateIngredientQuantity(
 
 export async function removeIngredientFromFrigo(ingredientId: number): Promise<void> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     await apiRequest(`/admin/frigo/${ingredientId}`, {
       method: "DELETE",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
     });
   } catch (error) {
     console.error("[FRIGO] ❌ removeIngredientFromFrigo:", error instanceof ApiError ? error.message : error);
@@ -188,19 +175,18 @@ export async function removeIngredientFromFrigo(ingredientId: number): Promise<v
   }
 }
 
-// Pour une v2 avec incrémentation des ingredients dans la bdd 
+// Pour une v2 avec incrémentation des ingredients dans la bdd
 // export async function createIngredient(
 //   data: BackendIngredientCreate
 // ): Promise<BackendIngredient> {
 //   try {
-//     const { token, userId } = await getToken();
+//     const { token } = await getToken();
 //     const csrfToken = await getCsrfToken();
 //     const result = await apiRequest<BackendIngredient>("/admin/ingredients/create", {
 //       method: "POST",
 //       token,
 //       credentials: "include",
 //       headers: {
-//         ...buildHeaders(userId),
 //         "X-CSRF-TOKEN": csrfToken,
 //       },
 //       body: data,

@@ -1,24 +1,22 @@
+import AuthLayout from "@/components/auth/AuthLayout";
+import { authFormStyles as formStyles } from "@/components/auth/formStyles";
+import PrimaryButton from "@/components/ui/PrimaryButton";
 import InputField from "@/components/ui/InputField";
 import { COLORS } from "@/constants/profileConfig";
 import { STORAGE_KEYS } from "@/constants/storage";
 import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
-import { validateRegistration } from "@/src/lib/registration";
+import { MAX_NAME_LENGTH, MIN_PASSWORD_LENGTH, validateRegistration } from "@/src/lib/registration";
 import { loginRequest, registerRequest, resolveUserId, saveSession } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, router } from "expo-router";
 import React, { useState } from "react";
-import {
-  Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet,
-  Text, TouchableOpacity, useWindowDimensions, View,
-} from "react-native";
-import { ActivityIndicator } from "react-native-paper";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 function getRegisterErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 409) return "Cette adresse email est déjà utilisée.";
-    if (error.status === 422) return "Certains champs sont invalides. Vérifie tes informations.";
+    if (error.status === 400 || error.status === 422) return "Certains champs sont invalides. Vérifie tes informations.";
     if (error.status === 429) return "Trop de tentatives. Réessaie dans quelques minutes.";
   }
   const fallback = getHumanErrorMessage(error, "Inscription impossible pour le moment.");
@@ -29,10 +27,18 @@ function getRegisterErrorMessage(error: unknown): string {
   return fallback;
 }
 
+function PasswordRule({ label, state }: { label: string; state: "neutral" | "valid" | "invalid" }) {
+  const color = state === "valid" ? "#15803D" : state === "invalid" ? "#B91C1C" : COLORS.sub;
+  const status = state === "valid" ? "validé" : state === "invalid" ? "non validé" : "à vérifier";
+  return (
+    <View style={styles.ruleItem} accessible accessibilityLabel={label + " : " + status}>
+      <Ionicons name={state === "valid" ? "checkmark-circle" : state === "invalid" ? "close-circle" : "ellipse-outline"} size={16} color={color} accessible={false} />
+      <Text style={[styles.ruleText, { color }]}>{label}</Text>
+    </View>
+  );
+}
+
 export default function InscriptionScreen() {
-  const { width } = useWindowDimensions();
-  const isWebDesktop = Platform.OS === "web" && width > 900;
-  const stackNames = width < 420;
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -47,7 +53,7 @@ export default function InscriptionScreen() {
   const validation = validateRegistration({ firstName, lastName, nickname, email, password, confirmation: confirm });
   const canSubmit = !loading && validation.isValid;
   const rules = [
-    { label: "Au moins 6 caractères", valid: validation.passwordRules.minLength },
+    { label: `Au moins ${MIN_PASSWORD_LENGTH} caractères`, valid: validation.passwordRules.minLength },
     { label: "Une majuscule", valid: validation.passwordRules.hasUpperCase },
     { label: "Un chiffre", valid: validation.passwordRules.hasNumber },
     { label: "Un caractère spécial", valid: validation.passwordRules.hasSpecialChar },
@@ -95,142 +101,240 @@ export default function InscriptionScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.loading}>
-        <ActivityIndicator size="large" color={COLORS.orange} />
-        <Text style={styles.loadingText}>Préparation…</Text>
-      </SafeAreaView>
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.keyboard}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
-      >
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-          <View style={[styles.header, isWebDesktop && styles.headerDesktop]}>
-            <Image source={require("@/assets/images/logo_ymeal.png")} style={[styles.logo, isWebDesktop && styles.logoDesktop]} resizeMode="contain" />
-            <Text style={styles.tagline}>Des recettes adaptées à ton budget étudiant</Text>
+    <AuthLayout
+      title="Bienvenue chez Ymeal !"
+      subtitle="Un compte pour des repas qui te ressemblent."
+      heroTitle={"Tes envies,\ntes recettes."}
+      heroDescription="Rejoins Ymeal pour trouver des idées de repas adaptées à tes goûts, ton budget et ton frigo."
+      icon="person-add-outline"
+      wide
+    >
+      {({ isWebDesktop, isCompact }) => (
+        <>
+          <View style={[formStyles.form, styles.form]}>
+            <View style={[styles.pairRow, !isCompact && styles.pairRowInline]}>
+              <View style={[formStyles.field, styles.pairedField, !isCompact && styles.inlineField]}>
+                <Text style={formStyles.label}>Prénom</Text>
+                <InputField
+                  icon="person-outline"
+                  iconSize={20}
+                  containerStyle={formStyles.inputWrap}
+                  style={formStyles.input}
+                  value={firstName}
+                  onChangeText={change(setFirstName)}
+                  placeholder="Prénom"
+                  accessibilityLabel="Prénom"
+                  maxLength={MAX_NAME_LENGTH}
+                  autoCapitalize="words"
+                  autoComplete="given-name"
+                  textContentType="givenName"
+                  editable={!loading}
+                />
+              </View>
+              <View style={[formStyles.field, styles.pairedField, !isCompact && styles.inlineField]}>
+                <Text style={formStyles.label}>Nom</Text>
+                <InputField
+                  icon="person-outline"
+                  iconSize={20}
+                  containerStyle={formStyles.inputWrap}
+                  style={formStyles.input}
+                  value={lastName}
+                  onChangeText={change(setLastName)}
+                  placeholder="Nom"
+                  accessibilityLabel="Nom"
+                  maxLength={MAX_NAME_LENGTH}
+                  autoCapitalize="words"
+                  autoComplete="family-name"
+                  textContentType="familyName"
+                  editable={!loading}
+                />
+              </View>
+            </View>
+
+            <View style={[styles.pairRow, isWebDesktop && styles.pairRowInline]}>
+              <View style={[formStyles.field, styles.pairedField, isWebDesktop && styles.inlineField]}>
+                <View style={styles.optionalLabel}>
+                  <Text style={formStyles.label}>Pseudo</Text>
+                  <Text style={styles.optionalText}>facultatif</Text>
+                </View>
+                <InputField
+                  icon="at-outline"
+                  iconSize={20}
+                  containerStyle={formStyles.inputWrap}
+                  style={formStyles.input}
+                  value={nickname}
+                  onChangeText={change(setNickname)}
+                  placeholder="Ton pseudo"
+                  accessibilityLabel="Pseudo"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!loading}
+                />
+              </View>
+              <View style={[formStyles.field, styles.pairedField, isWebDesktop && styles.inlineField]}>
+                <Text style={formStyles.label}>Adresse email</Text>
+                <InputField
+                  icon="mail-outline"
+                  iconSize={20}
+                  containerStyle={formStyles.inputWrap}
+                  style={formStyles.input}
+                  value={email}
+                  onChangeText={change(setEmail)}
+                  placeholder="ton@email.fr"
+                  accessibilityLabel="Adresse email"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="emailAddress"
+                  autoComplete="email"
+                  importantForAutofill="yes"
+                  editable={!loading}
+                />
+                {email.length > 0 && !validation.isValidEmail && (
+                  <Text style={styles.fieldError} accessibilityLiveRegion="polite">Format d’email invalide</Text>
+                )}
+              </View>
+            </View>
+
+            <View style={[styles.pairRow, isWebDesktop && styles.pairRowInline]}>
+              <View style={[formStyles.field, styles.pairedField, isWebDesktop && styles.inlineField]}>
+                <Text style={formStyles.label}>Mot de passe</Text>
+                <InputField
+                  icon="lock-closed-outline"
+                  iconSize={20}
+                  containerStyle={formStyles.inputWrap}
+                  style={formStyles.input}
+                  value={password}
+                  onChangeText={change(setPassword)}
+                  placeholder="••••••••"
+                  accessibilityLabel="Mot de passe"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="newPassword"
+                  autoComplete="password-new"
+                  importantForAutofill="yes"
+                  editable={!loading}
+                  trailing={(
+                    <TouchableOpacity
+                      style={formStyles.eyeButton}
+                      onPress={() => setShowPassword((value) => !value)}
+                      accessibilityRole="button"
+                      accessibilityLabel={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                    >
+                      <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={22} color={COLORS.sub} />
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+              <View style={[formStyles.field, styles.pairedField, isWebDesktop && styles.inlineField]}>
+                <Text style={formStyles.label}>Confirmer le mot de passe</Text>
+                <InputField
+                  icon="lock-closed-outline"
+                  iconSize={20}
+                  containerStyle={formStyles.inputWrap}
+                  style={formStyles.input}
+                  value={confirm}
+                  onChangeText={change(setConfirm)}
+                  placeholder="••••••••"
+                  accessibilityLabel="Confirmer le mot de passe"
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="newPassword"
+                  autoComplete="password-new"
+                  importantForAutofill="yes"
+                  returnKeyType="go"
+                  onSubmitEditing={() => { if (canSubmit) void onContinue(); }}
+                  editable={!loading}
+                  trailing={(
+                    <TouchableOpacity
+                      style={formStyles.eyeButton}
+                      onPress={() => setShowConfirmPassword((value) => !value)}
+                      accessibilityRole="button"
+                      accessibilityLabel={showConfirmPassword ? "Masquer la confirmation" : "Afficher la confirmation"}
+                    >
+                      <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={22} color={COLORS.sub} />
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            </View>
           </View>
-          <View style={[styles.card, isWebDesktop && styles.cardDesktop]}>
-            <Text style={styles.cardTitle}>Créer un compte</Text>
-            <View style={[styles.nameRow, stackNames && styles.nameRowStacked]}>
-              <View style={[styles.nameField, stackNames && styles.nameFieldStacked]}>
-                <Text style={styles.label}>Prénom</Text>
-                <InputField icon="person-outline" value={firstName} onChangeText={change(setFirstName)} placeholder="Prénom" accessibilityLabel="Prénom" autoCapitalize="words" autoComplete="given-name" textContentType="givenName" />
-              </View>
-              <View style={[styles.nameField, stackNames && styles.nameFieldStacked]}>
-                <Text style={styles.label}>Nom</Text>
-                <InputField icon="person-outline" value={lastName} onChangeText={change(setLastName)} placeholder="Nom" accessibilityLabel="Nom" autoCapitalize="words" autoComplete="family-name" textContentType="familyName" />
-              </View>
-            </View>
-            <View style={styles.field}>
-              <Text style={styles.label}>Pseudo</Text>
-              <InputField icon="person-outline" value={nickname} onChangeText={change(setNickname)} placeholder="pseudo" accessibilityLabel="Pseudo" autoCapitalize="none" autoCorrect={false} />
-            </View>
-            <View style={styles.field}>
-              <Text style={styles.label}>Adresse email</Text>
-              <InputField icon="mail-outline" value={email} onChangeText={change(setEmail)} placeholder="tonemail@etudiant.fr" accessibilityLabel="Adresse email" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} textContentType="emailAddress" autoComplete="email" importantForAutofill="yes" />
-              {email.length > 0 && !validation.isValidEmail && <Text style={styles.fieldError}>Format d’email invalide</Text>}
-            </View>
-            <View style={styles.field}>
-              <Text style={styles.label}>Mot de passe</Text>
-              <InputField
-                icon="lock-closed-outline" value={password} onChangeText={change(setPassword)} placeholder="********" accessibilityLabel="Mot de passe"
-                secureTextEntry={!showPassword} autoCapitalize="none" autoCorrect={false} textContentType="newPassword" autoComplete="password-new" importantForAutofill="yes"
-                trailing={(
-                  <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPassword((value) => !value)} accessibilityRole="button" accessibilityLabel={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}>
-                    <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color={COLORS.sub} />
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-            <View style={styles.field}>
-              <Text style={styles.label}>Confirmer le mot de passe</Text>
-              <InputField
-                icon="lock-closed-outline" value={confirm} onChangeText={change(setConfirm)} placeholder="********" accessibilityLabel="Confirmer le mot de passe"
-                secureTextEntry={!showConfirmPassword} autoCapitalize="none" autoCorrect={false} textContentType="newPassword" autoComplete="password-new" importantForAutofill="yes"
-                trailing={(
-                  <TouchableOpacity style={styles.eyeButton} onPress={() => setShowConfirmPassword((value) => !value)} accessibilityRole="button" accessibilityLabel={showConfirmPassword ? "Masquer la confirmation" : "Afficher la confirmation"}>
-                    <Ionicons name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} size={20} color={COLORS.sub} />
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-            <View style={styles.passwordRules}>
+
+          <View style={styles.passwordRules}>
+            <View style={styles.rulesGrid}>
               {rules.map(({ label, valid }) => (
-                <Text key={label} style={[styles.rule, !password ? styles.ruleNeutral : valid && styles.ruleOk]}>
-                  {!password ? "○" : valid ? "✓" : "✗"} {label}
-                </Text>
+                <View key={label} style={[styles.ruleSlot, isWebDesktop && styles.ruleSlotDesktop]}>
+                  <PasswordRule label={label} state={!password ? "neutral" : valid ? "valid" : "invalid"} />
+                </View>
               ))}
-              <Text accessibilityLiveRegion="polite" style={[
-                styles.rule,
-                validation.passwordMatch === "neutral" && styles.ruleNeutral,
-                validation.passwordMatch === "valid" && styles.ruleOk,
-              ]}>
-                {validation.passwordMatch === "neutral" ? "○" : validation.passwordMatch === "valid" ? "✓" : "✗"}{" "}
-                {validation.passwordMatch === "invalid" ? "Les mots de passe ne correspondent pas" : "Les mots de passe correspondent"}
-              </Text>
             </View>
-            <TouchableOpacity style={[styles.button, !canSubmit && styles.buttonDisabled]} onPress={onContinue} activeOpacity={0.85} disabled={!canSubmit} accessibilityRole="button" accessibilityState={{ disabled: !canSubmit }}>
-              <Text style={styles.buttonText}>S’inscrire</Text>
-            </TouchableOpacity>
-            {formError && <Text style={styles.errorText} accessibilityRole="alert">{formError}</Text>}
-            <View style={styles.loginRow}>
-              <Text style={styles.loginText}>Déjà un compte ? </Text>
-              <Link href="/connexion" style={styles.loginLink}>Se connecter</Link>
+            <View style={styles.passwordMatch} accessibilityLiveRegion="polite">
+              <PasswordRule
+                label={validation.passwordMatch === "invalid"
+                  ? "Les mots de passe ne correspondent pas"
+                  : "Les mots de passe correspondent"}
+                state={validation.passwordMatch}
+              />
             </View>
-            <Text style={styles.legal}>En continuant, tu acceptes nos conditions d’utilisation</Text>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+          {formError ? (
+            <View style={formStyles.errorPanel} accessibilityRole="alert">
+              <Ionicons name="alert-circle-outline" size={20} color="#B91C1C" accessible={false} />
+              <Text style={formStyles.errorText}>{formError}</Text>
+            </View>
+          ) : null}
+
+          <PrimaryButton
+            onPress={onContinue}
+            loading={loading}
+            disabled={!canSubmit}
+            icon="arrow-forward"
+            style={formStyles.submitButton}
+          >
+            S’inscrire
+          </PrimaryButton>
+
+          <View style={formStyles.signupRow}>
+            <Text style={formStyles.signupText}>Déjà un compte ?</Text>
+            <Link href="/connexion" asChild>
+              <TouchableOpacity activeOpacity={0.7} hitSlop={6} style={formStyles.signupLink}>
+                <Text style={formStyles.signupLinkText}>Se connecter</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
+          <Text style={styles.legal}>En continuant, tu acceptes nos conditions d’utilisation</Text>
+        </>
+      )}
+    </AuthLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  keyboard: { flex: 1 },
-  content: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 40, justifyContent: "center", width: "100%" },
-  header: { alignItems: "center", marginBottom: 22 },
-  headerDesktop: { marginBottom: 40 },
-  logo: { width: 120, height: 120, marginBottom: 10 },
-  logoDesktop: { width: 180, height: 180 },
-  tagline: { marginTop: 6, fontSize: 13, color: COLORS.sub, textAlign: "center" },
-  card: {
-    width: "100%", maxWidth: 620, minWidth: 0, alignSelf: "center", backgroundColor: COLORS.card, borderRadius: 16, padding: 18,
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 8 } },
-      android: { elevation: 6 },
-      web: { boxShadow: "0px 8px 24px rgba(0,0,0,0.08)", boxSizing: "border-box" },
-    }),
+  form: { gap: 18 },
+  pairRow: { width: "100%", gap: 18 },
+  pairRowInline: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  pairedField: { width: "100%" },
+  inlineField: { flex: 1, width: "auto" },
+  optionalLabel: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 20 },
+  optionalText: { color: COLORS.sub, fontSize: 11, lineHeight: 18 },
+  fieldError: { color: "#B91C1C", fontSize: 12, lineHeight: 18 },
+  passwordRules: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#F3EADF",
+    backgroundColor: "#FFF8F0",
   },
-  cardDesktop: { borderRadius: 24, padding: 32 },
-  cardTitle: { fontSize: 20, fontWeight: "800", color: COLORS.text, marginBottom: 20 },
-  nameRow: { flexDirection: "row", gap: 12, marginBottom: 14 },
-  nameRowStacked: { flexDirection: "column" },
-  nameField: { flex: 1, minWidth: 0, gap: 8 },
-  nameFieldStacked: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", width: "100%" },
-  field: { minWidth: 0, gap: 8, marginBottom: 14 },
-  label: { fontSize: 12, fontWeight: "600", color: "#334155" },
-  eyeButton: { flexShrink: 0, width: 36, height: 44, alignItems: "center", justifyContent: "center" },
-  passwordRules: { gap: 4, paddingHorizontal: 4, marginBottom: 14 },
-  rule: { fontSize: 12, lineHeight: 18, color: "#DC2626", fontWeight: "600" },
-  ruleNeutral: { color: COLORS.sub },
-  ruleOk: { color: "#16A34A" },
-  button: { backgroundColor: COLORS.orange, minHeight: 48, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 8 },
-  buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
-  fieldError: { color: "#DC2626", fontSize: 12 },
-  errorText: { marginTop: 10, fontSize: 12, color: "#DC2626", textAlign: "center", fontWeight: "600" },
-  legal: { marginTop: 12, fontSize: 11, textAlign: "center", color: "#64748B", lineHeight: 16 },
-  loginRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", marginTop: 14 },
-  loginText: { fontSize: 13, color: COLORS.sub },
-  loginLink: { fontSize: 13, fontWeight: "700", color: COLORS.orange },
-  loading: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: COLORS.bg },
-  loadingText: { marginTop: 12, color: COLORS.sub, fontWeight: "600" },
+  rulesGrid: { flexDirection: "row", flexWrap: "wrap", columnGap: 12, rowGap: 6 },
+  ruleSlot: { width: "100%" },
+  ruleSlotDesktop: { width: "48%" },
+  ruleItem: { flexDirection: "row", alignItems: "flex-start", gap: 6 },
+  ruleText: { flex: 1, minWidth: 0, fontSize: 12, lineHeight: 18, fontWeight: "600" },
+  passwordMatch: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#F3EADF" },
+  legal: { marginTop: 12, color: COLORS.sub, fontSize: 11, lineHeight: 16, textAlign: "center" },
 });

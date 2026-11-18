@@ -1,0 +1,41 @@
+import { COLORS } from "@/constants/profileConfig";
+import { StyleSheet } from "react-native";
+
+export const authFormStyles = StyleSheet.create({
+  form: { gap: 20, marginTop: 28 },
+  field: { gap: 8, minWidth: 0 },
+  fieldHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  label: { color: COLORS.text, fontSize: 13, lineHeight: 20, fontWeight: "700" },
+  inputWrap: { height: 58, borderRadius: 18, paddingLeft: 16, paddingRight: 8 },
+  input: { fontSize: 16 },
+  eyeButton: { width: 40, height: 48, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  forgotLink: { paddingVertical: 4, flexShrink: 0 },
+  forgotPassword: { color: COLORS.orangeDark, fontSize: 12, lineHeight: 18, fontWeight: "700" },
+  errorPanel: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginTop: 20,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    backgroundColor: "#FFF5F3",
+  },
+  errorText: { flex: 1, color: "#B91C1C", fontSize: 13, lineHeight: 20, fontWeight: "600" },
+  submitButton: { height: 58, borderRadius: 18, marginTop: 24 },
+  signupRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "center",
+    columnGap: 4,
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#F3EADF",
+  },
+  signupText: { color: COLORS.sub, fontSize: 13, lineHeight: 20 },
+  signupLink: { paddingVertical: 8, paddingHorizontal: 4 },
+  signupLinkText: { color: COLORS.orangeDark, fontSize: 13, lineHeight: 20, fontWeight: "800" },
+});

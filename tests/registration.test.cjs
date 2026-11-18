@@ -2,17 +2,35 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const load = require("./helpers/load-typescript.cjs");
 const { getPasswordRules, getPasswordMatch, validateRegistration } = load("src/lib/registration.ts");
-const valid = { firstName: "Alice", lastName: "Martin", nickname: "", email: "alice@example.com", password: "Abc1!x", confirmation: "Abc1!x" };
+const valid = { firstName: "Alice", lastName: "Martin", nickname: "", email: "alice@example.com", password: "Abcdefghi1!x", confirmation: "Abcdefghi1!x" };
 
 test("registration accepts a valid form and an optional empty nickname", () => {
   assert.equal(validateRegistration(valid).isValid, true);
 });
 
 test("all four existing password requirements remain mandatory", () => {
-  for (const password of ["A1!", "abc1!x", "Abcd!x", "Abcd1x", ""]) {
+  for (const password of ["A1!", "abcdefghij1!", "Abcdefghijk!", "Abcdefghijk1", ""]) {
     assert.equal(validateRegistration({ ...valid, password, confirmation: password }).isValid, false, password);
   }
-  assert.deepEqual(getPasswordRules("Abc1!x"), { minLength: true, hasUpperCase: true, hasNumber: true, hasSpecialChar: true });
+  assert.deepEqual(getPasswordRules(valid.password), { minLength: true, hasUpperCase: true, hasNumber: true, hasSpecialChar: true });
+});
+
+test("registration enforces the backend's 12-character minimum", () => {
+  const short = "Aa1!" + "x".repeat(7);
+  const accepted = short + "x";
+  assert.equal(short.length, 11);
+  assert.equal(getPasswordRules(short).minLength, false);
+  assert.equal(validateRegistration({ ...valid, password: short, confirmation: short }).isValid, false);
+  assert.equal(accepted.length, 12);
+  assert.equal(validateRegistration({ ...valid, password: accepted, confirmation: accepted }).isValid, true);
+});
+
+test("first and last names are limited to 45 characters without changing the two-character minimum", () => {
+  for (const key of ["firstName", "lastName"]) {
+    assert.equal(validateRegistration({ ...valid, [key]: "A".repeat(45) }).isValid, true);
+    assert.equal(validateRegistration({ ...valid, [key]: "A".repeat(46) }).isValid, false);
+    assert.equal(validateRegistration({ ...valid, [key]: "A" }).isValid, false);
+  }
 });
 
 test("password confirmation stays neutral until both fields are filled", () => {

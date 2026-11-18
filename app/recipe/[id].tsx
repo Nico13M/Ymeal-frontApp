@@ -2,17 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Image,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useWindowDimensions,
-  View,
-  type ViewStyle
+    ActivityIndicator,
+    Image,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    useWindowDimensions,
+    View,
+    type ViewStyle
 } from 'react-native';
 
 import useRequireAuth from '../../src/hooks/useRequireAuth';
@@ -78,7 +78,7 @@ export default function RecipeDetailScreen() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-  
+
   // État pour la notification
   const [notification, setNotification] = useState<{
     message: string;
@@ -114,7 +114,7 @@ export default function RecipeDetailScreen() {
         const data = await getRecipe(Number(id));
         setRecipe(data);
         setIsFavorite(data.is_favorited);
-        
+
         // Charger mon rating
         await loadMyRating(Number(id));
         // Charger tous les ratings
@@ -176,7 +176,7 @@ export default function RecipeDetailScreen() {
 const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null => {
   if (response.rating && typeof response.rating === 'object') {
     const record = response.rating as Record<string, unknown>;
-    
+
     if (
       typeof record.id === 'number' &&
       typeof record.rating === 'number' &&
@@ -192,21 +192,21 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
       return result;
     }
   }
- 
+
   // Ensuite, essayer l'ancienne logique pour les autres formats
   const candidates = [response, response.data].filter(Boolean) as unknown[];
   for (let idx = 0; idx < candidates.length; idx++) {
     const candidate = candidates[idx];
     if (!candidate || typeof candidate !== 'object') continue;
- 
+
     const record = candidate as Record<string, unknown>;
     const nestedData = record.data;
- 
+
     if (nestedData && nestedData !== candidate) {
       const nestedRating = extractMyRating(nestedData as MyRatingApiResponse);
       if (nestedRating) return nestedRating;
     }
- 
+
     if (
       typeof record.id === 'number' &&
       typeof record.rating === 'number' &&
@@ -221,7 +221,7 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
       };
     }
   }
- 
+
   return null;
 };
   const formatIngredientUnit = (unit: RecipeFull['nutrition']['ingredients'][number]['unit']): string => {
@@ -236,22 +236,14 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
       const COOKIE_SESSION_TOKEN = "__cookie_session__";
       const isCookie = session?.token === COOKIE_SESSION_TOKEN;
       const token = isCookie ? undefined : session?.token;
-      const userId = (session?.user as any)?.id as number | undefined;
-  
-      const headers: Record<string, string> = {};
-  
-      if (userId !== undefined) {
-        headers["X-User-Id"] = String(userId);
-      }
-  
+
       const response = await apiRequest<MyRatingApiResponse>(`/admin/ratings/recipes/${recipeId}/me`, {
         token,
-        credentials: 'include',
-        headers
+        credentials: 'include'
       });
-  
+
       const rating = extractMyRating(response);
-  
+
       if (rating) {
         setUserRating(rating.rating || 0);
         setComment(rating.comment || '');
@@ -266,7 +258,7 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
       setShowCommentForm(true);
     }
   }, [userRating, hasUserRated]);
- 
+
   const loadAllRatings = async (recipeId: number) => {
   try {
     const response = await apiRequest<RatingsListApiResponse>(`/admin/ratings/recipes/${recipeId}`, {
@@ -288,19 +280,11 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
       const COOKIE_SESSION_TOKEN = "__cookie_session__";
       const isCookie = session?.token === COOKIE_SESSION_TOKEN;
       const token = isCookie ? undefined : session?.token;
-      const userId = (session?.user as any)?.id as number | undefined;
-
-      const headers: Record<string, string> = {};
-
-      if (userId !== undefined) {
-        headers["X-User-Id"] = String(userId);
-      }
 
       await apiRequest(`/admin/ratings/delete/${recipe.id}`, {
         method: 'DELETE',
         token,
-        credentials: 'include',
-        headers
+        credentials: 'include'
       });
 
       setUserRating(0);
@@ -308,7 +292,7 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
       setShowCommentForm(false);
       setHasUserRated(false);
       showNotification('Votre notation a été supprimée', 'success');
-      
+
       // Recharger les ratings
       await loadAllRatings(recipe.id);
     } catch (err) {
@@ -338,21 +322,13 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
       const COOKIE_SESSION_TOKEN = "__cookie_session__";
       const isCookie = session?.token === COOKIE_SESSION_TOKEN;
       const token = isCookie ? undefined : session?.token;
-      const userId = (session?.user as any)?.id as number | undefined;
-
-      const headers: Record<string, string> = {};
-
-      if (userId !== undefined) {
-        headers["X-User-Id"] = String(userId);
-      }
 
       if (isFavorite) {
         // Supprimer des favoris
         const response = await apiRequest(`/admin/recipes/${recipe.id}/favorite`, {
           method: 'DELETE',
           token,
-          credentials: 'include',
-          headers
+          credentials: 'include'
         });
         setIsFavorite(false);
         // Décrémenter le compteur de favoris
@@ -370,8 +346,7 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
           method: 'POST',
           body: {},
           token,
-          credentials: 'include',
-          headers
+          credentials: 'include'
         });
         setIsFavorite(true);
         // Incrémenter le compteur de favoris
@@ -406,13 +381,6 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
       const COOKIE_SESSION_TOKEN = "__cookie_session__";
       const isCookie = session?.token === COOKIE_SESSION_TOKEN;
       const token = isCookie ? undefined : session?.token;
-      const userId = (session?.user as any)?.id as number | undefined;
-
-      const headers: Record<string, string> = {};
-
-      if (userId) {
-        headers["X-User-Id"] = String(userId);
-      }
 
       const payload: RatingPayload = {
         rating: userRating,
@@ -423,14 +391,13 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
         method: 'POST',
         body: payload,
         token,
-        credentials: 'include',
-        headers
+        credentials: 'include'
       });
 
       showNotification('Votre notation a été enregistrée', 'success');
       setShowCommentForm(false);
       setHasUserRated(true);
-      
+
       // Recharger les ratings
       await loadAllRatings(recipe.id);
     } catch (err) {

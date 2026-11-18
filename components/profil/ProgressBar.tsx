@@ -118,5 +118,5 @@ const styles = StyleSheet.create({
   desktopFill: { alignItems: "center", justifyContent: "center", overflow: "hidden" },
   percentage: { color: COLORS.text, fontSize: 13, lineHeight: 18, fontWeight: "800" },
   smallFillLabel: { position: "absolute", top: 0, bottom: 0, marginLeft: 12, justifyContent: "center" },
-  desktopCounter: { minWidth: 44, color: COLORS.orange, fontSize: 14, lineHeight: 22, fontWeight: "800", textAlign: "right" },
+  desktopCounter: { minWidth: 24, color: COLORS.orange, fontSize: 14, lineHeight: 22, fontWeight: "800", textAlign: "right" },
 });

@@ -1,4 +1,8 @@
+import AuthLayout from "@/components/auth/AuthLayout";
+import { authFormStyles as styles } from "@/components/auth/formStyles";
 import InputField from "@/components/ui/InputField";
+import PrimaryButton from "@/components/ui/PrimaryButton";
+import { COLORS } from "@/constants/profileConfig";
 import { STORAGE_KEYS } from "@/constants/storage";
 import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
 import { loginRequest, resolveUserId, saveSession } from "@/src/services/auth";
@@ -6,27 +10,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Link, router } from "expo-router";
 import React, { useMemo, useState } from "react";
-import {
-  Dimensions,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
-
-const { width } = Dimensions.get("window");
-
-const isWebDesktop =
-  Platform.OS === "web" && width > 900;
-
-const authCardWidth =
-  isWebDesktop ? 520 : "100%";
+import { Text, TouchableOpacity, View } from "react-native";
 
 
 type StoredAccount = {
@@ -141,9 +125,7 @@ export default function ConnexionScreen() {
         () => undefined
       );
 
-      const profileConfigRaw = await AsyncStorage.getItem(
-  STORAGE_KEYS.profileConfig
-);
+      const profileConfigRaw = await AsyncStorage.getItem(STORAGE_KEYS.profileConfig);
 
       if (profileConfigRaw) {
         router.replace("/(tabs)");
@@ -176,34 +158,19 @@ export default function ConnexionScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        style={styles.keyboard}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
-      >
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.content}
-        >
-          <View style={styles.header}>
-            <Image
-  source={require('@/assets/images/logo_ymeal.png')}
-  style={styles.authLogo}
-  resizeMode="contain"
-/>
-
-            {/* <Text style={styles.brand}>Ymeal</Text> */}
-            <Text style={styles.tagline}>Des recettes adaptees a ton budget etudiant</Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Se connecter</Text>
-
-        <Text style={styles.label}>Adresse email</Text>
+    <AuthLayout
+      title="Content de te revoir !"
+      subtitle="Retrouve tes recettes favorites et tes préférences en un instant."
+      heroTitle={"Bien manger,\nà ta façon."}
+      heroDescription="Des recettes qui suivent tes envies, ton budget et ce qu’il reste dans ton frigo."
+      icon="log-in-outline"
+    >
+      <View style={styles.form}>
+        <View style={styles.field}>
+          <Text style={styles.label}>Adresse email</Text>
           <InputField
             icon="mail-outline"
+            iconSize={20}
             containerStyle={styles.inputWrap}
             value={email}
             onChangeText={(value) => {
@@ -215,224 +182,81 @@ export default function ConnexionScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="email"
+            textContentType="username"
+            editable={!isSubmitting}
             style={styles.input}
           />
+        </View>
 
-        <Text style={styles.label}>Mot de passe</Text>
+        <View style={styles.field}>
+          <View style={styles.fieldHeading}>
+            <Text style={styles.label}>Mot de passe</Text>
+            <Link href="/mot-de-passe" asChild>
+              <TouchableOpacity activeOpacity={0.7} hitSlop={8} style={styles.forgotLink}>
+                <Text style={styles.forgotPassword}>Mot de passe oublié ?</Text>
+              </TouchableOpacity>
+            </Link>
+          </View>
           <InputField
             icon="lock-closed-outline"
+            iconSize={20}
             containerStyle={styles.inputWrap}
             value={password}
             onChangeText={(value) => {
               setPassword(value);
               if (formError) setFormError(null);
             }}
-            placeholder="********"
+            placeholder="Ton mot de passe"
             accessibilityLabel="Mot de passe"
             secureTextEntry={!showPassword}
             autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="current-password"
+            textContentType="password"
+            returnKeyType="go"
+            onSubmitEditing={() => { if (canSubmit) void onLogin(); }}
+            editable={!isSubmitting}
             style={styles.input}
             trailing={(
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
                 accessibilityRole="button"
                 accessibilityLabel={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
               >
-                <Ionicons name={showPassword ? "eye-off" : "eye"} size={18} color="#9AA3AF" />
+                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={22} color={COLORS.sub} />
               </TouchableOpacity>
             )}
           />
+        </View>
+      </View>
 
-        <TouchableOpacity
-  onPress={() => router.push("/mot-de-passe")}
->
-  <Text style={styles.forgotPassword}>
-    Mot de passe oublié ?
-  </Text>
-</TouchableOpacity>
+      {formError ? (
+        <View style={styles.errorPanel} accessibilityRole="alert">
+          <Ionicons name="alert-circle-outline" size={20} color="#B91C1C" accessible={false} />
+          <Text style={styles.errorText}>{formError}</Text>
+        </View>
+      ) : null}
 
-        <TouchableOpacity
-          style={[styles.button, !canSubmit && styles.buttonDisabled]}
-          onPress={onLogin}
-          activeOpacity={0.85}
-          disabled={!canSubmit}
-        >
-          <Text style={styles.buttonText}>{isSubmitting ? "Connexion..." : "Continuer"}</Text>
-        </TouchableOpacity>
-        {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
+      <PrimaryButton
+        onPress={onLogin}
+        loading={isSubmitting}
+        disabled={!canSubmit}
+        icon="arrow-forward"
+        style={styles.submitButton}
+      >
+        Se connecter
+      </PrimaryButton>
 
-            <View style={styles.linksRow}>
-              <Text style={styles.linkText}>Pas de compte ? </Text>
-              <Link href="/register" style={styles.linkAccent}>
-                Creer un compte
-              </Link>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <View style={styles.signupRow}>
+        <Text style={styles.signupText}>Pas encore de compte ?</Text>
+        <Link href="/register" asChild>
+          <TouchableOpacity activeOpacity={0.7} hitSlop={6} style={styles.signupLink}>
+            <Text style={styles.signupLinkText}>Créer un compte</Text>
+          </TouchableOpacity>
+        </Link>
+      </View>
+    </AuthLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFF7EC",
-  },
-  keyboard: {
-    flex: 1,
-  },
-
-  content: {
-  flexGrow: 1,
-
-  paddingHorizontal: 24,
-  paddingVertical: 40,
-
-  justifyContent: "center",
-
-  width: "100%",
-},
-
-  header: {
-    alignItems: "center",
-    marginBottom: 22,
-  },
-  // logoCircle: {
-  //   width: 56,
-  //   height: 56,
-  //   borderRadius: 28,
-  //   backgroundColor: "#FF7A00",
-  //   alignItems: "center",
-  //   justifyContent: "center",
-  //   marginBottom: 12,
-  // },
-  brand: {
-    fontSize: isWebDesktop ? 52 : 34,
-    fontWeight: "800",
-    color: "#0F172A",
-    letterSpacing: 0.2,
-  },
-  tagline: {
-    marginTop: 6,
-    fontSize: 13,
-    color: "#475569",
-    textAlign: "center",
-  },
-
-card: {
-  width: "100%",
-
-  maxWidth: isWebDesktop ? 520 : "100%",
-
-  alignSelf: "center",
-
-  backgroundColor: "#FFFFFF",
-
-  borderRadius: isWebDesktop ? 24 : 16,
-
-  padding: isWebDesktop ? 32 : 18,
-
-  ...Platform.select({
-    ios: {
-      shadowColor: "#000",
-      shadowOpacity: 0.1,
-      shadowRadius: 10,
-      shadowOffset: { width: 0, height: 8 },
-    },
-
-    android: {
-      elevation: 6,
-    },
-
-    web: {
-      boxShadow: "0px 8px 24px rgba(0,0,0,0.08)",
-    },
-  }),
-},
-
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#0F172A",
-    marginBottom: 16,
-  },
-
-  authLogo: {
-  width: isWebDesktop ? 180 : 120,
-  height: isWebDesktop ? 180 : 120,
-  marginBottom: 10,
-},
-
-  label: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#334155",
-    marginBottom: 8,
-    marginTop: 6,
-  },
-
-  inputWrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 44,
-    backgroundColor: "#fff",
-    marginBottom: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    color: "#0F172A",
-  },
-
-  button: {
-    backgroundColor: "#FF7A00",
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "700",
-    fontSize: 14,
-  },
-  errorText: {
-    marginTop: 10,
-    fontSize: 12,
-    color: "#DC2626",
-    textAlign: "center",
-    fontWeight: "600",
-  },
-
-  linksRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 14,
-  },
-  linkText: {
-    fontSize: 13,
-    color: "#475569",
-  },
-  linkAccent: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#FF7A00",
-  },
-
-forgotPassword: {
-  alignSelf: "flex-end",
-  marginTop: 2,
-  marginBottom: 12,
-  color: "#FF7A00",
-  fontSize: 12,
-  fontWeight: "600",
-},
-
-});

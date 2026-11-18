@@ -17,6 +17,16 @@ export class ApiError extends Error {
   }
 }
 
+export class ApiNetworkError extends Error {
+  readonly originalError: unknown;
+
+  constructor(originalError: unknown) {
+    super("Impossible de contacter le serveur. Vérifie ta connexion et réessaie dans un instant.");
+    this.name = "ApiNetworkError";
+    this.originalError = originalError;
+  }
+}
+
 type ApiMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 type ApiRequestOptions = {
@@ -110,28 +120,36 @@ export async function apiRequest<T = unknown>(
     body,
     token,
     headers = {},
-    credentials = "omit",
+    credentials = "include",
   } = options;
 
-  const requestHeaders: Record<string, string> = {
-    Accept: "application/json",
-    ...headers,
-  };
+  const requestHeaders = new Headers({ Accept: "application/json", ...headers });
+  // User IDs and a header named "Bearer" are not authentication credentials.
+  requestHeaders.delete("X-User-Id");
+  requestHeaders.delete("Bearer");
 
   if (body !== undefined) {
-    requestHeaders["Content-Type"] = "application/json";
+    requestHeaders.set("Content-Type", "application/json");
   }
 
   if (token) {
-    requestHeaders.Authorization = `Bearer ${token}`;
+    requestHeaders.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(url, {
-    method,
-    headers: requestHeaders,
-    credentials,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const serializedBody = body !== undefined ? JSON.stringify(body) : undefined;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      credentials,
+      body: serializedBody,
+    });
+  } catch (error) {
+    // Browsers do not expose whether a failed fetch was blocked by CORS.
+    // Do not retry writes: the server may already have processed the request.
+    throw new ApiNetworkError(error);
+  }
 
   const payload = await parseResponsePayload(response);
 

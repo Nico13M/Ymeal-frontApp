@@ -161,31 +161,24 @@ export type TrendingRecipesResult = {
 
 async function getToken(): Promise<{
   token: string | undefined;
-  userId: number | undefined;
 }> {
   const session = await getSession();
   if (!session?.token) throw new Error("Session utilisateur introuvable.");
   const isCookie = session.token === COOKIE_SESSION_TOKEN;
   return {
     token: isCookie ? undefined : session.token,
-    userId: session.user?.id as number | undefined,
   };
-}
-
-function buildHeaders(userId?: number): Record<string, string> {
-  return userId ? { "X-User-Id": String(userId) } : {};
 }
 
 /* ===================== API CALLS ===================== */
 
 export async function getRecipes(): Promise<RecipeFull[]> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<RecipeFull[]>("/admin/recipes/index", {
       method: "GET",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
     });
     console.log(data);
     return data ?? [];
@@ -200,12 +193,11 @@ export async function getRecipes(): Promise<RecipeFull[]> {
 
 export async function getRecipe(recipeId: number): Promise<RecipeFull> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<RecipeFull>(`/admin/recipes/${recipeId}`, {
       method: "GET",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
     });
     return data!;
   } catch (error) {
@@ -224,7 +216,7 @@ export async function searchRecipes(params: {
   frigo?: boolean;
 }): Promise<SearchResult> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
 
     const queryParams = new URLSearchParams();
     if (params.query) queryParams.append("query", params.query);
@@ -238,7 +230,6 @@ export async function searchRecipes(params: {
       method: "GET",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
     });
     return data!;
   } catch (error) {
@@ -252,14 +243,13 @@ export async function searchRecipes(params: {
 
 export async function getTrendingRecipes(): Promise<TrendingRecipesResult> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<TrendingRecipesResult>(
       "/admin/recipes/trending",
       {
         method: "GET",
         token,
         credentials: "include",
-        headers: buildHeaders(userId),
       },
     );
     return data;
@@ -274,14 +264,13 @@ export async function getTrendingRecipes(): Promise<TrendingRecipesResult> {
 
 export async function getRecipeRatingsCount(recipeId: number): Promise<number> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const response = await apiRequest<unknown>(
       `/admin/ratings/recipes/${recipeId}`,
       {
         method: "GET",
         token,
         credentials: "include",
-        headers: buildHeaders(userId),
       },
     );
 
@@ -331,14 +320,13 @@ export async function getRecipeRatingsStats(
   recipeId: number,
 ): Promise<{ count: number; average: number }> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const response = await apiRequest<unknown>(
       `/admin/ratings/recipes/${recipeId}`,
       {
         method: "GET",
         token,
         credentials: "include",
-        headers: buildHeaders(userId),
       },
     );
 
@@ -421,12 +409,11 @@ export async function getRecipeRatingsStats(
 
 export async function getFavorites(): Promise<RecipeMinimal[]> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<RecipeMinimal[]>("/admin/recipes/favorites", {
       method: "GET",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
     });
     return data ?? [];
   } catch (error) {
@@ -440,12 +427,11 @@ export async function getFavorites(): Promise<RecipeMinimal[]> {
 
 export async function addToFavorites(recipeId: number): Promise<void> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     await apiRequest(`/admin/recipes/${recipeId}/favorite`, {
       method: "POST",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
     });
   } catch (error) {
     console.error(
@@ -458,12 +444,11 @@ export async function addToFavorites(recipeId: number): Promise<void> {
 
 export async function removeFromFavorites(recipeId: number): Promise<void> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     await apiRequest(`/admin/recipes/${recipeId}/favorite`, {
       method: "DELETE",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
     });
   } catch (error) {
     console.error(
@@ -492,12 +477,11 @@ export async function createRecipe(payload: {
   }>;
 }): Promise<RecipeFull> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<RecipeFull>("/admin/recipes/create", {
       method: "POST",
       token,
       credentials: "include",
-      headers: buildHeaders(userId),
       body: payload,
     });
     return data!;
@@ -597,10 +581,9 @@ export async function saveAiRecipe(
     "/admin/recipes/create",
     {
       method: "POST",
-      ...(await getToken().then(({ token, userId }) => ({
+      ...(await getToken().then(({ token }) => ({
         token,
         credentials: "include" as const,
-        headers: buildHeaders(userId),
       }))),
       body: payload,
     },
@@ -619,7 +602,7 @@ export async function generateAiRecipe(
   payload: RecipePredictionRequest,
 ): Promise<RecipePredictionResponse> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const cuisines = await getUserCuisines();
 
     // Récupération du jeton CSRF
@@ -632,7 +615,6 @@ export async function generateAiRecipe(
         token,
         credentials: "include",
         headers: {
-          ...buildHeaders(userId),
           "X-CSRF-TOKEN": csrfToken,
         },
         body: withCuisinePreferences(payload, cuisines.map((item) => item.name)),

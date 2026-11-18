@@ -14,6 +14,8 @@ Exemple `.env` local:
 EXPO_PUBLIC_API_URL=https://ymeal-back.osc-fr1.scalingo.io
 ```
 
+Pour une erreur CORS d’inscription depuis `localhost:8081`, consulter le [diagnostic et les actions à coordonner avec le backend](docs/inscription-cors-diagnostic.md). L’API de production autorise actuellement le domaine du front de production ; le développement local nécessite une configuration CORS adaptée ou une URL d’API de développement.
+
 ## 3) Parcours utilisateur actuel
 1. Register:
    - appel `/admin/auth/register`
