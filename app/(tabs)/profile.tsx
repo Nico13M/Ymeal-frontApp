@@ -207,7 +207,6 @@ export default function ProfileScreen() {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [editUserSaving, setEditUserSaving] = useState(false);
   const [editUserError, setEditUserError] = useState<string | null>(null);
-  const [editUserDebug, setEditUserDebug] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<AccountDraft>({
     firstName: "",
     lastName: "",
@@ -337,7 +336,6 @@ export default function ProfileScreen() {
       email: account?.email?.trim() || "",
     });
     setEditUserError(null);
-    setEditUserDebug(null);
     setSettingsOpen(false);
     setEditUserOpen(true);
   };
@@ -346,7 +344,6 @@ export default function ProfileScreen() {
     if (!editUserSaving) {
       setEditUserOpen(false);
       setEditUserError(null);
-      setEditUserDebug(null);
     }
   };
 
@@ -367,9 +364,6 @@ export default function ProfileScreen() {
     }
 
     const userId = account?.id ?? resolveUserId(session?.user);
-    setEditUserDebug(
-      `userId: ${userId ?? "null"} | account.id: ${account?.id ?? "null"} | session.user: ${JSON.stringify(session?.user)}`,
-    );
 
     if (!userId) {
       setEditUserError(
@@ -381,16 +375,12 @@ export default function ProfileScreen() {
     try {
       setEditUserSaving(true);
       setEditUserError(null);
-      await updateUserRequest(
-        userId,
-        {
-          firstname: nextAccount.firstName,
-          lastname: nextAccount.lastName,
-          pseudo: nextAccount.pseudo,
-          email: nextAccount.email,
-        },
-        { onDebug: (message) => setEditUserDebug(message) },
-      );
+      await updateUserRequest(userId, {
+        firstname: nextAccount.firstName,
+        lastname: nextAccount.lastName,
+        pseudo: nextAccount.pseudo,
+        email: nextAccount.email,
+      });
       await AsyncStorage.setItem(
         STORAGE_KEYS.accountProfile,
         JSON.stringify(nextAccount),
@@ -639,11 +629,11 @@ export default function ProfileScreen() {
             onPress={() => openModal("blacklist")}
           >
             <MultiLineValue
-              values={
+              values={(
                 profile?.blacklist.map((b) => b.name) ??
                 resolveAvoidedIngredients(config) ??
                 []
-              }
+              ).slice(0, 3)}
             />
           </InfoRow>
 
@@ -787,9 +777,6 @@ export default function ProfileScreen() {
               />
             </View>
 
-            {editUserDebug ? (
-              <Text style={styles.editDebug}>{editUserDebug}</Text>
-            ) : null}
             {editUserError ? (
               <Text style={styles.editError}>{editUserError}</Text>
             ) : null}
@@ -1593,18 +1580,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
   },
   editError: { color: "#B91C1C", fontSize: 13, fontWeight: "700" },
-  editDebug: {
-    color: "#0F172A",
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 18,
-    backgroundColor: "#F8FAFC",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
   editActionsRow: { flexDirection: "row", gap: 10, marginTop: 6 },
   editAction: {
     flex: 1,
