@@ -1,63 +1,36 @@
-import React, { useState } from "react";
-import {
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { COLORS } from "@/constants/profileConfig";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import React from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ForgotPasswordScreen() {
-  const [email, setEmail] = useState("");
-  const [success, setSuccess] = useState(false);
-
-  const onSend = async () => {
-    try {
-      // appel API ici plus tard
-
-      setSuccess(true);
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.card}>
+        <View style={styles.icon}>
+          <Ionicons name="lock-closed-outline" size={28} color={COLORS.orange} />
+        </View>
         <Text style={styles.title}>
           Mot de passe oublié
         </Text>
 
         <Text style={styles.description}>
-          Entre ton adresse email pour recevoir
-          un lien de réinitialisation.
+          La réinitialisation du mot de passe n’est pas encore disponible.
+          Réessaie plus tard.
         </Text>
-
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          placeholder="tonemail@gmail.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          style={styles.input}
-        />
 
         <TouchableOpacity
           style={styles.button}
-          onPress={onSend}
+          onPress={() => router.replace("/connexion")}
+          accessibilityRole="button"
         >
           <Text style={styles.buttonText}>
-            Envoyer le lien
+            Retour à la connexion
           </Text>
         </TouchableOpacity>
 
-        {success && (
-          <Text style={styles.success}>
-            Si un compte existe avec cet email,
-            un lien a été envoyé.
-          </Text>
-        )}
       </View>
     </SafeAreaView>
   );
@@ -72,9 +45,22 @@ const styles = StyleSheet.create({
   },
 
   card: {
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
     backgroundColor: "#fff",
     borderRadius: 16,
-    padding: 20,
+    padding: 24,
+  },
+
+  icon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.orangeSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
   },
 
   title: {
@@ -86,17 +72,9 @@ const styles = StyleSheet.create({
 
   description: {
     fontSize: 14,
+    lineHeight: 22,
     color: "#475569",
     marginBottom: 20,
-  },
-
-  input: {
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 46,
-    marginBottom: 16,
   },
 
   button: {
@@ -112,9 +90,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  success: {
-    marginTop: 16,
-    color: "green",
-    textAlign: "center",
-  },
 });

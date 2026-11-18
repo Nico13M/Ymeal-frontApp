@@ -54,7 +54,8 @@ export default function StepHeader({
 
 const styles = StyleSheet.create({
   header: {
-    height: 56,
+    minHeight: 56,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -67,7 +68,10 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
+    flexShrink: 1,
+    marginRight: 12,
     fontSize: 22,
+    lineHeight: 28,
     fontWeight: "900",
     color: COLORS.text,
     letterSpacing: 0.2,
@@ -79,6 +83,7 @@ const styles = StyleSheet.create({
   },
 
   headerStep: {
+    flexShrink: 0,
     fontSize: 12,
     fontWeight: "800",
     color: COLORS.orange,

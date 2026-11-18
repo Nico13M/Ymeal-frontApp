@@ -1,4 +1,4 @@
-import { COLORS } from "@/constants/profileConfig";
+import { COLORS, MAX_CUISINE_SELECTIONS } from "@/constants/profileConfig";
 import { STORAGE_KEYS } from "@/constants/storage";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -8,13 +8,13 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 
 import {
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -88,7 +88,7 @@ function namesToIds(names: string[], reference: ReferenceItem[]): number[] {
 // ─── Composant ────────────────────────────────────────────────────────────────
 export default function ConfigProfilScreen() {
   // ── Desktop detection ────────────────────────────────────
-  const { width } = Dimensions.get("window");
+  const { width } = useWindowDimensions();
   const isWebDesktop = Platform.OS === "web" && width > 900;
 
   // ── Paramètres de navigation ─────────────────────────────
@@ -120,6 +120,7 @@ export default function ConfigProfilScreen() {
   // ── State – recherche ingrédients à éviter ───────────────
   const [vegQuery, setVegQuery] = useState("");
   const [vegSuggestionsFromApi, setVegSuggestionsFromApi] = useState<ReferenceItem[]>([]);
+  const [isVegLookupLoading, setIsVegLookupLoading] = useState(false);
   const [allergyQuery, setAllergyQuery] = useState(""); // conservé pour compatibilité éventuelle
 
   // ── State – UI ───────────────────────────────────────────
@@ -234,21 +235,28 @@ export default function ConfigProfilScreen() {
 
   // ── Recherche d'ingrédients à éviter (debounced via API) ─
   useEffect(() => {
-    if (step !== 5) return;
     const q = vegQuery.trim();
-    if (q.length < 3) {
-      setVegSuggestionsFromApi([]);
+    setVegSuggestionsFromApi([]);
+    if (step !== 5 || q.length < 3) {
+      setIsVegLookupLoading(false);
       return;
     }
+    let cancelled = false;
+    setIsVegLookupLoading(true);
     const timer = setTimeout(async () => {
       const results = await searchIngredients(q);
+      if (cancelled) return;
       setVegSuggestionsFromApi(
         results.filter(
           (r) => !avoidVeg.some((x) => x.toLowerCase() === r.name.toLowerCase())
         )
       );
+      setIsVegLookupLoading(false);
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [vegQuery, step, avoidVeg]);
 
   // ── Dérivés ──────────────────────────────────────────────
@@ -324,7 +332,7 @@ export default function ConfigProfilScreen() {
   const toggleCuisine = (c: string) => {
     setCuisines((prev) => {
       if (prev.includes(c)) return prev.filter((x) => x !== c);
-      if (prev.length >= 6) return prev;
+      if (prev.length >= Math.min(MAX_CUISINE_SELECTIONS, refCuisines.length)) return prev;
       return [...prev, c];
     });
   };
@@ -410,7 +418,10 @@ export default function ConfigProfilScreen() {
 
   // ── Rendu ────────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView
+      style={styles.safe}
+      edges={["top", "left", "right", "bottom"]}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior="padding"
@@ -418,139 +429,151 @@ export default function ConfigProfilScreen() {
       >
         <ScrollView
           contentContainerStyle={[
-            { paddingBottom: 100 },
             isWebDesktop && styles.desktopScrollContent,
+            styles.fullHeightScrollContent,
           ]}
           keyboardShouldPersistTaps="always"
           scrollEventThrottle={16}
         >
-          <View style={[styles.screen, isWebDesktop && styles.screenDesktop]}>
+          <View style={[
+            styles.screen,
+            isWebDesktop && styles.screenDesktop,
+            styles.fullHeightScreen,
+          ]}>
             <StepHeader
               step={step}
               totalSteps={TOTAL_STEPS}
               onBack={goBack}
+              isWebDesktop={isWebDesktop}
             />
 
             <ProgressBar progress={progress} isWebDesktop={isWebDesktop} />
 
-            <ProfilCard isWebDesktop={isWebDesktop}>
+            <ProfilCard
+              isWebDesktop={isWebDesktop}
+              containerStyle={styles.fullHeightCardContainer}
+              style={styles.fullHeightCard}
+            >
               {step === 0 && (
-                <WelcomeStep styles={styles} isWebDesktop={isWebDesktop} />
+                <WelcomeStep isWebDesktop={isWebDesktop} />
               )}
 
-              {step === 1 && (
-                <DietStep
-                  diets={diets}
-                  toggleDiet={toggleDiet}
-                  // Passer les options dynamiques si DietStep les accepte
-                  availableDiets={refDiets}
-                  isLoading={isLoadingRefs}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+              {step >= 1 && step <= 7 && (
+                <View style={styles.stepContent}>
+                  {step === 1 && (
+                    <DietStep
+                      diets={diets}
+                      toggleDiet={toggleDiet}
+                      // Passer les options dynamiques si DietStep les accepte
+                      availableDiets={refDiets}
+                      isLoading={isLoadingRefs}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 2 && (
-                <LocalisationStep
-                  location={location}
-                  setLocation={setLocation}
-                  citySuggestions={citySuggestions}
-                  cityLookupError={cityLookupError}
-                  isCityLookupLoading={isCityLookupLoading}
-                  onSelectCity={onSelectCity}
-                  setCitySuggestions={setCitySuggestions}
-                  setCityLookupError={setCityLookupError}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+                  {step === 2 && (
+                    <LocalisationStep
+                      location={location}
+                      setLocation={setLocation}
+                      citySuggestions={citySuggestions}
+                      cityLookupError={cityLookupError}
+                      isCityLookupLoading={isCityLookupLoading}
+                      onSelectCity={onSelectCity}
+                      setCitySuggestions={setCitySuggestions}
+                      setCityLookupError={setCityLookupError}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 3 && (
-                <BudgetStep
-                  budget={budget}
-                  setBudget={setBudget}
-                  // Passer les options de budget dynamiques si BudgetStep les accepte
-                  availableBudgets={refBudgets}
-                  isLoading={isLoadingRefs}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+                  {step === 3 && (
+                    <BudgetStep
+                      budget={budget}
+                      setBudget={setBudget}
+                      // Passer les options de budget dynamiques si BudgetStep les accepte
+                      availableBudgets={refBudgets}
+                      isLoading={isLoadingRefs}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 4 && (
-                <CuisineStep
-                  cuisines={cuisines}
-                  toggleCuisine={toggleCuisine}
-                  // Passer les options dynamiques si CuisineStep les accepte
-                  availableCuisines={refCuisines}
-                  isLoading={isLoadingRefs}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+                  {step === 4 && (
+                    <CuisineStep
+                      cuisines={cuisines}
+                      toggleCuisine={toggleCuisine}
+                      // Passer les options dynamiques si CuisineStep les accepte
+                      availableCuisines={refCuisines}
+                      isLoading={isLoadingRefs}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 5 && (
-                <AvoidIngredientsStep
-                  step={step}
-                  vegQuery={vegQuery}
-                  setVegQuery={setVegQuery}
-                  vegSuggestions={vegSuggestions}
-                  avoidVeg={avoidVeg}
-                  addVeg={addVeg}
-                  removeAt={removeAt}
-                  setAvoidVeg={setAvoidVeg}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+                  {step === 5 && (
+                    <AvoidIngredientsStep
+                      vegQuery={vegQuery}
+                      setVegQuery={setVegQuery}
+                      vegSuggestions={vegSuggestions}
+                      isLoading={isVegLookupLoading}
+                      avoidVeg={avoidVeg}
+                      addVeg={addVeg}
+                      removeAt={removeAt}
+                      setAvoidVeg={setAvoidVeg}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 6 && (
-                <AllergiesStep
-                  allergies={allergies}
-                  toggleAllergy={toggleAllergy}
-                  availableAllergies={refAllergies}
-                  isLoading={isLoadingRefs}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+                  {step === 6 && (
+                    <AllergiesStep
+                      allergies={allergies}
+                      toggleAllergy={toggleAllergy}
+                      availableAllergies={refAllergies}
+                      isLoading={isLoadingRefs}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 7 && (
-                <PeopleStep
-                  people={people}
-                  setPeople={setPeople}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
+                  {step === 7 && (
+                    <PeopleStep
+                      people={people}
+                      setPeople={setPeople}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
+                </View>
               )}
 
               {step === 8 && (
-                <ConfirmationStep
-                  isSavingConfig={isSavingConfig}
-                  next={next}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
+                <ConfirmationStep isWebDesktop={isWebDesktop} />
               )}
 
-              {step <= 7 && (
-                <View style={[styles.actions, isWebDesktop && styles.actionsDesktop]}>
-                  <PrimaryButton
-                    onPress={next}
-                    loading={isSavingConfig}
-                    disabled={!canContinue || isLoadingRefs}
-                    icon="arrow-forward"
-                  >
-                    {editMode ? "Enregistrer" : step === 7 ? "Terminer" : "Continuer"}
-                  </PrimaryButton>
-                </View>
-              )}
+              <View style={styles.actions}>
+                <PrimaryButton
+                  onPress={next}
+                  loading={isSavingConfig}
+                  disabled={!canContinue || (step <= 7 && isLoadingRefs)}
+                  icon="arrow-forward"
+                  style={styles.continueButton}
+                  textStyle={styles.continueButtonText}
+                >
+                  {step === 8 ? "C'est parti !" : editMode ? "Enregistrer" : step === 7 ? "Terminer" : "Continuer"}
+                </PrimaryButton>
+                {(step === 0 || step === 8) && (
+                  <Text style={styles.welcomeFootnote}>
+                    Tu pourras modifier tes préférences à tout moment.
+                  </Text>
+                )}
+              </View>
 
               {saveError ? (
                 <Text style={styles.saveErrorText}>{saveError}</Text>
               ) : null}
 
-              {step === 4 && <View style={{ height: 30 }} />}
             </ProfilCard>
           </View>
         </ScrollView>
@@ -559,38 +582,13 @@ export default function ConfigProfilScreen() {
   );
 }
 
-// ─── Styles (inchangés) ───────────────────────────────────────────────────────
+// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: COLORS.bg,
     paddingHorizontal: 18,
     paddingTop: 10,
-  },
-
-  locationContainerDesktop: {
-    width: 420,
-    alignSelf: "center",
-    position: "relative",
-    zIndex: 9999,
-  },
-
-  inputWrapDesktopFixed: {
-    width: 420,
-    alignSelf: "center",
-  },
-
-  suggestionsDesktop: {
-    width: 420,
-    left: "50%",
-    transform: [{ translateX: -210 }],
-    top: 58,
-    maxHeight: 260,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 10,
   },
 
   screenDesktop: {
@@ -614,135 +612,129 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
   },
 
+  fullHeightScrollContent: {
+    flexGrow: 1,
+    paddingTop: 0,
+    paddingBottom: 16,
+  },
+  fullHeightScreen: { paddingBottom: 0 },
+  fullHeightCardContainer: { flexGrow: 1, paddingBottom: 0 },
+  fullHeightCard: { flexGrow: 1, padding: 20, borderRadius: 28 },
+  stepContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    width: "100%",
+    maxWidth: 600,
+    alignSelf: "center",
+    paddingVertical: 12,
+  },
+  stepControls: { width: "100%", marginTop: 28, gap: 12 },
+  selectionSummary: {
+    marginTop: 16,
+    color: COLORS.sub,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: "center",
+  },
   actions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 18,
+    flexDirection: "column",
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    marginTop: 24,
     gap: 12,
   },
-
-  actionsDesktop: {
-    justifyContent: "center",
-    maxWidth: 280,
-    alignSelf: "center",
-    marginTop: 60,
+  continueButton: { height: 60, borderRadius: 20 },
+  continueButtonText: { fontSize: 17 },
+  welcomeFootnote: {
+    color: COLORS.sub,
+    textAlign: "center",
+    fontSize: 12,
+    lineHeight: 18,
+    paddingHorizontal: 8,
   },
 
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginTop: 14,
-    rowGap: 12,
+    marginTop: 28,
+    gap: 12,
   },
 
   gridDesktop: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    gap: 20,
+    gap: 16,
     width: "100%",
-    marginTop: 24,
-  },
-
-  chipsWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 12,
-    gap: 10,
-  },
-
-  chipsWrapDesktop: {
-    justifyContent: "center",
-    maxWidth: 800,
-    alignSelf: "center",
-    gap: 12,
+    marginTop: 28,
   },
 
   inputWrap: {
     borderWidth: 1,
     borderColor: "rgba(15,23,42,0.08)",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    height: 48,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    height: 60,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FAFAFA",
-    marginTop: 10,
   },
 
-  inputWrapDesktop: {
-    maxWidth: 420,
-    alignSelf: "center",
-  },
+  inputWrapFocused: { borderColor: COLORS.orange, borderWidth: 2, backgroundColor: COLORS.card },
 
   input: {
     flex: 1,
-    fontSize: 14,
+    minWidth: 0,
+    height: "100%",
+    fontSize: 16,
     color: COLORS.text,
     marginLeft: 8,
+    ...Platform.select({ web: { outlineWidth: 0 } }),
   },
 
   label: {
-    marginTop: 14,
-    marginBottom: 8,
-    fontSize: 12,
+    marginBottom: 10,
+    fontSize: 14,
     fontWeight: "700",
     color: COLORS.sub,
   },
 
-  labelDesktop: {
+  note: {
+    flex: 1,
     fontSize: 13,
-  },
-
-  helper: {
-    marginTop: 6,
     color: COLORS.sub,
-    fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 20,
   },
 
-  helperDesktop: {
-    fontSize: 13,
+  infoPanel: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: "#FFF8F0",
   },
-
-  questionRow: {
+  skipLocationButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 4,
+    gap: 12,
+    padding: 16,
+    minHeight: 64,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderRadius: 18,
   },
-
-  question: {
-    fontSize: 17,
-    fontWeight: "900",
-    color: COLORS.text,
-    flex: 1,
-  },
-
-  questionDesktop: {
-    fontSize: 18,
-    lineHeight: 24,
-  },
-
-  note: {
-    marginTop: 10,
-    fontSize: 12,
-    color: COLORS.sub,
-    lineHeight: 16,
-  },
+  skipLocationText: { flex: 1, color: COLORS.sub, fontSize: 13, lineHeight: 20 },
 
   suggestions: {
-    position: "absolute",
-    top: 58,
-    left: 0,
-    right: 0,
+    marginTop: 8,
+    maxHeight: 240,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 12,
     backgroundColor: "#fff",
-    zIndex: 999,
-    elevation: 5,
     overflow: "hidden",
   },
 
@@ -751,13 +743,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
 
   suggestionText: {
-    fontSize: 13,
+    flex: 1,
+    marginRight: 12,
+    fontSize: 14,
     fontWeight: "600",
     color: COLORS.text,
   },
@@ -784,97 +778,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  welcomeContainer: { paddingVertical: 20 },
-  welcomeContainerDesktop: { paddingVertical: 32 },
-  welcomeHero: { alignItems: "center" },
-  welcomeHeroDesktop: { paddingVertical: 16 },
-  welcomeLogo: { width: 80, height: 80, marginBottom: 16 },
-  welcomeLogoDesktop: { width: 100, height: 100, marginBottom: 24 },
-
-  welcomeIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.orange,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-
-  welcomeIconDesktop: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginBottom: 24,
-  },
-
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: COLORS.text,
-    textAlign: "center",
-    marginBottom: 10,
-  },
-
-  welcomeTitleDesktop: {
-    fontSize: 28,
-    lineHeight: 36,
-    marginBottom: 14,
-  },
-
-  welcomeSubtitle: {
-    fontSize: 14,
-    color: COLORS.sub,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-
-  welcomeSubtitleDesktop: {
-    fontSize: 15,
-    lineHeight: 24,
-  },
-
-  finalLogo: { width: 80, height: 80, marginBottom: 16 },
-
-  bigIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.orange,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-
-  welcomeText: {
-    fontSize: 14,
-    color: COLORS.sub,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-
-  btn: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 16,
-  },
-
-  btnPrimary: { backgroundColor: COLORS.orange },
-  btnPrimaryText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  btnBig: { paddingVertical: 16 },
-  btnDisabled: { opacity: 0.6 },
-
   tile: {
-    width: Platform.OS === "web" ? 120 : "45%",
-    minHeight: Platform.OS === "web" ? 120 : 100,
-    paddingVertical: 18,
+    width: "47.5%",
+    minHeight: 104,
+    paddingVertical: 16,
     paddingHorizontal: 12,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: "rgba(15,23,42,0.08)",
     alignItems: "center",
     justifyContent: "center",
+    gap: 10,
     backgroundColor: "#FFFFFF",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -883,13 +797,13 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
 
+  tileDesktop: { width: "31%", minHeight: 124 },
+  tileCheck: { position: "absolute", top: 8, right: 8 },
+
   tileSelected: {
     backgroundColor: "#FFF7ED",
     borderColor: COLORS.orange,
-    transform: [{ scale: 1.03 }],
   },
-
-  tileEmoji: { fontSize: 34, marginBottom: 10 },
 
   tileText: {
     fontSize: 15,
@@ -900,19 +814,20 @@ const styles = StyleSheet.create({
   },
 
   tileTextSelected: {
-    color: COLORS.orange,
+    color: "#9A3412",
     fontWeight: "700",
   },
 
   choiceRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+    minHeight: 84,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    gap: 12,
     borderWidth: 2,
     borderColor: "rgba(15,23,42,0.08)",
-    borderRadius: 12,
-    marginBottom: 10,
+    borderRadius: 20,
   },
 
   choiceRowSelected: {
@@ -920,42 +835,32 @@ const styles = StyleSheet.create({
     borderColor: COLORS.orange,
   },
 
-  choiceIcon: { fontSize: 24, marginRight: 12 },
+  choiceIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    backgroundColor: "#FFF1DE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  choiceIcon: { fontSize: 26 },
+  choiceLabel: { flex: 1, minWidth: 0 },
 
   choiceTitle: {
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 22,
     fontWeight: "700",
     color: COLORS.text,
   },
 
   choiceSub: {
-    fontSize: 12,
+    fontSize: 14,
+    lineHeight: 20,
     color: COLORS.sub,
-    marginTop: 2,
-  },
-
-  chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "rgba(15,23,42,0.1)",
-    backgroundColor: "#FAFAFA",
-  },
-
-  chipSelected: {
-    backgroundColor: COLORS.orange,
-    borderColor: COLORS.orange,
+    marginTop: 4,
   },
 
   chipDisabled: { opacity: 0.5 },
 
-  chipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-
-  chipTextSelected: { color: "#fff" },
   chipTextDisabled: { color: COLORS.muted },
 });

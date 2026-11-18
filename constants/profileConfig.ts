@@ -9,6 +9,8 @@ export const COLORS = {
   muted: "#94A3B8",
 };
 
+export const MAX_CUISINE_SELECTIONS = 6;
+
 
 
 export const DIETS = [

@@ -1,3 +1,4 @@
+import StepIntro from "@/components/profil/StepIntro";
 import React from "react";
 
 import {
@@ -31,19 +32,14 @@ export default function PeopleStep({
 }: Props) {
   return (
     <>
-      <View style={[styles.questionRow, isWebDesktop && styles.questionRowDesktop]}>
-        <Ionicons
-          name="people-outline"
-          size={18}
-          color={COLORS.orange}
-        />
+      <StepIntro
+        icon="people-outline"
+        title="Pour combien de personnes cuisines-tu ?"
+        subtitle="Indique le nombre de personnes qui partageront tes repas."
+        isWebDesktop={isWebDesktop}
+      />
 
-        <Text style={[styles.question, isWebDesktop && styles.questionDesktop]}>
-          Pour combien de personnes cuisines-tu ?
-        </Text>
-      </View>
-
-      <View style={[{ marginTop: 10 }, isWebDesktop && { maxWidth: 600, alignSelf: "center", width: "100%" }]}>
+      <View style={styles.stepControls}>
         {[
           {
             key: "1",
@@ -76,6 +72,8 @@ export default function PeopleStep({
           return (
             <Pressable
               key={p.key}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: selected }}
               onPress={() =>
                 setPeople(
                   p.key as PeopleChoice
@@ -88,15 +86,20 @@ export default function PeopleStep({
                   styles.choiceRowSelected,
               ]}
             >
-              <Text style={styles.choiceIcon}>
-                {p.icon}
-              </Text>
+              <View style={styles.choiceIconWrap}>
+                <Text style={styles.choiceIcon}>{p.icon}</Text>
+              </View>
 
               <Text
-                style={styles.choiceTitle}
+                style={[styles.choiceTitle, styles.choiceLabel]}
               >
                 {p.label}
               </Text>
+              <Ionicons
+                name={selected ? "radio-button-on" : "radio-button-off"}
+                size={22}
+                color={selected ? COLORS.orange : COLORS.muted}
+              />
             </Pressable>
           );
         })}

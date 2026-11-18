@@ -1,151 +1,187 @@
-import React from "react";
-
-import {
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-
-import { Ionicons } from "@expo/vector-icons";
-
+import StepIntro from "@/components/profil/StepIntro";
 import { COLORS } from "@/constants/profileConfig";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 type Props = {
-  step: number;
-
   vegQuery: string;
-
-  setVegQuery: (
-    value: string
-  ) => void;
-
+  setVegQuery: (value: string) => void;
   vegSuggestions: string[];
-
   avoidVeg: string[];
-
   addVeg: (value: string) => void;
-
-  removeAt: (
-    list: string[],
-    idx: number
-  ) => string[];
-
-  setAvoidVeg: React.Dispatch<
-    React.SetStateAction<string[]>
-  >;
-
+  removeAt: (list: string[], idx: number) => string[];
+  setAvoidVeg: React.Dispatch<React.SetStateAction<string[]>>;
+  isLoading?: boolean;
   styles: any;
   isWebDesktop?: boolean;
 };
 
 export default function AvoidIngredientsStep({
-  step,
-
   vegQuery,
   setVegQuery,
-
   vegSuggestions,
-
   avoidVeg,
-
   addVeg,
-
   removeAt,
-
   setAvoidVeg,
-
+  isLoading = false,
   styles,
   isWebDesktop,
 }: Props) {
+  const [isInputFocused, setIsInputFocused] = useState(false);
+
   return (
     <>
-      <View style={[styles.questionRow, isWebDesktop && styles.questionRowDesktop]}>
-        <Ionicons
-          name="alert-circle-outline"
-          size={18}
-          color={COLORS.orange}
-        />
+      <StepIntro
+        icon="nutrition-outline"
+        title="Quels ingrédients veux-tu éviter ?"
+        subtitle="Recherche un ingrédient et ajoute-le à ta liste. Tu peux aussi passer cette étape."
+        isWebDesktop={isWebDesktop}
+      />
 
-        <Text style={[styles.question, isWebDesktop && styles.questionDesktop]}>
-          Y a-t-il des ingrédients que tu veux éviter ?
-        </Text>
-      </View>
-
-      <Text style={[styles.helper, isWebDesktop && styles.helperDesktop]}>
-        Tape quelques lettres et sélectionne.
-        Plusieurs possibles.
-      </Text>
-
-      <View style={[styles.inputWrap, isWebDesktop && { maxWidth: 420, alignSelf: "center", width: "100%" }]}>
-        <TextInput
-          key={`veg-step-${step}`}
-          value={vegQuery}
-          onChangeText={setVegQuery}
-          placeholder="ex: bro..."
-          style={styles.input}
-          returnKeyType="next"
-          blurOnSubmit={false}
-        />
-      </View>
-
-      {vegSuggestions.length > 0 && (
-        <View style={styles.suggestions}>
-          {vegSuggestions.map((v) => (
+      <View style={[ingredientStyles.content, isWebDesktop && ingredientStyles.contentDesktop]}>
+        <View style={[styles.inputWrap, ingredientStyles.searchField, isInputFocused && styles.inputWrapFocused]}>
+          <Ionicons name="search-outline" size={20} color={COLORS.muted} />
+          <TextInput
+            value={vegQuery}
+            onChangeText={setVegQuery}
+            onFocus={() => setIsInputFocused(true)}
+            onBlur={() => setIsInputFocused(false)}
+            accessibilityLabel="Rechercher un ingrédient à éviter"
+            placeholder="Ex. : brocoli, oignon, champignon…"
+            placeholderTextColor={COLORS.muted}
+            style={[styles.input, ingredientStyles.searchInput]}
+            autoCorrect={false}
+            returnKeyType="search"
+            submitBehavior="submit"
+          />
+          {vegQuery.length > 0 && (
             <Pressable
-              key={v}
-              onPress={() => addVeg(v)}
-              style={
-                styles.suggestionItem
-              }
+              onPress={() => setVegQuery("")}
+              accessibilityRole="button"
+              accessibilityLabel="Effacer la recherche"
+              style={ingredientStyles.clearButton}
             >
-              <Text
-                style={
-                  styles.suggestionText
-                }
-              >
-                {v}
-              </Text>
-
-              <Ionicons
-                name="add"
-                size={18}
-                color={COLORS.orange}
-              />
+              <Ionicons name="close-circle" size={20} color={COLORS.muted} />
             </Pressable>
-          ))}
+          )}
         </View>
-      )}
 
-      {avoidVeg.length > 0 && (
-        <View style={styles.selectedWrap}>
-          {avoidVeg.map((v, idx) => (
-            <Pressable
-              key={`${v}-${idx}`}
-              onPress={() =>
-                setAvoidVeg((prev) =>
-                  removeAt(prev, idx)
-                )
-              }
-              style={styles.selectedChip}
-            >
-              <Text
-                style={
-                  styles.selectedChipText
-                }
-              >
-                {v}
-              </Text>
+        {isLoading ? (
+          <View style={ingredientStyles.searchState} accessibilityLiveRegion="polite">
+            <ActivityIndicator size="small" color={COLORS.orange} />
+            <Text style={ingredientStyles.hint}>Recherche en cours…</Text>
+          </View>
+        ) : vegSuggestions.length > 0 ? (
+          <View style={ingredientStyles.results}>
+            <Text style={ingredientStyles.resultsTitle}>Suggestions</Text>
+            <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+              {vegSuggestions.map((ingredient) => (
+                <Pressable
+                  key={ingredient}
+                  onPress={() => addVeg(ingredient)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Éviter ${ingredient}`}
+                  style={({ pressed }) => [ingredientStyles.resultRow, pressed && ingredientStyles.pressed]}
+                >
+                  <Text style={ingredientStyles.resultText}>{ingredient}</Text>
+                  <Ionicons name="add-circle-outline" size={22} color={COLORS.orange} />
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : (
+          <Text style={ingredientStyles.searchHint} accessibilityLiveRegion="polite">
+            {vegQuery.trim().length >= 3
+              ? "Aucun nouvel ingrédient trouvé. Essaie un autre nom."
+              : "Saisis au moins 3 lettres pour afficher les suggestions."}
+          </Text>
+        )}
 
-              <Ionicons
-                name="close"
-                size={14}
-                color={COLORS.orange}
-              />
-            </Pressable>
-          ))}
+        <View style={ingredientStyles.selection}>
+          <Text style={ingredientStyles.selectionTitle}>
+            Ingrédients à éviter ({avoidVeg.length})
+          </Text>
+          {avoidVeg.length > 0 ? (
+            <View style={ingredientStyles.selectedWrap}>
+              {avoidVeg.map((ingredient, idx) => (
+                <Pressable
+                  key={ingredient}
+                  onPress={() => setAvoidVeg((prev) => removeAt(prev, idx))}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Retirer ${ingredient} des ingrédients à éviter`}
+                  style={({ pressed }) => [ingredientStyles.selectedChip, pressed && ingredientStyles.pressed]}
+                >
+                  <Text style={ingredientStyles.selectedChipText}>{ingredient}</Text>
+                  <Ionicons name="close-circle" size={20} color={COLORS.orange} />
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <Text style={ingredientStyles.hint}>
+              Aucun ingrédient ajouté. Tu peux passer cette étape.
+            </Text>
+          )}
         </View>
-      )}
+      </View>
     </>
   );
 }
+
+const ingredientStyles = StyleSheet.create({
+  content: { width: "100%", marginTop: 28 },
+  contentDesktop: { maxWidth: 600, alignSelf: "center" },
+  searchField: { paddingLeft: 14, paddingRight: 4, minHeight: 52 },
+  searchInput: { minWidth: 0, height: "100%" },
+  clearButton: { padding: 10 },
+  hint: { color: COLORS.sub, fontSize: 13, lineHeight: 20 },
+  searchHint: { color: COLORS.sub, fontSize: 13, lineHeight: 20, marginTop: 10 },
+  searchState: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 },
+  results: {
+    marginTop: 12,
+    maxHeight: 280,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+    overflow: "hidden",
+  },
+  resultsTitle: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.sub,
+    backgroundColor: "#F8FAFC",
+  },
+  resultRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    minHeight: 52,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  resultText: { flex: 1, fontSize: 14, lineHeight: 20, color: COLORS.text },
+  pressed: { backgroundColor: COLORS.orangeSoft },
+  selection: { marginTop: 24, gap: 12 },
+  selectionTitle: { color: COLORS.text, fontWeight: "700", fontSize: 14 },
+  selectedWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  selectedChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    maxWidth: "100%",
+    minHeight: 48,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    backgroundColor: "#FFF7ED",
+  },
+  selectedChipText: { flexShrink: 1, color: "#9A3412", fontSize: 14, fontWeight: "600", lineHeight: 20 },
+});

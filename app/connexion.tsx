@@ -238,7 +238,7 @@ export default function ConnexionScreen() {
         </View>
 
         <TouchableOpacity
-  onPress={() => router.push("/mot-de-passe-oublie" as any)}
+  onPress={() => router.push("/mot-de-passe")}
 >
   <Text style={styles.forgotPassword}>
     Mot de passe oublié ?

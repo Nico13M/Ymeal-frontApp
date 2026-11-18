@@ -1,83 +1,94 @@
-import React from "react";
-
-import {
-  Image,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-
+import { COLORS } from "@/constants/profileConfig";
 import { Ionicons } from "@expo/vector-icons";
-
+import React from "react";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 type Props = {
-  isSavingConfig: boolean;
-
-  next: () => void;
-
-  styles: any;
   isWebDesktop?: boolean;
 };
 
-export default function ConfirmationStep({
-  isSavingConfig,
-  next,
-  styles,
-  isWebDesktop,
-}: Props) {
+export default function ConfirmationStep({ isWebDesktop }: Props) {
   return (
-    <View style={[styles.welcomeContainer, isWebDesktop && styles.welcomeContainerDesktop]}>
-      <View style={[styles.welcomeHero, isWebDesktop && styles.welcomeHeroDesktop]}>
+    <View style={styles.container}>
+      <View style={[styles.illustration, isWebDesktop && styles.illustrationDesktop]}>
+        <View style={styles.halo} />
         <Image
           source={require("@/assets/images/logo_ymeal.png")}
-          style={[styles.finalLogo, isWebDesktop && { width: 100, height: 100, marginBottom: 24 }]}
+          style={[styles.logo, isWebDesktop && styles.logoDesktop]}
           resizeMode="contain"
+          accessibilityLabel="La mascotte Ymeal"
         />
-
-        <View style={[styles.bigIcon, isWebDesktop && { width: 64, height: 64, borderRadius: 32, marginBottom: 24 }]}>
-          <Ionicons
-            name="checkmark"
-            size={28}
-            color="#fff"
-          />
+        <View style={styles.successBadge}>
+          <Ionicons name="checkmark" size={32} color="#fff" />
         </View>
-
-        <Text style={[styles.welcomeTitle, isWebDesktop && styles.welcomeTitleDesktop]}>
-          Parfait !
-        </Text>
-
-        <Text style={[styles.welcomeText, isWebDesktop && styles.welcomeSubtitleDesktop]}>
-          Ton profil est prêt.
-          Clique sur le bouton pour entrer
-          dans l&apos;app.
-        </Text>
       </View>
 
-      <TouchableOpacity
-        onPress={next}
-        style={[
-          styles.btn,
-          styles.btnPrimary,
-          styles.btnBig,
-
-          isSavingConfig &&
-            styles.btnDisabled,
-          isWebDesktop && { maxWidth: 420, alignSelf: "center", width: "100%", marginTop: 24 },
-        ]}
-        activeOpacity={0.85}
-        disabled={isSavingConfig}
-      >
-        <Text style={styles.btnPrimaryText}>
-          {isSavingConfig
-            ? "Enregistrement..."
-            : "C'est parti !"}{" "}
-          <Ionicons
-            name="arrow-forward"
-            size={16}
-            color="#fff"
-          />
+      <View style={styles.copy}>
+        <Text accessibilityRole="header" style={[styles.title, isWebDesktop && styles.titleDesktop]}>
+          Parfait !
         </Text>
-      </TouchableOpacity>
+        <Text style={styles.subtitle}>
+          Ton profil est prêt. Découvre maintenant des recettes qui te ressemblent.
+        </Text>
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 32,
+    width: "100%",
+  },
+  illustration: {
+    width: 204,
+    height: 204,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 32,
+  },
+  illustrationDesktop: { width: 228, height: 228 },
+  halo: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    borderRadius: 120,
+    backgroundColor: "#FFF1DE",
+  },
+  logo: { width: 166, height: 180 },
+  logoDesktop: { width: 188, height: 204 },
+  successBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: 8,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 4,
+    borderColor: COLORS.card,
+    backgroundColor: COLORS.orange,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  copy: { alignItems: "center", width: "100%", maxWidth: 460 },
+  title: {
+    fontSize: 30,
+    lineHeight: 38,
+    fontWeight: "900",
+    letterSpacing: -0.5,
+    color: COLORS.text,
+    textAlign: "center",
+  },
+  titleDesktop: { fontSize: 36, lineHeight: 44 },
+  subtitle: {
+    marginTop: 12,
+    maxWidth: 310,
+    fontSize: 15,
+    lineHeight: 24,
+    color: COLORS.sub,
+    textAlign: "center",
+  },
+});

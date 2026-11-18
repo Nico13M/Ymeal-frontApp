@@ -1,3 +1,4 @@
+import StepIntro from "@/components/profil/StepIntro";
 import { COLORS } from "@/constants/profileConfig";
 import { ReferenceItem } from "@/src/services/profile";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +14,15 @@ type Props = {
   isWebDesktop?: boolean;
 };
 
+const DIET_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  flexitarien: "leaf-outline",
+  halal: "checkmark-circle-outline",
+  omnivore: "restaurant-outline",
+  "sans gluten": "nutrition-outline",
+  vegan: "flower-outline",
+  vegetarien: "leaf-outline",
+};
+
 export default function DietStep({
   diets,
   toggleDiet,
@@ -23,16 +33,12 @@ export default function DietStep({
 }: Props) {
   return (
     <>
-      <View style={[styles.questionRow, isWebDesktop && styles.questionRowDesktop]}>
-        <Ionicons name="leaf-outline" size={18} color={COLORS.orange} />
-        <Text style={[styles.question, isWebDesktop && styles.questionDesktop]}>
-          Quel est ton régime alimentaire ?
-        </Text>
-      </View>
-
-      <Text style={[styles.helper, isWebDesktop && styles.helperDesktop]}>
-        Tu peux en sélectionner plusieurs.
-      </Text>
+      <StepIntro
+        icon="leaf-outline"
+        title="Quel est ton régime alimentaire ?"
+        subtitle="Sélectionne les habitudes alimentaires qui te correspondent. Plusieurs choix possibles."
+        isWebDesktop={isWebDesktop}
+      />
 
       {isLoading ? (
         <ActivityIndicator color={COLORS.orange} style={{ marginTop: 24 }} />
@@ -40,13 +46,20 @@ export default function DietStep({
         <View style={[styles.grid, isWebDesktop && styles.gridDesktop]}>
           {availableDiets.map((d) => {
             const selected = diets.includes(d.name);
+            const normalizedName = d.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             return (
               <TouchableOpacity
                 key={d.id}
                 onPress={() => toggleDiet(d.name)}
                 activeOpacity={0.85}
-                style={[styles.tile, selected && styles.tileSelected]}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: selected }}
+                style={[styles.tile, isWebDesktop && styles.tileDesktop, selected && styles.tileSelected]}
               >
+                {selected && (
+                  <Ionicons name="checkmark-circle" size={20} color={COLORS.orange} style={styles.tileCheck} />
+                )}
+                <Ionicons name={DIET_ICONS[normalizedName] ?? "leaf-outline"} size={26} color={COLORS.orange} />
                 <Text
                   style={[
                     styles.tileText,
@@ -59,6 +72,14 @@ export default function DietStep({
             );
           })}
         </View>
+      )}
+
+      {!isLoading && (
+        <Text style={styles.selectionSummary} accessibilityLiveRegion="polite">
+          {diets.length === 0
+            ? "Choisis au moins un régime alimentaire."
+            : `${diets.length} régime${diets.length > 1 ? "s" : ""} sélectionné${diets.length > 1 ? "s" : ""}`}
+        </Text>
       )}
     </>
   );
