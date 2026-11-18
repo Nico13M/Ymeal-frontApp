@@ -2,6 +2,7 @@ import React from "react";
 
 import {
   Pressable,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -87,6 +88,8 @@ export default function LocationStep({
     {
       position: "relative",
       width: "100%",
+      zIndex: 9999,
+      elevation: 20,
     },
     isWebDesktop && styles.locationContainerDesktop,
   ]}
@@ -123,12 +126,9 @@ export default function LocationStep({
 
         {citySuggestions.length > 0 && (
           // <View style={styles.suggestions}>
-          <View
-  style={[
-    styles.suggestions,
-    isWebDesktop && styles.suggestionsDesktop,
-  ]}
->
+          // Liste affichée dans le flux (et non plus en position absolue) :
+          // elle pousse le texte en dessous au lieu de passer derrière.
+          <View style={[styles.suggestions, local.inlineList]}>
             {citySuggestions.map((city) => (
               <Pressable
                 key={city.id}
@@ -182,9 +182,10 @@ export default function LocationStep({
 
           setCityLookupError(null);
         }}
-        style={styles.skipLocationButton}
+        style={[styles.skipLocationButton, local.skip]}
       >
-        <Text style={styles.skipLocationText}>
+        <Ionicons name="eye-off-outline" size={16} color={COLORS.sub} />
+        <Text style={[styles.skipLocationText, local.skipText]}>
           Je ne souhaite pas faire connaître
           ma position
         </Text>
@@ -192,3 +193,35 @@ export default function LocationStep({
     </>
   );
 }
+const local = StyleSheet.create({
+  skip: {
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: "#FFF",
+  },
+  skipText: { color: COLORS.sub, fontSize: 13.5, fontWeight: "700", textAlign: "center", flexShrink: 1 },
+  inlineList: {
+    position: "relative",
+    top: 0,
+    left: 0,
+    right: 0,
+    transform: [],
+    width: "100%",
+    marginTop: 8,
+    marginBottom: 4,
+    zIndex: 1,
+    elevation: 0,
+    shadowColor: "#7A4800",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+  },
+});

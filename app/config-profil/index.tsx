@@ -44,10 +44,10 @@ import ProgressBar from "@/components/profil/ProgressBar";
 import StepHeader from "@/components/profil/StepHeader";
 
 import AllergiesStep from "@/components/profil/steps/AllergiesStep";
-import AvoidIngredientsStep from "@/components/profil/steps/AvoidIngredientsStep";
+import AvoidIngredientsStep, { MAX_AVOID_INGREDIENTS } from "@/components/profil/steps/AvoidIngredientsStep";
 import BudgetStep from "@/components/profil/steps/BudgetStep";
 import ConfirmationStep from "@/components/profil/steps/ConfirmationStep";
-import CuisineStep from "@/components/profil/steps/CuisineStep";
+import CuisineStep, { MAX_CUISINES } from "@/components/profil/steps/CuisineStep";
 import DietStep from "@/components/profil/steps/DietStep";
 import LocalisationStep from "@/components/profil/steps/LocalisationStep";
 import PeopleStep from "@/components/profil/steps/PeopleStep";
@@ -324,7 +324,8 @@ export default function ConfigProfilScreen() {
   const toggleCuisine = (c: string) => {
     setCuisines((prev) => {
       if (prev.includes(c)) return prev.filter((x) => x !== c);
-      if (prev.length >= 6) return prev;
+      const max = Math.min(MAX_CUISINES, refCuisines.length || MAX_CUISINES);
+      if (prev.length >= max) return prev;
       return [...prev, c];
     });
   };
@@ -336,6 +337,7 @@ export default function ConfigProfilScreen() {
   };
 
   const addVeg = (v: string) => {
+    if (avoidVeg.length >= MAX_AVOID_INGREDIENTS) return;
     setAvoidVeg((prev) => uniqAdd(prev, v));
     // Stocker l'ID dans le cache à partir des suggestions courantes
     const match = vegSuggestionsFromApi.find(
@@ -573,6 +575,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     position: "relative",
     zIndex: 9999,
+    elevation: 20,
   },
 
   inputWrapDesktopFixed: {
@@ -855,8 +858,8 @@ const styles = StyleSheet.create({
 
   btn: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 13,
+    borderRadius: 999,
     marginTop: 16,
   },
 
@@ -870,7 +873,7 @@ const styles = StyleSheet.create({
     minHeight: Platform.OS === "web" ? 120 : 100,
     paddingVertical: 18,
     paddingHorizontal: 12,
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 2,
     borderColor: "rgba(15,23,42,0.08)",
     alignItems: "center",

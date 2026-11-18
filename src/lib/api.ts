@@ -8,13 +8,49 @@ export const API_BASE_URL =
 export class ApiError extends Error {
   status: number;
   details: unknown;
+  /** Délai (secondes) avant de pouvoir réessayer, lu dans l'en-tête Retry-After (429). */
+  retryAfter: number | null;
 
-  constructor(message: string, status: number, details?: unknown) {
+  constructor(message: string, status: number, details?: unknown, retryAfter: number | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.details = details;
+    this.retryAfter = retryAfter;
   }
+}
+
+/** Messages par défaut des codes d'erreur que le front doit gérer. */
+export const FORBIDDEN_MESSAGE = "Tu n'as pas les droits pour effectuer cette action.";
+export const RECIPE_NOT_FOUND_MESSAGE = "Recette introuvable.";
+
+/** 403 = connecté, mais pas le droit (ressource d'un autre, action réservée aux admins, CSRF invalide). */
+export function isForbidden(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403;
+}
+
+/** 429 = trop de tentatives (connexion / inscription). */
+export function isTooManyAttempts(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 429;
+}
+
+/** « Trop de tentatives, réessayez dans N minutes » à partir de Retry-After (secondes). */
+export function tooManyAttemptsMessage(retryAfterSeconds: number | null | undefined): string {
+  if (!retryAfterSeconds || retryAfterSeconds <= 0) {
+    return "Trop de tentatives, réessayez dans quelques minutes.";
+  }
+  const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+  return `Trop de tentatives, réessayez dans ${minutes} minute${minutes > 1 ? "s" : ""}.`;
+}
+
+/** Retry-After peut être un nombre de secondes ou une date HTTP. */
+function parseRetryAfter(value: string | null): number | null {
+  if (!value) return null;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds);
+  const date = Date.parse(value);
+  if (!Number.isNaN(date)) return Math.max(0, Math.ceil((date - Date.now()) / 1000));
+  return null;
 }
 
 type ApiMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -136,9 +172,18 @@ export async function apiRequest<T = unknown>(
   const payload = await parseResponsePayload(response);
 
   if (!response.ok) {
-    const message =
-      getErrorMessageFromPayload(payload) ?? `Erreur API (${response.status})`;
-    throw new ApiError(message, response.status, payload);
+    const raw = getErrorMessageFromPayload(payload);
+    let message = raw ?? `Erreur API (${response.status})`;
+    let retryAfter: number | null = null;
+
+    if (response.status === 403 && (!raw || /^forbidden$/i.test(raw.trim()))) {
+      message = FORBIDDEN_MESSAGE;
+    }
+    if (response.status === 429) {
+      retryAfter = parseRetryAfter(response.headers.get("Retry-After"));
+      message = tooManyAttemptsMessage(retryAfter);
+    }
+    throw new ApiError(message, response.status, payload, retryAfter);
   }
 
   return payload as T;

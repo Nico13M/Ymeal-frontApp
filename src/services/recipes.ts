@@ -1,5 +1,6 @@
 import { ApiError, apiRequest } from "@/src/lib/api";
 import { getCsrfToken, getSession } from "./auth";
+import { applyFavoriteOverrides, setFavoriteState } from "@/src/lib/favoritesStore";
 
 const COOKIE_SESSION_TOKEN = "__cookie_session__";
 
@@ -43,10 +44,10 @@ export type RecipeTiming = {
   total_time: number;
 };
 
+/** L'e-mail de l'auteur n'est plus renvoyé par l'API : seuls id et name sont fiables. */
 export type RecipeAuthor = {
   id: number;
   name: string;
-  email: string;
 };
 
 export type RecipeNutrition = {
@@ -179,7 +180,7 @@ function buildHeaders(userId?: number): Record<string, string> {
 export async function getRecipes(): Promise<RecipeFull[]> {
   try {
     const { token, userId } = await getToken();
-    const data = await apiRequest<RecipeFull[]>("/admin/recipes/index", {
+    const data = await apiRequest<RecipeFull[]>(`/admin/recipes/index?_=${Date.now()}`, {
       method: "GET",
       token,
       credentials: "include",
@@ -199,7 +200,8 @@ export async function getRecipes(): Promise<RecipeFull[]> {
 export async function getRecipe(recipeId: number): Promise<RecipeFull> {
   try {
     const { token, userId } = await getToken();
-    const data = await apiRequest<RecipeFull>(`/admin/recipes/${recipeId}`, {
+    // _ : évite une réponse mise en cache par le navigateur (état favori périmé)
+    const data = await apiRequest<RecipeFull>(`/admin/recipes/${recipeId}?_=${Date.now()}`, {
       method: "GET",
       token,
       credentials: "include",
@@ -417,16 +419,43 @@ export async function getRecipeRatingsStats(
   }
 }
 
+/** Le backend peut renvoyer un tableau, ou un objet { data | recipes | favorites: [...] }. */
+function normalizeFavoritesPayload(payload: unknown): RecipeMinimal[] {
+  if (Array.isArray(payload)) {
+    // Certaines API renvoient [{ recipe: {...} }] plutôt que [{...}]
+    return payload
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+        const it = item as any;
+        // [{ recipe: {...} }] : la recette est imbriquée
+        if (it.recipe && typeof it.recipe === "object") return it.recipe;
+        // [{ id: <id du favori>, recipe_id: 12, ... }] : l'id utile est recipe_id
+        const recipeId = it.recipe_id ?? it.recipeId ?? (typeof it.recipe === "number" ? it.recipe : undefined);
+        if (typeof recipeId === "number") return { ...it, id: recipeId };
+        if (typeof recipeId === "string" && /^\d+$/.test(recipeId)) return { ...it, id: Number(recipeId) };
+        return it;
+      })
+      .filter((item): item is RecipeMinimal => Boolean(item) && typeof (item as any).id === "number");
+  }
+  if (payload && typeof payload === "object") {
+    const data = payload as Record<string, unknown>;
+    for (const key of ["data", "recipes", "favorites", "items"]) {
+      if (data[key] !== undefined) return normalizeFavoritesPayload(data[key]);
+    }
+  }
+  return [];
+}
+
 export async function getFavorites(): Promise<RecipeMinimal[]> {
   try {
     const { token, userId } = await getToken();
-    const data = await apiRequest<RecipeMinimal[]>("/admin/recipes/favorites", {
+    const data = await apiRequest<unknown>(`/admin/recipes/favorites?_=${Date.now()}`, {
       method: "GET",
       token,
       credentials: "include",
       headers: buildHeaders(userId),
     });
-    return data ?? [];
+    return normalizeFavoritesPayload(data);
   } catch (error) {
     console.error(
       "[RECIPES] ❌ getFavorites:",
@@ -436,16 +465,42 @@ export async function getFavorites(): Promise<RecipeMinimal[]> {
   }
 }
 
+/** Identifiants des recettes en favori (Set vide si l'appel échoue). */
+export async function getFavoriteIds(): Promise<Set<number>> {
+  try {
+    const favs = await getFavorites();
+    return applyFavoriteOverrides(new Set(favs.map((f) => f.id)));
+  } catch {
+    return applyFavoriteOverrides(new Set());
+  }
+}
+
+/**
+ * Ajoute aux favoris. Un 400 / 409 signifie « déjà en favori » côté backend :
+ * on le considère comme un succès pour garder l'interface synchronisée.
+ */
 export async function addToFavorites(recipeId: number): Promise<void> {
+  await addToFavoritesRequest(recipeId);
+  setFavoriteState(recipeId, true);
+}
+
+export async function removeFromFavorites(recipeId: number): Promise<void> {
+  await removeFromFavoritesRequest(recipeId);
+  setFavoriteState(recipeId, false);
+}
+
+async function addToFavoritesRequest(recipeId: number): Promise<void> {
   try {
     const { token, userId } = await getToken();
     await apiRequest(`/admin/recipes/${recipeId}/favorite`, {
       method: "POST",
+      body: {},
       token,
       credentials: "include",
       headers: buildHeaders(userId),
     });
   } catch (error) {
+    if (error instanceof ApiError && (error.status === 400 || error.status === 409)) return;
     console.error(
       "[RECIPES] ❌ addToFavorites:",
       error instanceof ApiError ? error.message : error,
@@ -454,7 +509,8 @@ export async function addToFavorites(recipeId: number): Promise<void> {
   }
 }
 
-export async function removeFromFavorites(recipeId: number): Promise<void> {
+/** Retire des favoris. Un 404 signifie « n'était pas en favori » : succès. */
+async function removeFromFavoritesRequest(recipeId: number): Promise<void> {
   try {
     const { token, userId } = await getToken();
     await apiRequest(`/admin/recipes/${recipeId}/favorite`, {
@@ -464,6 +520,8 @@ export async function removeFromFavorites(recipeId: number): Promise<void> {
       headers: buildHeaders(userId),
     });
   } catch (error) {
+    // 404 / 400 : « n'était pas en favori » → déjà dans l'état voulu
+    if (error instanceof ApiError && (error.status === 404 || error.status === 400)) return;
     console.error(
       "[RECIPES] ❌ removeFromFavorites:",
       error instanceof ApiError ? error.message : error,
@@ -641,4 +699,121 @@ export async function generateAiRecipe(
     console.error("[RECIPES] ❌ generateAiRecipe:", error);
     throw error;
   }
+}
+
+/* ===================== MES RECETTES (création / modification / suppression) ===================== */
+
+export type RecipeFormPayload = {
+  name: string;
+  description: string;
+  servings: number;
+  is_public: boolean;
+  /** temps de cuisson (min) */
+  duration?: number;
+  /** temps de préparation (min) */
+  time?: number;
+  prep_time?: number;
+  difficulty?: "easy" | "medium" | "hard";
+  dish_type?: string;
+  image?: string;
+  diet_ids?: number[];
+  ingredients?: Array<{ ingredient_id: number; quantity: number; unit?: string }>;
+  steps?: string[];
+};
+
+/**
+ * Le code du backend n'est pas fourni : pour la modification et la suppression
+ * on essaie les routes les plus probables (convention déjà utilisée pour
+ * l'utilisateur : /admin/user/{id}/edit). Dès qu'une route répond autre chose
+ * que 404 / 405, c'est elle qui est utilisée.
+ */
+const UPDATE_ROUTES: Array<{ method: "PATCH" | "PUT"; path: (id: number) => string }> = [
+  { method: "PATCH", path: (id) => `/admin/recipes/${id}/edit` },
+  { method: "PUT", path: (id) => `/admin/recipes/${id}` },
+  { method: "PATCH", path: (id) => `/admin/recipes/${id}` },
+];
+const DELETE_ROUTES: Array<(id: number) => string> = [
+  (id) => `/admin/recipes/${id}/delete`,
+  (id) => `/admin/recipes/${id}`,
+];
+
+function isMissingRoute(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 404 || error.status === 405);
+}
+
+async function authOptions() {
+  const { token, userId } = await getToken();
+  let csrf: string | undefined;
+  try {
+    csrf = await getCsrfToken();
+  } catch {
+    csrf = undefined;
+  }
+  return {
+    token,
+    credentials: "include" as const,
+    headers: { ...buildHeaders(userId), ...(csrf ? { "X-CSRF-TOKEN": csrf } : {}) },
+  };
+}
+
+function extractRecipe(payload: unknown): RecipeFull | null {
+  if (!payload || typeof payload !== "object") return null;
+  const data = payload as Record<string, unknown>;
+  const candidate = (data.recipe ?? data.data ?? data) as Record<string, unknown>;
+  return candidate && typeof candidate.id === "number" ? (candidate as unknown as RecipeFull) : null;
+}
+
+export async function createMyRecipe(payload: RecipeFormPayload): Promise<RecipeFull | null> {
+  const opts = await authOptions();
+  const data = await apiRequest<unknown>("/admin/recipes/create", {
+    method: "POST",
+    ...opts,
+    body: { ...payload, slug: generateSlug(payload.name) },
+  });
+  return extractRecipe(data);
+}
+
+export async function updateMyRecipe(
+  recipeId: number,
+  payload: RecipeFormPayload,
+): Promise<RecipeFull | null> {
+  const opts = await authOptions();
+  let lastError: unknown = null;
+  for (const route of UPDATE_ROUTES) {
+    try {
+      const data = await apiRequest<unknown>(route.path(recipeId), {
+        method: route.method,
+        ...opts,
+        body: payload,
+      });
+      return extractRecipe(data);
+    } catch (error) {
+      if (!isMissingRoute(error)) throw error;
+      lastError = error;
+    }
+  }
+  throw new ApiError(
+    "La modification de recette n'est pas encore disponible sur le serveur.",
+    lastError instanceof ApiError ? lastError.status : 404,
+    lastError,
+  );
+}
+
+export async function deleteMyRecipe(recipeId: number): Promise<void> {
+  const opts = await authOptions();
+  let lastError: unknown = null;
+  for (const path of DELETE_ROUTES) {
+    try {
+      await apiRequest(path(recipeId), { method: "DELETE", ...opts });
+      return;
+    } catch (error) {
+      if (!isMissingRoute(error)) throw error;
+      lastError = error;
+    }
+  }
+  throw new ApiError(
+    "La suppression de recette n'est pas encore disponible sur le serveur.",
+    lastError instanceof ApiError ? lastError.status : 404,
+    lastError,
+  );
 }
