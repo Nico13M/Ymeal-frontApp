@@ -1,16 +1,18 @@
 import { COLORS } from "@/constants/profileConfig";
 import React from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 
 type Props = {
   children: React.ReactNode;
   isWebDesktop?: boolean;
+  style?: StyleProp<ViewStyle>;
+  containerStyle?: StyleProp<ViewStyle>;
 };
 
-export default function ProfilCard({ children, isWebDesktop }: Props) {
+export default function ProfilCard({ children, isWebDesktop, style, containerStyle }: Props) {
   return (
-    <View style={[styles.cardContainer, isWebDesktop && styles.cardContainerDesktop]}>
-      <View style={[styles.card, isWebDesktop && styles.cardDesktop]}>
+    <View style={[styles.cardContainer, isWebDesktop && styles.cardContainerDesktop, containerStyle]}>
+      <View testID="profile-card" style={[styles.card, isWebDesktop && styles.cardDesktop, style]}>
         {children}
       </View>
     </View>

@@ -5,9 +5,12 @@ export const COLORS = {
   sub: "#475569",
   border: "#F1E5D5",
   orange: "#FF7A00",
+  orangeDark: "#C75E00",
   orangeSoft: "rgba(255, 122, 0, 0.12)",
   muted: "#94A3B8",
 };
+
+export const MAX_CUISINE_SELECTIONS = 6;
 
 
 
@@ -24,7 +27,6 @@ export const DIETS = [
   { key: "hypo", label: "Hypocalorique", icon: "⚖️" },
 ] as const;
 
-export const CUISINES = ["Cuisine française","Italienne","Espagnole","Grecque","Indienne","Japonaise","Chinoise","Américaine","Street food","Marocaine"];
 export const VEGETABLES = [
   "Aubergine","Avocat","Betterave","Brocoli","Carotte","Chou-fleur","Choux de Bruxelles","Concombre","Courgette",
   "Épinards","Haricots verts","Maïs","Oignon","Poireau","Poivron","Pomme de terre","Potiron","Salade","Tomate",

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { CitySuggestion } from "@/types/profil";
 
@@ -99,6 +99,8 @@ export default function useCityLookup(
   setLocation: (value: string) => void,
   step: number
 ) {
+  const selectedLocation = useRef<string | null>(null);
+
   const [
     citySuggestions,
     setCitySuggestions,
@@ -128,6 +130,8 @@ export default function useCityLookup(
     const query = location.trim();
 
     if (
+      query === "Non renseigné" ||
+      query === selectedLocation.current ||
       query.length <
       CITY_LOOKUP_MIN_CHARS
     ) {
@@ -219,11 +223,13 @@ export default function useCityLookup(
   const onSelectCity = (
     city: CitySuggestion
   ) => {
+    selectedLocation.current = city.value;
     setLocation(city.value);
 
     setCitySuggestions([]);
 
     setCityLookupError(null);
+    setIsCityLookupLoading(false);
   };
 
   return {

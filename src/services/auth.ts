@@ -265,6 +265,7 @@ export async function updateUserRequest(
   try {
     const response = await apiRequest(`/admin/user/${normalizedUserId}/edit`, {
       method: "PATCH",
+      token: session.token === COOKIE_SESSION_TOKEN ? undefined : session.token,
       credentials: "include",
       headers: {
         "X-CSRF-TOKEN": csrfToken,

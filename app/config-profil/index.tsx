@@ -1,25 +1,26 @@
-import { COLORS } from "@/constants/profileConfig";
+import { COLORS, MAX_CUISINE_SELECTIONS } from "@/constants/profileConfig";
 import { STORAGE_KEYS } from "@/constants/storage";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { router, useLocalSearchParams } from "expo-router";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getHumanErrorMessage } from "@/src/lib/api";
+import { CuisineOption, resolveCuisineOptionIds, toggleCuisinePreference } from "@/src/lib/cuisine-preferences";
 import {
   BudgetOption,
   ReferenceItem,
@@ -42,6 +43,7 @@ import { BudgetChoice, PeopleChoice } from "@/types/profil";
 import ProfilCard from "@/components/profil/ProfilCard";
 import ProgressBar from "@/components/profil/ProgressBar";
 import StepHeader from "@/components/profil/StepHeader";
+import StepBackButton from "@/components/profil/StepBackButton";
 
 import AllergiesStep from "@/components/profil/steps/AllergiesStep";
 import AvoidIngredientsStep, { MAX_AVOID_INGREDIENTS } from "@/components/profil/steps/AvoidIngredientsStep";
@@ -74,7 +76,7 @@ function removeAt(list: string[], idx: number): string[] {
 }
 
 // Convertit un tableau de ReferenceItem en tableau de noms (strings)
-function itemsToNames(items: ReferenceItem[]): string[] {
+function itemsToNames(items: readonly { name: string }[]): string[] {
   return items.map((i) => i.name);
 }
 
@@ -88,8 +90,9 @@ function namesToIds(names: string[], reference: ReferenceItem[]): number[] {
 // ─── Composant ────────────────────────────────────────────────────────────────
 export default function ConfigProfilScreen() {
   // ── Desktop detection ────────────────────────────────────
-  const { width } = Dimensions.get("window");
-  const isWebDesktop = Platform.OS === "web" && width > 900;
+  const { width } = useWindowDimensions();
+  const [isLayoutReady, setIsLayoutReady] = useState(false);
+  const isWebDesktop = Platform.OS === "web" && width > 900 && isLayoutReady;
 
   // ── Paramètres de navigation ─────────────────────────────
   const params = useLocalSearchParams<{ step?: string; editMode?: string }>();
@@ -97,7 +100,14 @@ export default function ConfigProfilScreen() {
   const editMode = params.editMode === "true";
 
   // ── State – navigation ───────────────────────────────────
-  const [step, setStep] = useState<StepIndex>(initialStep);
+  // The static web export starts at step 0 with no viewport or query string.
+  // Match that first render, then apply the actual route and desktop layout.
+  const initialRouteStep = useRef(initialStep);
+  const [step, setStep] = useState<StepIndex>(Platform.OS === "web" ? 0 : initialStep);
+  useEffect(() => {
+    if (Platform.OS === "web") setStep(initialRouteStep.current);
+    setIsLayoutReady(true);
+  }, []);
 
   // ── State – préférences utilisateur (noms/strings) ───────
   const [diets, setDiets] = useState<string[]>([]);
@@ -113,13 +123,14 @@ export default function ConfigProfilScreen() {
   // ── State – référentiels chargés depuis l'API ────────────
   const [refDiets, setRefDiets] = useState<ReferenceItem[]>([]);
   const [refAllergies, setRefAllergies] = useState<ReferenceItem[]>([]);
-  const [refCuisines, setRefCuisines] = useState<ReferenceItem[]>([]);
+  const [refCuisines, setRefCuisines] = useState<CuisineOption[]>([]);
   const [refBudgets, setRefBudgets] = useState<BudgetOption[]>([]);
   const [isLoadingRefs, setIsLoadingRefs] = useState(true);
 
   // ── State – recherche ingrédients à éviter ───────────────
   const [vegQuery, setVegQuery] = useState("");
   const [vegSuggestionsFromApi, setVegSuggestionsFromApi] = useState<ReferenceItem[]>([]);
+  const [isVegLookupLoading, setIsVegLookupLoading] = useState(false);
   const [allergyQuery, setAllergyQuery] = useState(""); // conservé pour compatibilité éventuelle
 
   // ── State – UI ───────────────────────────────────────────
@@ -142,6 +153,7 @@ export default function ConfigProfilScreen() {
 
     const loadAll = async () => {
       setIsLoadingRefs(true);
+      let availableCuisines: CuisineOption[] = [];
       try {
         // 1. Référentiels et préférences en parallèle
         const [dietsRef, allergiesRef, cuisinesRef, budgetsRef, userProfile] =
@@ -150,7 +162,7 @@ export default function ConfigProfilScreen() {
             fetchAllAllergies(),
             fetchAllCuisines(),
             fetchAllBudgets(),
-            getProfileRequest(),
+            getProfileRequest().catch(() => null),
           ]);
 
         if (cancelled) return;
@@ -159,7 +171,11 @@ export default function ConfigProfilScreen() {
         setRefDiets(dietsRef);
         setRefAllergies(allergiesRef);
         setRefCuisines(cuisinesRef);
+        availableCuisines = cuisinesRef;
         setRefBudgets(budgetsRef);
+
+        // Keep the loaded reference data even if the user's preferences could not be fetched.
+        if (!userProfile) throw new Error("Impossible de charger le profil API. Utilisation des préférences locales.");
 
         // 3. Hydrater les préférences depuis le profil API
         if (userProfile.diets.length > 0) {
@@ -168,9 +184,7 @@ export default function ConfigProfilScreen() {
         if (userProfile.allergies.length > 0) {
           setAllergies(itemsToNames(userProfile.allergies));
         }
-        if (userProfile.cuisines.length > 0) {
-          setCuisines(itemsToNames(userProfile.cuisines));
-        }
+        setCuisines(itemsToNames(userProfile.cuisines));
         if (userProfile.blacklist.length > 0) {
           setAvoidVeg(itemsToNames(userProfile.blacklist));
           // Alimenter le cache avec les ingrédients déjà enregistrés
@@ -216,7 +230,11 @@ export default function ConfigProfilScreen() {
           if (parsed?.diets?.length) setDiets(parsed.diets);
           if (parsed?.location) setLocation(parsed.location);
           if (parsed?.budget) setBudget(parsed.budget);
-          if (parsed?.cuisines?.length) setCuisines(parsed.cuisines);
+          if (Array.isArray(parsed?.cuisines)) {
+            setCuisines(parsed.cuisines.filter((name: unknown): name is string =>
+              typeof name === "string" && availableCuisines.some((item) => item.name === name)
+            ));
+          }
           if (parsed?.avoidVeg?.length) setAvoidVeg(parsed.avoidVeg);
           if (parsed?.allergies?.length) setAllergies(parsed.allergies);
           if (parsed?.people) setPeople(parsed.people);
@@ -234,38 +252,38 @@ export default function ConfigProfilScreen() {
 
   // ── Recherche d'ingrédients à éviter (debounced via API) ─
   useEffect(() => {
-    if (step !== 5) return;
     const q = vegQuery.trim();
-    if (q.length < 3) {
-      setVegSuggestionsFromApi([]);
+    setVegSuggestionsFromApi([]);
+    if (step !== 5 || q.length < 3) {
+      setIsVegLookupLoading(false);
       return;
     }
+    let cancelled = false;
+    setIsVegLookupLoading(true);
     const timer = setTimeout(async () => {
       const results = await searchIngredients(q);
+      if (cancelled) return;
       setVegSuggestionsFromApi(
         results.filter(
           (r) => !avoidVeg.some((x) => x.toLowerCase() === r.name.toLowerCase())
         )
       );
+      setIsVegLookupLoading(false);
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [vegQuery, step, avoidVeg]);
 
   // ── Dérivés ──────────────────────────────────────────────
-  const progress = useMemo(() => {
-    if (step <= 0) return 0;
-    if (step >= 8) return 1;
-    return step / TOTAL_STEPS;
-  }, [step]);
-
   const canContinue = useMemo(() => {
     if (step === 1) return diets.length > 0;
     if (step === 2) return location.trim().length >= 3;
     if (step === 3) return !!budget;
-    if (step === 4) return cuisines.length > 0;
     if (step === 7) return !!people;
     return true;
-  }, [step, diets, location, budget, cuisines, people]);
+  }, [step, diets, location, budget, people]);
 
   // Toggle allergy par nom
   const toggleAllergy = (name: string) => {
@@ -284,7 +302,8 @@ export default function ConfigProfilScreen() {
   const saveAllPreferences = async () => {
     const dietIds = namesToIds(diets, refDiets);
     const allergyIds = namesToIds(allergies, refAllergies);
-    const cuisineIds = namesToIds(cuisines, refCuisines);
+    const shouldSaveCuisines = !editMode || initialStep === 4;
+    const cuisineIds = shouldSaveCuisines ? resolveCuisineOptionIds(cuisines, refCuisines) : [];
     const blacklistIds = avoidVeg
       .map((name) => blacklistCache[name])
       .filter((id): id is number => id !== undefined);
@@ -307,27 +326,28 @@ export default function ConfigProfilScreen() {
     await Promise.all([
       dietIds.length > 0 ? saveUserDiets(dietIds) : Promise.resolve(),
       allergyIds.length > 0 ? saveUserAllergies(allergyIds) : Promise.resolve(),
-      cuisineIds.length > 0 ? saveUserCuisines(cuisineIds) : Promise.resolve(),
+      shouldSaveCuisines ? saveUserCuisines(cuisineIds, refCuisines) : Promise.resolve(),
       blacklistIds.length > 0 ? saveUserBlacklist(blacklistIds) : Promise.resolve(),
       budgetObj ? saveUserBudget(budgetObj.id) : Promise.resolve(),
       peopleCount != null ? saveUserPersonCount(peopleCount) : Promise.resolve(),
     ]);
 
     // Conserver la localisation localement (non gérée par l'API profil)
+    const storedRaw = await AsyncStorage.getItem(STORAGE_KEYS.profileConfig);
+    let stored: Record<string, unknown> = {};
+    try {
+      const parsed = storedRaw ? JSON.parse(storedRaw) : null;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) stored = parsed;
+    } catch { /* Preserve the newly saved cuisine preference if the old cache is unreadable. */ }
     await AsyncStorage.setItem(
       STORAGE_KEYS.profileConfig,
-      JSON.stringify({ location: location.trim() })
+      JSON.stringify({ ...stored, location: location.trim() })
     );
   };
 
   // ── Handlers ─────────────────────────────────────────────
   const toggleCuisine = (c: string) => {
-    setCuisines((prev) => {
-      if (prev.includes(c)) return prev.filter((x) => x !== c);
-      const max = Math.min(MAX_CUISINES, refCuisines.length || MAX_CUISINES);
-      if (prev.length >= max) return prev;
-      return [...prev, c];
-    });
+    setCuisines((prev) => toggleCuisinePreference(prev, c, Math.min(MAX_CUISINE_SELECTIONS, refCuisines.length)));
   };
 
   const toggleDiet = (key: string) => {
@@ -412,7 +432,10 @@ export default function ConfigProfilScreen() {
 
   // ── Rendu ────────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+    <SafeAreaView
+      style={styles.safe}
+      edges={["top", "left", "right", "bottom"]}
+    >
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior="padding"
@@ -420,139 +443,156 @@ export default function ConfigProfilScreen() {
       >
         <ScrollView
           contentContainerStyle={[
-            { paddingBottom: 100 },
             isWebDesktop && styles.desktopScrollContent,
+            styles.fullHeightScrollContent,
           ]}
           keyboardShouldPersistTaps="always"
           scrollEventThrottle={16}
         >
-          <View style={[styles.screen, isWebDesktop && styles.screenDesktop]}>
+          <View style={[
+            styles.screen,
+            isWebDesktop && styles.screenDesktop,
+            styles.fullHeightScreen,
+          ]}>
             <StepHeader
               step={step}
               totalSteps={TOTAL_STEPS}
               onBack={goBack}
+              isWebDesktop={isWebDesktop}
             />
 
-            <ProgressBar progress={progress} isWebDesktop={isWebDesktop} />
+            <ProgressBar step={step} totalSteps={TOTAL_STEPS} isWebDesktop={isWebDesktop} />
 
-            <ProfilCard isWebDesktop={isWebDesktop}>
+            <ProfilCard
+              isWebDesktop={isWebDesktop}
+              containerStyle={styles.fullHeightCardContainer}
+              style={[styles.fullHeightCard, isWebDesktop && styles.fullHeightCardDesktop]}
+            >
+              {isWebDesktop && step > 0 && (
+                <View style={styles.desktopCardNavigation}>
+                  <StepBackButton onPress={goBack} isWebDesktop />
+                </View>
+              )}
               {step === 0 && (
-                <WelcomeStep styles={styles} isWebDesktop={isWebDesktop} />
+                <WelcomeStep isWebDesktop={isWebDesktop} />
               )}
 
-              {step === 1 && (
-                <DietStep
-                  diets={diets}
-                  toggleDiet={toggleDiet}
-                  // Passer les options dynamiques si DietStep les accepte
-                  availableDiets={refDiets}
-                  isLoading={isLoadingRefs}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+              {step >= 1 && step <= 7 && (
+                <View style={styles.stepContent}>
+                  {step === 1 && (
+                    <DietStep
+                      diets={diets}
+                      toggleDiet={toggleDiet}
+                      // Passer les options dynamiques si DietStep les accepte
+                      availableDiets={refDiets}
+                      isLoading={isLoadingRefs}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 2 && (
-                <LocalisationStep
-                  location={location}
-                  setLocation={setLocation}
-                  citySuggestions={citySuggestions}
-                  cityLookupError={cityLookupError}
-                  isCityLookupLoading={isCityLookupLoading}
-                  onSelectCity={onSelectCity}
-                  setCitySuggestions={setCitySuggestions}
-                  setCityLookupError={setCityLookupError}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+                  {step === 2 && (
+                    <LocalisationStep
+                      location={location}
+                      setLocation={setLocation}
+                      citySuggestions={citySuggestions}
+                      cityLookupError={cityLookupError}
+                      isCityLookupLoading={isCityLookupLoading}
+                      onSelectCity={onSelectCity}
+                      setCitySuggestions={setCitySuggestions}
+                      setCityLookupError={setCityLookupError}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 3 && (
-                <BudgetStep
-                  budget={budget}
-                  setBudget={setBudget}
-                  // Passer les options de budget dynamiques si BudgetStep les accepte
-                  availableBudgets={refBudgets}
-                  isLoading={isLoadingRefs}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+                  {step === 3 && (
+                    <BudgetStep
+                      budget={budget}
+                      setBudget={setBudget}
+                      // Passer les options de budget dynamiques si BudgetStep les accepte
+                      availableBudgets={refBudgets}
+                      isLoading={isLoadingRefs}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 4 && (
-                <CuisineStep
-                  cuisines={cuisines}
-                  toggleCuisine={toggleCuisine}
-                  // Passer les options dynamiques si CuisineStep les accepte
-                  availableCuisines={refCuisines}
-                  isLoading={isLoadingRefs}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+                  {step === 4 && (
+                    <CuisineStep
+                      cuisines={cuisines}
+                      toggleCuisine={toggleCuisine}
+                      // Passer les options dynamiques si CuisineStep les accepte
+                      availableCuisines={refCuisines}
+                      isLoading={isLoadingRefs}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 5 && (
-                <AvoidIngredientsStep
-                  step={step}
-                  vegQuery={vegQuery}
-                  setVegQuery={setVegQuery}
-                  vegSuggestions={vegSuggestions}
-                  avoidVeg={avoidVeg}
-                  addVeg={addVeg}
-                  removeAt={removeAt}
-                  setAvoidVeg={setAvoidVeg}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+                  {step === 5 && (
+                    <AvoidIngredientsStep
+                      vegQuery={vegQuery}
+                      setVegQuery={setVegQuery}
+                      vegSuggestions={vegSuggestions}
+                      isLoading={isVegLookupLoading}
+                      avoidVeg={avoidVeg}
+                      addVeg={addVeg}
+                      removeAt={removeAt}
+                      setAvoidVeg={setAvoidVeg}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 6 && (
-                <AllergiesStep
-                  allergies={allergies}
-                  toggleAllergy={toggleAllergy}
-                  availableAllergies={refAllergies}
-                  isLoading={isLoadingRefs}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
-              )}
+                  {step === 6 && (
+                    <AllergiesStep
+                      allergies={allergies}
+                      toggleAllergy={toggleAllergy}
+                      availableAllergies={refAllergies}
+                      isLoading={isLoadingRefs}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
 
-              {step === 7 && (
-                <PeopleStep
-                  people={people}
-                  setPeople={setPeople}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
+                  {step === 7 && (
+                    <PeopleStep
+                      people={people}
+                      setPeople={setPeople}
+                      styles={styles}
+                      isWebDesktop={isWebDesktop}
+                    />
+                  )}
+                </View>
               )}
 
               {step === 8 && (
-                <ConfirmationStep
-                  isSavingConfig={isSavingConfig}
-                  next={next}
-                  styles={styles}
-                  isWebDesktop={isWebDesktop}
-                />
+                <ConfirmationStep isWebDesktop={isWebDesktop} />
               )}
 
-              {step <= 7 && (
-                <View style={[styles.actions, isWebDesktop && styles.actionsDesktop]}>
-                  <PrimaryButton
-                    onPress={next}
-                    loading={isSavingConfig}
-                    disabled={!canContinue || isLoadingRefs}
-                    icon="arrow-forward"
-                  >
-                    {editMode ? "Enregistrer" : step === 7 ? "Terminer" : "Continuer"}
-                  </PrimaryButton>
-                </View>
-              )}
+              <View style={styles.actions}>
+                <PrimaryButton
+                  onPress={next}
+                  loading={isSavingConfig}
+                  disabled={!canContinue || (step <= 7 && isLoadingRefs)}
+                  icon="arrow-forward"
+                  style={styles.continueButton}
+                  textStyle={styles.continueButtonText}
+                >
+                  {step === 8 ? "C'est parti !" : editMode ? "Enregistrer" : step === 7 ? "Terminer" : "Continuer"}
+                </PrimaryButton>
+                {(step === 0 || step === 8) && (
+                  <Text style={styles.welcomeFootnote}>
+                    Tu pourras modifier tes préférences à tout moment.
+                  </Text>
+                )}
+              </View>
 
               {saveError ? (
                 <Text style={styles.saveErrorText}>{saveError}</Text>
               ) : null}
 
-              {step === 4 && <View style={{ height: 30 }} />}
             </ProfilCard>
           </View>
         </ScrollView>
@@ -561,39 +601,13 @@ export default function ConfigProfilScreen() {
   );
 }
 
-// ─── Styles (inchangés) ───────────────────────────────────────────────────────
+// ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: COLORS.bg,
     paddingHorizontal: 18,
     paddingTop: 10,
-  },
-
-  locationContainerDesktop: {
-    width: 420,
-    alignSelf: "center",
-    position: "relative",
-    zIndex: 9999,
-    elevation: 20,
-  },
-
-  inputWrapDesktopFixed: {
-    width: 420,
-    alignSelf: "center",
-  },
-
-  suggestionsDesktop: {
-    width: 420,
-    left: "50%",
-    transform: [{ translateX: -210 }],
-    top: 58,
-    maxHeight: 260,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 10,
   },
 
   screenDesktop: {
@@ -617,135 +631,130 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bg,
   },
 
+  fullHeightScrollContent: {
+    flexGrow: 1,
+    paddingTop: 0,
+    paddingBottom: 16,
+  },
+  fullHeightScreen: { paddingBottom: 0 },
+  fullHeightCardContainer: { flexGrow: 1, paddingBottom: 0 },
+  fullHeightCard: { flexGrow: 1, padding: 20, borderRadius: 28 },
+  fullHeightCardDesktop: { minHeight: 760, padding: 32 },
+  desktopCardNavigation: { width: "100%", minHeight: 44 },
+  stepContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    width: "100%",
+    maxWidth: 600,
+    alignSelf: "center",
+    paddingVertical: 12,
+  },
+  stepControls: { width: "100%", marginTop: 28, gap: 12 },
+  selectionSummary: {
+    marginTop: 16,
+    color: COLORS.sub,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: "center",
+  },
   actions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 18,
+    flexDirection: "column",
+    width: "100%",
+    maxWidth: 480,
+    alignSelf: "center",
+    marginTop: 24,
     gap: 12,
   },
-
-  actionsDesktop: {
-    justifyContent: "center",
-    maxWidth: 280,
-    alignSelf: "center",
-    marginTop: 60,
+  continueButton: { height: 60, borderRadius: 20 },
+  continueButtonText: { fontSize: 17 },
+  welcomeFootnote: {
+    color: COLORS.sub,
+    textAlign: "center",
+    fontSize: 12,
+    lineHeight: 18,
+    paddingHorizontal: 8,
   },
 
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginTop: 14,
-    rowGap: 12,
+    marginTop: 28,
+    gap: 12,
   },
 
   gridDesktop: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "center",
-    gap: 20,
+    gap: 16,
     width: "100%",
-    marginTop: 24,
-  },
-
-  chipsWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 12,
-    gap: 10,
-  },
-
-  chipsWrapDesktop: {
-    justifyContent: "center",
-    maxWidth: 800,
-    alignSelf: "center",
-    gap: 12,
+    marginTop: 28,
   },
 
   inputWrap: {
     borderWidth: 1,
-    borderColor: "rgba(15,23,42,0.08)",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    height: 48,
+    borderColor: COLORS.orange,
+    borderRadius: 18,
+    paddingLeft: 14,
+    paddingRight: 14,
+    height: 60,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FAFAFA",
-    marginTop: 10,
   },
 
-  inputWrapDesktop: {
-    maxWidth: 420,
-    alignSelf: "center",
-  },
+  inputWrapFocused: { borderColor: COLORS.orange, borderWidth: 2, backgroundColor: COLORS.card },
 
   input: {
     flex: 1,
-    fontSize: 14,
+    minWidth: 0,
+    height: "100%",
+    fontSize: 16,
     color: COLORS.text,
-    marginLeft: 8,
   },
 
   label: {
-    marginTop: 14,
-    marginBottom: 8,
-    fontSize: 12,
+    marginBottom: 10,
+    fontSize: 14,
     fontWeight: "700",
     color: COLORS.sub,
   },
 
-  labelDesktop: {
+  note: {
+    flex: 1,
     fontSize: 13,
-  },
-
-  helper: {
-    marginTop: 6,
     color: COLORS.sub,
-    fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 20,
   },
 
-  helperDesktop: {
-    fontSize: 13,
+  infoPanel: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: "#FFF8F0",
   },
-
-  questionRow: {
+  skipLocationButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 4,
+    gap: 12,
+    padding: 16,
+    minHeight: 64,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderRadius: 18,
   },
-
-  question: {
-    fontSize: 17,
-    fontWeight: "900",
-    color: COLORS.text,
-    flex: 1,
-  },
-
-  questionDesktop: {
-    fontSize: 18,
-    lineHeight: 24,
-  },
-
-  note: {
-    marginTop: 10,
-    fontSize: 12,
-    color: COLORS.sub,
-    lineHeight: 16,
-  },
+  skipLocationText: { flex: 1, color: COLORS.sub, fontSize: 13, lineHeight: 20 },
 
   suggestions: {
-    position: "absolute",
-    top: 58,
-    left: 0,
-    right: 0,
+    marginTop: 8,
+    maxHeight: 240,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 12,
     backgroundColor: "#fff",
-    zIndex: 999,
-    elevation: 5,
     overflow: "hidden",
   },
 
@@ -754,13 +763,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
 
   suggestionText: {
-    fontSize: 13,
+    flex: 1,
+    marginRight: 12,
+    fontSize: 14,
     fontWeight: "600",
     color: COLORS.text,
   },
@@ -787,97 +798,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  welcomeContainer: { paddingVertical: 20 },
-  welcomeContainerDesktop: { paddingVertical: 32 },
-  welcomeHero: { alignItems: "center" },
-  welcomeHeroDesktop: { paddingVertical: 16 },
-  welcomeLogo: { width: 80, height: 80, marginBottom: 16 },
-  welcomeLogoDesktop: { width: 100, height: 100, marginBottom: 24 },
-
-  welcomeIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.orange,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-
-  welcomeIconDesktop: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    marginBottom: 24,
-  },
-
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: COLORS.text,
-    textAlign: "center",
-    marginBottom: 10,
-  },
-
-  welcomeTitleDesktop: {
-    fontSize: 28,
-    lineHeight: 36,
-    marginBottom: 14,
-  },
-
-  welcomeSubtitle: {
-    fontSize: 14,
-    color: COLORS.sub,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-
-  welcomeSubtitleDesktop: {
-    fontSize: 15,
-    lineHeight: 24,
-  },
-
-  finalLogo: { width: 80, height: 80, marginBottom: 16 },
-
-  bigIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.orange,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-
-  welcomeText: {
-    fontSize: 14,
-    color: COLORS.sub,
-    textAlign: "center",
-    lineHeight: 20,
-  },
-
-  btn: {
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    borderRadius: 999,
-    marginTop: 16,
-  },
-
-  btnPrimary: { backgroundColor: COLORS.orange },
-  btnPrimaryText: { color: "#fff", fontSize: 14, fontWeight: "700" },
-  btnBig: { paddingVertical: 16 },
-  btnDisabled: { opacity: 0.6 },
-
   tile: {
-    width: Platform.OS === "web" ? 120 : "45%",
-    minHeight: Platform.OS === "web" ? 120 : 100,
-    paddingVertical: 18,
+    width: "47.5%",
+    minHeight: 104,
+    paddingVertical: 16,
     paddingHorizontal: 12,
-    borderRadius: 22,
+    borderRadius: 20,
     borderWidth: 2,
     borderColor: "rgba(15,23,42,0.08)",
     alignItems: "center",
     justifyContent: "center",
+    gap: 10,
     backgroundColor: "#FFFFFF",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -886,13 +817,13 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
 
+  tileDesktop: { width: "31%", minHeight: 124 },
+  tileCheck: { position: "absolute", top: 8, right: 8 },
+
   tileSelected: {
     backgroundColor: "#FFF7ED",
     borderColor: COLORS.orange,
-    transform: [{ scale: 1.03 }],
   },
-
-  tileEmoji: { fontSize: 34, marginBottom: 10 },
 
   tileText: {
     fontSize: 15,
@@ -903,19 +834,20 @@ const styles = StyleSheet.create({
   },
 
   tileTextSelected: {
-    color: COLORS.orange,
+    color: "#9A3412",
     fontWeight: "700",
   },
 
   choiceRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+    minHeight: 84,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    gap: 12,
     borderWidth: 2,
     borderColor: "rgba(15,23,42,0.08)",
-    borderRadius: 12,
-    marginBottom: 10,
+    borderRadius: 20,
   },
 
   choiceRowSelected: {
@@ -923,42 +855,32 @@ const styles = StyleSheet.create({
     borderColor: COLORS.orange,
   },
 
-  choiceIcon: { fontSize: 24, marginRight: 12 },
+  choiceIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+    backgroundColor: "#FFF1DE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  choiceIcon: { fontSize: 26 },
+  choiceLabel: { flex: 1, minWidth: 0 },
 
   choiceTitle: {
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 22,
     fontWeight: "700",
     color: COLORS.text,
   },
 
   choiceSub: {
-    fontSize: 12,
+    fontSize: 14,
+    lineHeight: 20,
     color: COLORS.sub,
-    marginTop: 2,
-  },
-
-  chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "rgba(15,23,42,0.1)",
-    backgroundColor: "#FAFAFA",
-  },
-
-  chipSelected: {
-    backgroundColor: COLORS.orange,
-    borderColor: COLORS.orange,
+    marginTop: 4,
   },
 
   chipDisabled: { opacity: 0.5 },
 
-  chipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: COLORS.text,
-  },
-
-  chipTextSelected: { color: "#fff" },
   chipTextDisabled: { color: COLORS.muted },
 });

@@ -50,6 +50,8 @@ export default function PrimaryButton({
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={[
         styles.button,
         variantStyles[variant],
@@ -75,7 +77,7 @@ export default function PrimaryButton({
 
     {icon ? (
       <Ionicons
-        name="arrow-forward-outline"
+        name={icon}
         size={18}
         color={getTextColor(variant)}
         style={styles.icon}
@@ -114,13 +116,16 @@ content: {
   flexDirection: 'row',
   alignItems: 'center',
   justifyContent: 'center',
+  maxWidth: '100%',
+  gap: 8,
 },
 
 icon: {
-  marginLeft: 6,
+  flexShrink: 0,
 },
 
 text: {
+  flexShrink: 1,
   fontSize: 16,
   fontWeight: '700',
   textAlign: 'center',

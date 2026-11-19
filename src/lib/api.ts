@@ -20,37 +20,14 @@ export class ApiError extends Error {
   }
 }
 
-/** Messages par défaut des codes d'erreur que le front doit gérer. */
-export const FORBIDDEN_MESSAGE = "Tu n'as pas les droits pour effectuer cette action.";
-export const RECIPE_NOT_FOUND_MESSAGE = "Recette introuvable.";
+export class ApiNetworkError extends Error {
+  readonly originalError: unknown;
 
-/** 403 = connecté, mais pas le droit (ressource d'un autre, action réservée aux admins, CSRF invalide). */
-export function isForbidden(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 403;
-}
-
-/** 429 = trop de tentatives (connexion / inscription). */
-export function isTooManyAttempts(error: unknown): boolean {
-  return error instanceof ApiError && error.status === 429;
-}
-
-/** « Trop de tentatives, réessayez dans N minutes » à partir de Retry-After (secondes). */
-export function tooManyAttemptsMessage(retryAfterSeconds: number | null | undefined): string {
-  if (!retryAfterSeconds || retryAfterSeconds <= 0) {
-    return "Trop de tentatives, réessayez dans quelques minutes.";
+  constructor(originalError: unknown) {
+    super("Impossible de contacter le serveur. Vérifie ta connexion et réessaie dans un instant.");
+    this.name = "ApiNetworkError";
+    this.originalError = originalError;
   }
-  const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
-  return `Trop de tentatives, réessayez dans ${minutes} minute${minutes > 1 ? "s" : ""}.`;
-}
-
-/** Retry-After peut être un nombre de secondes ou une date HTTP. */
-function parseRetryAfter(value: string | null): number | null {
-  if (!value) return null;
-  const seconds = Number(value);
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds);
-  const date = Date.parse(value);
-  if (!Number.isNaN(date)) return Math.max(0, Math.ceil((date - Date.now()) / 1000));
-  return null;
 }
 
 type ApiMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -146,28 +123,36 @@ export async function apiRequest<T = unknown>(
     body,
     token,
     headers = {},
-    credentials = "omit",
+    credentials = "include",
   } = options;
 
-  const requestHeaders: Record<string, string> = {
-    Accept: "application/json",
-    ...headers,
-  };
+  const requestHeaders = new Headers({ Accept: "application/json", ...headers });
+  // User IDs and a header named "Bearer" are not authentication credentials.
+  requestHeaders.delete("X-User-Id");
+  requestHeaders.delete("Bearer");
 
   if (body !== undefined) {
-    requestHeaders["Content-Type"] = "application/json";
+    requestHeaders.set("Content-Type", "application/json");
   }
 
   if (token) {
-    requestHeaders.Authorization = `Bearer ${token}`;
+    requestHeaders.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(url, {
-    method,
-    headers: requestHeaders,
-    credentials,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const serializedBody = body !== undefined ? JSON.stringify(body) : undefined;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      credentials,
+      body: serializedBody,
+    });
+  } catch (error) {
+    // Browsers do not expose whether a failed fetch was blocked by CORS.
+    // Do not retry writes: the server may already have processed the request.
+    throw new ApiNetworkError(error);
+  }
 
   const payload = await parseResponsePayload(response);
 
