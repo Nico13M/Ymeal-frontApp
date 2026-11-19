@@ -37,13 +37,22 @@ export default function ForgotPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFF7EC",
-    justifyContent: "center",
-    padding: 24,
+  container: { flex: 1, backgroundColor: palette.surfaceMuted },
+  content: { flexGrow: 1, justifyContent: "center", padding: 24 },
+  back: {
+    position: "absolute",
+    top: Platform.OS === "web" ? 24 : 56,
+    left: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: "#FFF",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    ...shadow.soft,
   },
-
+  backText: { fontWeight: "700", color: palette.ink },
   card: {
     width: "100%",
     maxWidth: 480,
@@ -78,11 +87,14 @@ const styles = StyleSheet.create({
   },
 
   button: {
+    flexDirection: "row",
+    gap: 8,
     backgroundColor: "#FF7A00",
-    height: 46,
-    borderRadius: 10,
+    height: 50,
+    borderRadius: 999,
     justifyContent: "center",
     alignItems: "center",
+    marginTop: 18,
   },
 
   buttonText: {

@@ -46,10 +46,10 @@ import StepHeader from "@/components/profil/StepHeader";
 import StepBackButton from "@/components/profil/StepBackButton";
 
 import AllergiesStep from "@/components/profil/steps/AllergiesStep";
-import AvoidIngredientsStep from "@/components/profil/steps/AvoidIngredientsStep";
+import AvoidIngredientsStep, { MAX_AVOID_INGREDIENTS } from "@/components/profil/steps/AvoidIngredientsStep";
 import BudgetStep from "@/components/profil/steps/BudgetStep";
 import ConfirmationStep from "@/components/profil/steps/ConfirmationStep";
-import CuisineStep from "@/components/profil/steps/CuisineStep";
+import CuisineStep, { MAX_CUISINES } from "@/components/profil/steps/CuisineStep";
 import DietStep from "@/components/profil/steps/DietStep";
 import LocalisationStep from "@/components/profil/steps/LocalisationStep";
 import PeopleStep from "@/components/profil/steps/PeopleStep";
@@ -357,6 +357,7 @@ export default function ConfigProfilScreen() {
   };
 
   const addVeg = (v: string) => {
+    if (avoidVeg.length >= MAX_AVOID_INGREDIENTS) return;
     setAvoidVeg((prev) => uniqAdd(prev, v));
     // Stocker l'ID dans le cache à partir des suggestions courantes
     const match = vegSuggestionsFromApi.find(

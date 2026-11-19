@@ -5,6 +5,12 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+/** Même limite que dans la page Profil. */
+export const MAX_AVOID_INGREDIENTS = 10;
+
+/** Idées rapides : un tap lance la recherche dans la base. */
+const QUICK_IDEAS = ["Champignon", "Poivron", "Oignon", "Brocoli", "Coriandre", "Olive", "Aubergine", "Chou-fleur"];
+
 type Props = {
   vegQuery: string;
   setVegQuery: (value: string) => void;
@@ -30,6 +36,14 @@ export default function AvoidIngredientsStep({
   styles,
   isWebDesktop,
 }: Props) {
+  const full = avoidVeg.length >= MAX_AVOID_INGREDIENTS;
+  const typing = vegQuery.trim().length > 0;
+  const tooShort = typing && vegQuery.trim().length < 3;
+  const noResult = vegQuery.trim().length >= 3 && vegSuggestions.length === 0;
+  const ideas = QUICK_IDEAS.filter(
+    (idea) => !avoidVeg.some((v) => v.toLowerCase().startsWith(idea.toLowerCase().slice(0, 5))),
+  ).slice(0, 6);
+
   return (
     <>
       <StepIntro

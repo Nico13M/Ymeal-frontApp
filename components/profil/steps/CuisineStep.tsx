@@ -5,6 +5,8 @@ import { CuisineOption } from "@/src/lib/cuisine-preferences";
 import React from "react";
 import { View } from "react-native";
 
+export const MAX_CUISINES = 6;
+
 type Props = {
   cuisines: string[];
   toggleCuisine: (name: string) => void;

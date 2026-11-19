@@ -291,3 +291,49 @@ export async function updateUserRequest(
     throw new Error(errorMessage);
   }
 }
+
+/* ===================== MOT DE PASSE OUBLIÉ ===================== */
+
+/**
+ * Demande d'e-mail de réinitialisation.
+ * Le backend fourni n'expose pas de route connue : on essaie les routes
+ * habituelles (dont celle de SymfonyCasts ResetPasswordBundle). Si aucune
+ * n'existe, une erreur explicite est levée pour l'afficher à l'utilisateur.
+ */
+const RESET_ROUTES = [
+  "/admin/auth/forgot-password",
+  "/admin/auth/reset-password/request",
+  "/admin/reset-password",
+  "/reset-password",
+];
+
+export class PasswordResetUnavailableError extends Error {
+  constructor() {
+    super("La réinitialisation par e-mail n'est pas encore disponible.");
+    this.name = "PasswordResetUnavailableError";
+  }
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  let csrf: string | undefined;
+  try {
+    csrf = await getCsrfToken();
+  } catch {
+    csrf = undefined;
+  }
+  for (const path of RESET_ROUTES) {
+    try {
+      await apiRequest(path, {
+        method: "POST",
+        credentials: "include",
+        headers: csrf ? { "X-CSRF-TOKEN": csrf } : {},
+        body: { email: email.trim() },
+      });
+      return;
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 404 || error.status === 405)) continue;
+      throw error;
+    }
+  }
+  throw new PasswordResetUnavailableError();
+}

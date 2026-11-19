@@ -1,24 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
+import { RECIPE_IMAGE_FALLBACK, translateDifficulty } from '@/constants/recipePresentation';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Image,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useWindowDimensions,
-    View,
-    type ViewStyle
+  ActivityIndicator,
+  Image,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+  type ViewStyle
 } from 'react-native';
 
 import useRequireAuth from '../../src/hooks/useRequireAuth';
-import { ApiError, apiRequest } from '../../src/lib/api';
+import { ApiError, apiRequest, FORBIDDEN_MESSAGE, RECIPE_NOT_FOUND_MESSAGE } from '../../src/lib/api';
 import { getSession } from '../../src/services/auth';
-import { getRecipe, type RecipeFull } from '../../src/services/recipes';
+import { getFavoriteOverride } from '../../src/lib/favoritesStore';
+import { addToFavorites, getFavoriteIds, getRecipe, removeFromFavorites, type RecipeFull } from '../../src/services/recipes';
+import { estimateIngredientCost, formatEuro, getRecipePrice } from '../../src/lib/recipePrice';
 
 interface RatingPayload {
   rating: number;
@@ -30,10 +34,22 @@ interface RatingResponse {
   rating: number;
   comment?: string | null;
   created_at: string;
+  /** L'auteur d'une note est identifié par son pseudo (plus par son e-mail) */
   user?: {
     id: number;
-    name: string;
+    pseudo?: string | null;
+    name?: string | null;
   };
+}
+
+/** Nom affiché pour l'auteur d'une note : pseudo, sinon nom, sinon « Anonyme ». */
+function ratingAuthorName(rating: RatingResponse): string {
+  const r = rating as RatingResponse & { pseudo?: unknown; author?: { pseudo?: unknown; name?: unknown } };
+  const candidates = [rating.user?.pseudo, r.pseudo, r.author?.pseudo, rating.user?.name, r.author?.name];
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim() && !c.includes('@')) return c.trim();
+  }
+  return 'Anonyme';
 }
 
 type RatingsListApiResponse = {
@@ -77,6 +93,8 @@ export default function RecipeDetailScreen() {
   const [randomTip, setRandomTip] = useState(RANDOM_TIPS[0]);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isLoadingFavorite, setIsLoadingFavorite] = useState(false);
+  // Nombre de personnes choisi : les quantités, le prix et les valeurs nutritionnelles s'adaptent
+  const [servingsCount, setServingsCount] = useState<number | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   // État pour la notification
@@ -111,16 +129,26 @@ export default function RecipeDetailScreen() {
       setError(null);
 
       try {
-        const data = await getRecipe(Number(id));
+        const [data, favIds] = await Promise.all([getRecipe(Number(id)), getFavoriteIds()]);
         setRecipe(data);
-        setIsFavorite(data.is_favorited);
-
+        setServingsCount(Math.max(1, Number(data.servings) || 1));
+        // is_favorited peut être absent selon le backend : on croise avec la liste des favoris
+        // Priorité au dernier changement fait dans l'app (ex. ♥ d'une carte de la liste)
+        const override = getFavoriteOverride(data.id);
+        setIsFavorite(override ?? (Boolean(data.is_favorited) || favIds.has(data.id)));
+        
         // Charger mon rating
         await loadMyRating(Number(id));
         // Charger tous les ratings
         await loadAllRatings(Number(id));
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Erreur');
+        // Recette privée d'un autre utilisateur : le serveur répond 403 ou 404.
+        // Même message neutre dans les deux cas.
+        if (e instanceof ApiError && (e.status === 403 || e.status === 404)) {
+          setError(RECIPE_NOT_FOUND_MESSAGE);
+        } else {
+          setError(e instanceof Error ? e.message : 'Erreur');
+        }
       } finally {
         setLoading(false);
       }
@@ -306,7 +334,7 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
     if (error instanceof ApiError) {
       const msg = error.message.replace(/<[^>]*>/g, ' ').trim();
       if (error.status === 401) return 'Connexion requise';
-      if (error.status === 403) return 'Accès refusé';
+      if (error.status === 403) return FORBIDDEN_MESSAGE;
       if (error.status === 500) return 'Erreur serveur';
       return msg;
     }
@@ -314,63 +342,33 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
   };
 
   const toggleFavorite = async () => {
-    if (!recipe) return;
+    if (!recipe || isLoadingFavorite) return;
 
     setIsLoadingFavorite(true);
+    const wasFavorite = isFavorite;
     try {
-      const session = await getSession();
-      const COOKIE_SESSION_TOKEN = "__cookie_session__";
-      const isCookie = session?.token === COOKIE_SESSION_TOKEN;
-      const token = isCookie ? undefined : session?.token;
-
-      if (isFavorite) {
-        // Supprimer des favoris
-        const response = await apiRequest(`/admin/recipes/${recipe.id}/favorite`, {
-          method: 'DELETE',
-          token,
-          credentials: 'include'
-        });
-        setIsFavorite(false);
-        // Décrémenter le compteur de favoris
-        setRecipe({
-          ...recipe,
-          engagement: {
-            ...recipe.engagement,
-            favorites_count: Math.max(0, (recipe.engagement?.favorites_count ?? 0) - 1)
-          }
-        });
+      if (wasFavorite) {
+        await removeFromFavorites(recipe.id);
         showNotification('Recette supprimée des favoris', 'success');
       } else {
-        // Ajouter aux favoris
-        const response = await apiRequest(`/admin/recipes/${recipe.id}/favorite`, {
-          method: 'POST',
-          body: {},
-          token,
-          credentials: 'include'
-        });
-        setIsFavorite(true);
-        // Incrémenter le compteur de favoris
-        setRecipe({
-          ...recipe,
-          engagement: {
-            ...recipe.engagement,
-            favorites_count: (recipe.engagement?.favorites_count ?? 0) + 1
-          }
-        });
+        await addToFavorites(recipe.id);
         showNotification('Recette sauvegardée dans les favoris', 'success');
       }
+      setIsFavorite(!wasFavorite);
+      setRecipe({
+        ...recipe,
+        engagement: {
+          ...recipe.engagement,
+          favorites_count: Math.max(0, (recipe.engagement?.favorites_count ?? 0) + (wasFavorite ? -1 : 1)),
+        },
+      });
     } catch (err) {
-      if (err instanceof ApiError && err.status === 400) {
-        // Déjà en favoris
-        setIsFavorite(true);
-        showNotification('Déjà dans vos favoris', 'info');
-      } else {
-        showNotification(getErrorMessage(err), 'error');
-      }
+      showNotification(getErrorMessage(err), 'error');
     } finally {
       setIsLoadingFavorite(false);
     }
   };
+
 
   const submitRating = async () => {
     if (!recipe || userRating === 0) return;
@@ -435,7 +433,7 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
 
         <TouchableOpacity
           style={styles.primaryBtn}
-          onPress={() => router.back()}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/recipes'))}
         >
           <Text style={styles.primaryBtnText}>Retour</Text>
         </TouchableOpacity>
@@ -443,42 +441,45 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
     );
   }
   const isSmallGrid = width < 330;
+  const price = getRecipePrice(recipe);
+
+  // ── Adaptation au nombre de personnes ──
+  const baseServings = Math.max(1, Number(recipe.servings) || 1);
+  const people = servingsCount ?? baseServings;
+  const factor = people / baseServings;
+  const formatQty = (qty: number, unit: string): string => {
+    const value = (Number(qty) || 0) * factor;
+    if (value === 0) return '0';
+    const u = unit.toLowerCase();
+    const countable = !u || ['pièce', 'piece', 'pc', 'unité', 'unite', 'gousse', 'tranche', 'boîte', 'boite', 'sachet', 'pincée', 'pincee', 'c.', 'cuill', 'cas', 'cac'].some((k) => u.includes(k));
+    let rounded: number;
+    if (countable) rounded = Math.max(0.5, Math.round(value * 2) / 2); // demi-unités
+    else if (value >= 100) rounded = Math.round(value / 5) * 5;
+    else if (value >= 10) rounded = Math.round(value);
+    else rounded = Math.round(value * 10) / 10;
+    return String(rounded).replace('.', ',');
+  };
+  const scaledTotal = price ? price.perServing * people : 0;
+  const titleSize = width < 380 ? 23 : width < 600 ? 26 : 30;
+  const topOffset = Platform.OS === 'web' ? 20 : Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 55;
 
   return (
     <View style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
 
       {/* IMAGE HEADER */}
-      <View style={styles.imageContainer}>
+      <View style={[styles.imageContainer, { paddingTop: topOffset + 60 }]}>
         <Image
-          source={{ uri: recipe.image || 'https://via.placeholder.com/300' }}
+          source={{ uri: recipe.image || RECIPE_IMAGE_FALLBACK }}
           style={styles.image}
         />
 
         <View style={styles.overlay} />
 
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={20} color="#111" />
-          <Text style={styles.backText}>Retour</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.favoriteBtn}
-          onPress={toggleFavorite}
-          disabled={isLoadingFavorite}
-        >
-          <Ionicons
-            name={isFavorite ? "heart" : "heart-outline"}
-            size={28}
-            color={isFavorite ? "#FF1744" : "#fff"}
-          />
-        </TouchableOpacity>
-
         <View style={styles.headerInfo}>
-          <Text style={styles.title}>{recipe.name}</Text>
+          <Text style={[styles.title, { fontSize: titleSize, lineHeight: titleSize * 1.18 }]} numberOfLines={3}>
+            {recipe.name}
+          </Text>
 
           <View style={styles.badgesRow}>
             <View style={styles.badge}>
@@ -490,15 +491,48 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
 
             <View style={styles.badge}>
               <Ionicons name="flame-outline" size={14} color="#fff" />
-              <Text style={styles.badgeText}>{recipe.difficulty}</Text>
+              <Text style={styles.badgeText}>{translateDifficulty(recipe.difficulty)}</Text>
             </View>
 
             <View style={styles.badge}>
               <Ionicons name="person-outline" size={14} color="#fff" />
-              <Text style={styles.badgeText}>{recipe.servings}</Text>
+              <Text style={styles.badgeText}>{people} pers.</Text>
             </View>
+
+            {price && (
+              <View style={styles.badge}>
+                <Ionicons name="wallet-outline" size={14} color="#fff" />
+                <Text style={styles.badgeText}>
+                  {price.estimated ? '≈ ' : ''}{formatEuro(price.perServing)} / pers.
+                </Text>
+              </View>
+            )}
           </View>
         </View>
+        {/* Boutons rendus en dernier : ils restent cliquables au-dessus du titre */}
+        <TouchableOpacity
+          style={[styles.backBtn, { top: topOffset }]}
+          accessibilityLabel="Retour"
+          hitSlop={8}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/recipes'))}
+        >
+          <Ionicons name="arrow-back" size={20} color="#111" />
+          <Text style={styles.backText}>Retour</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.favoriteBtn, { top: topOffset }]}
+          accessibilityLabel={isFavorite ? "Retirer des favoris" : "Ajouter aux favoris"}
+          onPress={toggleFavorite}
+          disabled={isLoadingFavorite}
+        >
+          <Ionicons
+            name={isFavorite ? "heart" : "heart-outline"}
+            size={28}
+            color={isFavorite ? "#FF1744" : "#fff"}
+          />
+        </TouchableOpacity>
+
       </View>
 
       {/* CONTENT */}
@@ -510,6 +544,26 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
         {/* INFOS GRID */}
         <View style={[styles.section, sectionStyle]}>
           <Text style={styles.sectionTitle}>Informations</Text>
+
+          {price && (
+            <View style={styles.priceCard}>
+              <View style={styles.priceIcon}>
+                <Ionicons name="wallet" size={22} color="#FF7A00" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.priceLabel}>
+                  Prix moyen{price.estimated ? ' estimé' : ''}
+                </Text>
+                <Text style={styles.priceValue}>
+                  {formatEuro(price.perServing)}
+                  <Text style={styles.priceUnit}> / personne</Text>
+                </Text>
+                <Text style={styles.priceSub}>
+                  soit {formatEuro(scaledTotal)} pour {people} personne{people > 1 ? 's' : ''}
+                </Text>
+              </View>
+            </View>
+          )}
 
             <View style={[styles.grid, isSmallGrid && styles.gridSingle]}>
 
@@ -539,7 +593,7 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
             ]}>
               <Ionicons name="person-outline" size={22} color="#FF9F1C" />
               <Text style={styles.cardTitle}>Portions</Text>
-              <Text style={styles.cardValue}>{recipe.servings}</Text>
+              <Text style={styles.cardValue}>{people}</Text>
             </View>
 
             <View style={[
@@ -603,32 +657,58 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
 
         {/* INGREDIENTS */}
         <View style={[styles.section, sectionStyle]}>
-          <Text style={styles.sectionTitle}>Ingrédients</Text>
+          <View style={styles.ingHeader}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Ingrédients</Text>
+            <View style={styles.servingsStepper}>
+              <TouchableOpacity
+                onPress={() => setServingsCount(Math.max(1, people - 1))}
+                disabled={people <= 1}
+                style={[styles.stepperBtn, people <= 1 && { opacity: 0.35 }]}
+                accessibilityLabel="Une personne de moins"
+                hitSlop={6}
+              >
+                <Ionicons name="remove" size={18} color="#FF7A00" />
+              </TouchableOpacity>
+              <View style={{ alignItems: 'center', minWidth: 64 }}>
+                <Text style={styles.stepperValue}>{people}</Text>
+                <Text style={styles.stepperLabel}>personne{people > 1 ? 's' : ''}</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setServingsCount(Math.min(30, people + 1))}
+                disabled={people >= 30}
+                style={[styles.stepperBtn, people >= 30 && { opacity: 0.35 }]}
+                accessibilityLabel="Une personne de plus"
+                hitSlop={6}
+              >
+                <Ionicons name="add" size={18} color="#FF7A00" />
+              </TouchableOpacity>
+            </View>
+          </View>
+          {people !== baseServings && (
+            <TouchableOpacity onPress={() => setServingsCount(baseServings)} style={styles.resetServings}>
+              <Ionicons name="refresh" size={13} color="#64748B" />
+              <Text style={styles.resetServingsText}>
+                Quantités adaptées · recette d'origine pour {baseServings}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.ingredientsContainer}>
             {recipe.nutrition?.ingredients?.map((ing, i) => (
               <View key={i} style={styles.ingredientCard}>
                 <Text style={styles.ingredientName}>{ing.name}</Text>
-                <Text style={styles.ingredientQty}>
-                  {ing.quantity} {formatIngredientUnit(ing.unit)}
-                </Text>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.ingredientQty}>
+                    {formatQty(ing.quantity, formatIngredientUnit(ing.unit))} {formatIngredientUnit(ing.unit)}
+                  </Text>
+                  {price?.estimated && estimateIngredientCost(ing) > 0 && (
+                    <Text style={styles.ingredientCost}>≈ {formatEuro(estimateIngredientCost(ing) * factor)}</Text>
+                  )}
+                </View>
               </View>
             ))}
           </View>
         </View>
-
-        {/* VALEURS NUTRITIONNELLES */}
-        {recipe.nutrition?.totals && (
-          <View style={[styles.section, sectionStyle]}>
-            <Text style={styles.sectionTitle}>Valeurs nutritionnelles</Text>
-            <View style={styles.macroGrid}>
-              <MacroCard label="Calories"  value={recipe.nutrition.totals.energy_kcal}     unit="kcal" color="#FF9F1C" />
-              <MacroCard label="Protéines" value={recipe.nutrition.totals.proteins_g}      unit="g"    color="#3B82F6" />
-              <MacroCard label="Glucides"  value={recipe.nutrition.totals.carbohydrates_g} unit="g"    color="#22C55E" />
-              <MacroCard label="Lipides"   value={recipe.nutrition.totals.fat_g}           unit="g"    color="#EF4444" />
-            </View>
-          </View>
-        )}
 
         {/* STEPS */}
         <View style={[styles.section, sectionStyle]}>
@@ -675,6 +755,20 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
             </Text>
           )}
         </View>
+
+        {/* VALEURS NUTRITIONNELLES */}
+        {recipe.nutrition?.totals && (
+          <View style={[styles.section, sectionStyle]}>
+            <Text style={styles.sectionTitle}>Valeurs nutritionnelles</Text>
+            <Text style={styles.nutriSub}>Pour {people} personne{people > 1 ? 's' : ''}</Text>
+            <View style={styles.macroGrid}>
+              <MacroCard label="Calories"  value={Math.round((Number(recipe.nutrition.totals.energy_kcal) || 0) * factor)}     unit="kcal" color="#FF9F1C" />
+              <MacroCard label="Protéines" value={Math.round((Number(recipe.nutrition.totals.proteins_g) || 0) * factor)}      unit="g"    color="#3B82F6" />
+              <MacroCard label="Glucides"  value={Math.round((Number(recipe.nutrition.totals.carbohydrates_g) || 0) * factor)} unit="g"    color="#22C55E" />
+              <MacroCard label="Lipides"   value={Math.round((Number(recipe.nutrition.totals.fat_g) || 0) * factor)}           unit="g"    color="#EF4444" />
+            </View>
+          </View>
+        )}
 
         {/* RATING */}
         <View style={[styles.section, sectionStyle]}>
@@ -751,7 +845,7 @@ const extractMyRating = (response: MyRatingApiResponse): RatingResponse | null =
                   <View style={{ marginBottom: 12 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Text style={styles.commentAuthor}>{rating.user?.name || 'Anonyme'}</Text>
+                        <Text style={styles.commentAuthor}>{ratingAuthorName(rating)}</Text>
                         {isMe && (
                           <View style={styles.youBadge}>
                             <Text style={styles.youBadgeText}>Vous</Text>
@@ -848,7 +942,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF9F1C',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 12
+    borderRadius: 999
   },
 
   primaryBtnText: {
@@ -857,14 +951,61 @@ const styles = StyleSheet.create({
   },
 
   imageContainer: {
-    height: 320,
-    position: 'relative'
+    minHeight: 300,
+    position: 'relative',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 20,
+    paddingBottom: 44
   },
 
   image: {
+    ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%'
   },
+
+  ingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 12,
+    flexWrap: 'wrap'
+  },
+
+  servingsStepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#F1E5D5',
+    padding: 4
+  },
+
+  stepperBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FFF3E6',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+
+  stepperValue: { fontSize: 17, fontWeight: '800', color: '#1A1A2E', lineHeight: 19 },
+  stepperLabel: { fontSize: 11, fontWeight: '600', color: '#64748B' },
+
+  resetServings: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    marginBottom: 10
+  },
+
+  resetServingsText: { fontSize: 12.5, color: '#64748B', fontWeight: '600' },
+
+  nutriSub: { fontSize: 13, color: '#64748B', marginTop: -6, marginBottom: 12 },
 
   overlay: {
     ...StyleSheet.absoluteFillObject,
@@ -872,6 +1013,8 @@ const styles = StyleSheet.create({
   },
 
   backBtn: {
+    zIndex: 10,
+    elevation: 10,
     position: 'absolute',
     top: 55,
     left: 20,
@@ -884,6 +1027,8 @@ const styles = StyleSheet.create({
   },
 
   favoriteBtn: {
+    zIndex: 10,
+    elevation: 10,
     position: 'absolute',
     top: 55,
     right: 20,
@@ -901,10 +1046,7 @@ const styles = StyleSheet.create({
   },
 
   headerInfo: {
-    position: 'absolute',
-    bottom: 25,
-    left: 20,
-    right: 20
+    // dans le flux : un titre long agrandit l'en-tête au lieu de recouvrir le bouton Retour
   },
 
   title: {
@@ -965,7 +1107,7 @@ const styles = StyleSheet.create({
     width: '48%',
     backgroundColor: '#fff',
     padding: 16,
-    borderRadius: 18
+    borderRadius: 22
   },
 infoCardFull: {
   width: '100%',
@@ -986,7 +1128,7 @@ infoCardFull: {
     marginTop: 20,
     backgroundColor: '#fff',
     padding: 18,
-    borderRadius: 18
+    borderRadius: 22
   },
 
   descriptionTitle: {
@@ -1032,6 +1174,62 @@ infoCardFull: {
   ingredientQty: {
     fontWeight: '800',
     color: '#FF9F1C'
+  },
+
+  ingredientCost: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+    marginTop: 2
+  },
+
+  priceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: '#FFF3E6',
+    borderWidth: 1,
+    borderColor: '#FFEAD9',
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 14
+  },
+
+  priceIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+
+  priceLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FF7A00',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4
+  },
+
+  priceValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#1A1A2E',
+    letterSpacing: -0.4,
+    marginTop: 2
+  },
+
+  priceUnit: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B'
+  },
+
+  priceSub: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2
   },
 
   stepCard: {
@@ -1080,7 +1278,7 @@ infoCardFull: {
   ratingCard: {
     backgroundColor: '#fff',
     padding: 18,
-    borderRadius: 18,
+    borderRadius: 22,
     alignItems: 'center'
   },
 
@@ -1104,7 +1302,7 @@ infoCardFull: {
     backgroundColor: '#FF9F1C',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     width: '25%',
@@ -1121,7 +1319,7 @@ infoCardFull: {
     backgroundColor: '#EF4444',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 12,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     width: '25%',

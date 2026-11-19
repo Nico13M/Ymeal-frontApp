@@ -1,151 +1,153 @@
 import type { TrendingRecipeItem } from '@/components/home/types';
+import { palette, radius, shadow } from '@/constants/design';
+import { RECIPE_IMAGE_FALLBACK, translateDifficulty } from '@/constants/recipePresentation';
 import { Ionicons } from '@expo/vector-icons';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 type TrendingRecipeCardProps = {
   item: TrendingRecipeItem;
-  isDesktop: boolean;
-  isTablet: boolean;
-  isMobile: boolean;
+  rank: number;
+  /** largeur fixe (carrousel) ou en % (grille) */
+  width: number | `${number}%`;
   reviewCount: number;
   averageRating: number;
   formatAverageRating: (average: number) => string;
 };
 
-function getDifficultyColors(difficulty: string | null) {
-  const normalizedDifficulty = (difficulty || 'Moyen').toLowerCase().trim();
-  if (normalizedDifficulty.includes('débutant')) return { backgroundColor: '#1B5E20', textColor: '#FFFFFF' };
-  if (normalizedDifficulty.includes('moyen')) return { backgroundColor: '#F9A825', textColor: '#1F1F1F' };
-  if (normalizedDifficulty.includes('difficile')) return { backgroundColor: '#C62828', textColor: '#FFFFFF' };
-  return { backgroundColor: '#E8F5E9', textColor: '#2E7D32' };
-}
+const DIFFICULTY_STYLE: Record<string, { bg: string; fg: string }> = {
+  Débutant: { bg: '#E8F5E9', fg: '#1B7F3B' },
+  Moyen: { bg: '#FFF4D6', fg: '#9A6B00' },
+  Difficile: { bg: '#FEE2E2', fg: '#B91C1C' },
+};
 
 export default function TrendingRecipeCard({
   item,
-  isDesktop,
-  isTablet,
-  isMobile,
+  rank,
+  width,
   reviewCount,
   averageRating,
   formatAverageRating,
 }: TrendingRecipeCardProps) {
-  const difficultyColors = getDifficultyColors(item.difficulty);
   const totalTime = (item.timing?.prep_time ?? 0) + (item.timing?.duration ?? 0);
+  const difficulty = translateDifficulty(item.difficulty);
+  const diff = DIFFICULTY_STYLE[difficulty] ?? { bg: palette.primarySoft, fg: palette.primaryDark };
 
+  const router = useRouter();
   return (
-    <Link href={`/recipe/${item.id}`} asChild>
-      <TouchableOpacity
-        style={StyleSheet.flatten([
-          styles.recipeCard,
-          isDesktop && styles.recipeCardDesktop,
-          isTablet && styles.recipeCardTablet,
-          isMobile && styles.recipeCardMobile,
-        ])}
+      <Pressable
+        onPress={() => router.push(`/recipe/${item.id}`)}
+        accessibilityRole="link"
+        style={({ pressed }) => [styles.card, { width }, pressed && { transform: [{ scale: 0.985 }] }]}
       >
-        <Image source={{ uri: item.image || 'https://via.placeholder.com/300' }} style={styles.recipeImage} resizeMode="cover" />
-        <View style={styles.recipeContent}>
-          <View style={styles.recipeTitleRow}>
-            <Text numberOfLines={2} style={styles.recipeTitle}>{item.name}</Text>
+        <View>
+          <Image
+            source={{ uri: item.image || RECIPE_IMAGE_FALLBACK }}
+            style={styles.image}
+            resizeMode="cover"
+          />
+          <View style={styles.rank}>
+            <Ionicons name="flame" size={12} color="#FFF" />
+            <Text style={styles.rankText}>#{rank}</Text>
           </View>
-          <View style={styles.recipeMeta}>
-            <View style={styles.recipeMetaItem}>
-              <Ionicons name="time-outline" size={14} color="#666" />
-              <Text style={styles.recipeTime}>{totalTime} min</Text>
-            </View>
-            <View style={[styles.recipeTag, { backgroundColor: difficultyColors.backgroundColor }]}>
-              <Text style={[styles.recipeTagText, { color: difficultyColors.textColor }]}>{item.difficulty || 'Moyen'}</Text>
-            </View>
-          </View>
-          <View style={styles.recipeTagRow}>
-            <View style={styles.recipeStatsRow}>
-              <View style={styles.recipeStatPill}>
-                <Ionicons name="heart" size={12} color="#FF1744" />
-                <Text style={styles.recipeStatText}>{item.favorites_count} favoris</Text>
-              </View>
-              <View style={styles.recipeStatPill}>
-                <Text style={styles.recipeStatText}>{reviewCount} avis</Text>
-              </View>
-              {reviewCount > 0 && (
-                <View style={styles.recipeStatPill}>
-                  <Ionicons name="star" size={12} color="#FFC107" />
-                  <Text style={styles.recipeStatText}>{formatAverageRating(averageRating)}/5</Text>
-                </View>
-              )}
-            </View>
-          </View>
-          <View style={styles.recipeFooter}>
-            <Text style={styles.recipeLinkText}>Voir ➔</Text>
+          <View style={styles.fav}>
+            <Ionicons name="heart" size={12} color={palette.heart} />
+            <Text style={styles.favText}>{item.favorites_count ?? 0}</Text>
           </View>
         </View>
-      </TouchableOpacity>
-    </Link>
+
+        <View style={styles.body}>
+          <Text numberOfLines={2} style={styles.title}>
+            {item.name}
+          </Text>
+
+          <View style={styles.metaRow}>
+            <View style={styles.pill}>
+              <Ionicons name="time-outline" size={13} color={palette.textMuted} />
+              <Text style={styles.pillText}>{totalTime} min</Text>
+            </View>
+            <View style={[styles.pill, { backgroundColor: diff.bg, borderColor: diff.bg }]}>
+              <Text style={[styles.pillText, { color: diff.fg }]}>{difficulty}</Text>
+            </View>
+          </View>
+
+          <View style={styles.footer}>
+            <Ionicons
+              name={reviewCount > 0 ? 'star' : 'star-outline'}
+              size={15}
+              color={reviewCount > 0 ? palette.gold : palette.textFaint}
+            />
+            <Text style={styles.rating}>
+              {reviewCount > 0 ? formatAverageRating(averageRating) : '–'}
+              <Text style={styles.ratingSub}> ({reviewCount} avis)</Text>
+            </Text>
+            <View style={{ flex: 1 }} />
+            <Ionicons name="arrow-forward-circle" size={22} color={palette.primary} />
+          </View>
+        </View>
+      </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  recipeCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 15,
-    marginBottom: 15,
+  card: {
+    backgroundColor: palette.surface,
+    borderRadius: radius.lg,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
+    ...shadow.soft,
   },
-  recipeCardMobile: { width: '100%' },
-  recipeCardTablet: { width: '48%' },
-  recipeCardDesktop: {
-    width: '23.3%',
-    marginRight: '2.2%',
-  },
-  recipeImage: { width: '100%', height: 180 },
-  recipeContent: { padding: 16 },
-  recipeTitleRow: {
+  image: { width: '100%', height: 150 },
+  rank: {
+    position: 'absolute',
+    left: 10,
+    top: 10,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginBottom: 10,
-  },
-  recipeTitle: { fontSize: 18, fontWeight: 'bold', color: '#1A1A2E', flex: 1 },
-  recipeMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10 },
-  recipeMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  recipeTime: { color: '#666', fontSize: 13 },
-  recipeTagRow: { marginTop: 2 },
-  recipeTag: {
-    alignSelf: 'flex-end',
-    paddingHorizontal: 10,
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: palette.primaryDark,
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 5,
-    marginRight: 2,
+    borderRadius: radius.pill,
   },
-  recipeStatsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-    flexWrap: 'wrap',
-  },
-  recipeStatPill: {
+  rankText: { color: '#FFF', fontWeight: '800', fontSize: 12 },
+  fav: {
+    position: 'absolute',
+    right: 10,
+    top: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 999,
+    borderRadius: radius.pill,
   },
-  recipeStatText: {
-    fontSize: 12,
-    color: '#444',
-    fontWeight: '600',
+  favText: { fontWeight: '800', fontSize: 12, color: palette.ink },
+  body: { padding: 14 },
+  title: { fontSize: 16.5, fontWeight: '800', color: palette.ink, letterSpacing: -0.2, minHeight: 42 },
+  metaRow: { flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: palette.surfaceMuted,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
-  recipeTagText: { fontSize: 12, fontWeight: 'bold' },
-  recipeFooter: { marginTop: 'auto', paddingTop: 12, alignSelf: 'flex-end' },
-  recipeLinkText: { color: '#FF9F1C', fontWeight: 'bold', fontSize: 14, alignSelf: 'center' },
+  pillText: { fontSize: 12, fontWeight: '700', color: palette.textMuted },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: palette.border,
+  },
+  rating: { fontSize: 13.5, fontWeight: '800', color: palette.ink },
+  ratingSub: { fontSize: 12, fontWeight: '600', color: palette.textMuted },
 });

@@ -95,7 +95,12 @@ export default function InscriptionScreen() {
       })).catch(() => undefined);
       router.replace("/config-profil");
     } catch (error) {
-      setFormError(getRegisterErrorMessage(error));
+      if (isTooManyAttempts(error)) {
+        rateLimit.block((error as ApiError).retryAfter);
+        setFormError(null);
+      } else {
+        setFormError(getRegisterErrorMessage(error));
+      }
     } finally {
       setLoading(false);
     }

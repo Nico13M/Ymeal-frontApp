@@ -1,13 +1,18 @@
 import TrendingRecipeCard from '@/components/home/TrendingRecipeCard';
 import type { SortOption, TrendingRecipeItem } from '@/components/home/types';
+import { palette, radius } from '@/constants/design';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -25,16 +30,15 @@ type TrendingSectionProps = {
 };
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'ratings_count_desc', label: 'Plus d\'avis' },
-  { value: 'average_rating_desc', label: 'Meilleure moyenne' },
-  { value: 'created_at_desc', label: 'Plus récent' },
-  { value: 'created_at_asc', label: 'Plus ancien' },
+  { value: 'ratings_count_desc', label: "Plus d'avis" },
+  { value: 'average_rating_desc', label: 'Mieux notées' },
+  { value: 'created_at_desc', label: 'Récentes' },
+  { value: 'created_at_asc', label: 'Anciennes' },
 ];
 
 function getCreatedAtTimestamp(recipe: TrendingRecipeItem): number {
   const createdAt = recipe.created_at ?? recipe.timestamps?.created_at;
   if (!createdAt) return 0;
-
   const timestamp = new Date(createdAt).getTime();
   return Number.isNaN(timestamp) ? 0 : timestamp;
 }
@@ -44,249 +48,204 @@ export default function TrendingSection({
   loading,
   error,
   numColumns,
-  isDesktop,
-  isTablet,
   isMobile,
   getRatingsCount,
   getAverageRating,
   formatAverageRating,
 }: TrendingSectionProps) {
+  const router = useRouter();
   const [sortBy, setSortBy] = useState<SortOption>('ratings_count_desc');
-  const [showSortOptions, setShowSortOptions] = useState(false);
 
-  const sortedTrendingRecipes = useMemo(() => {
+  // ── Carrousel : flèches pour faire défiler les recettes ──
+  const CARD_STEP = 252; // largeur d'une carte (240) + espacement (12)
+  const carouselRef = useRef<ScrollView>(null);
+  const { width: screenWidth } = useWindowDimensions();
+  const [scrollX, setScrollX] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
+  const maxScroll = Math.max(0, contentWidth - screenWidth);
+  const canPrev = scrollX > 4;
+  const canNext = scrollX < maxScroll - 4;
+  const onCarouselScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => setScrollX(e.nativeEvent.contentOffset.x);
+  const scrollByCards = (dir: 1 | -1) => {
+    const target = Math.max(0, Math.min(maxScroll, Math.round(scrollX / CARD_STEP + dir) * CARD_STEP));
+    carouselRef.current?.scrollTo({ x: target, animated: true });
+  };
+
+  const sorted = useMemo(() => {
     const items = [...recipes];
-
     items.sort((a, b) => {
-      if (sortBy === 'ratings_count_desc') {
-        return getRatingsCount(b) - getRatingsCount(a);
-      }
-
-      if (sortBy === 'average_rating_desc') {
-        return getAverageRating(b) - getAverageRating(a);
-      }
-
-      if (sortBy === 'created_at_desc') {
-        return getCreatedAtTimestamp(b) - getCreatedAtTimestamp(a);
-      }
-
+      if (sortBy === 'ratings_count_desc') return getRatingsCount(b) - getRatingsCount(a);
+      if (sortBy === 'average_rating_desc') return getAverageRating(b) - getAverageRating(a);
+      if (sortBy === 'created_at_desc') return getCreatedAtTimestamp(b) - getCreatedAtTimestamp(a);
       return getCreatedAtTimestamp(a) - getCreatedAtTimestamp(b);
     });
-
     return items;
   }, [recipes, sortBy, getRatingsCount, getAverageRating]);
 
-  const selectedSortLabel =
-    SORT_OPTIONS.find((option) => option.value === sortBy)?.label ?? 'Trier';
-
-  const getColumnWrapperStyle = () => {
-    if (numColumns === 1) return undefined;
-    if (isDesktop) return styles.columnWrapperDesktop;
-    return styles.columnWrapperTablet;
-  };
+  const renderCard = (item: TrendingRecipeItem, index: number, width: number | `${number}%`) => (
+    <TrendingRecipeCard
+      key={item.id}
+      item={item}
+      rank={index + 1}
+      width={width}
+      reviewCount={getRatingsCount(item)}
+      averageRating={getAverageRating(item)}
+      formatAverageRating={formatAverageRating}
+    />
+  );
 
   return (
-    <View style={styles.sectionContainer}>
-      {showSortOptions && (
-        <View style={styles.sortOverlay} pointerEvents="box-none">
-          <View style={styles.sortDropdown}>
-            {SORT_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.sortOption,
-                  sortBy === option.value && styles.sortOptionActive,
-                ]}
-                onPress={() => {
-                  setSortBy(option.value);
-                  setShowSortOptions(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.sortOptionText,
-                    sortBy === option.value && styles.sortOptionTextActive,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+    <View style={styles.section}>
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.kicker}>EN CE MOMENT</Text>
+          <Text style={styles.title}>Recettes tendances</Text>
         </View>
-      )}
-
-      <View style={styles.sectionHeader}>
-        <View style={styles.sectionHeaderTitle}>
-          <Ionicons name="trending-up" size={24} color="#FF9F1C" style={styles.trendingIcon} />
-          <Text style={styles.sectionTitle}>Recettes tendances</Text>
-        </View>
-        <View style={styles.sortControl}>
-          <TouchableOpacity
-            style={styles.sortSelect}
-            onPress={() => setShowSortOptions((prev) => !prev)}
-          >
-            <Text style={styles.sortSelectText}>Tri: {selectedSortLabel}</Text>
-            <Ionicons
-              name={showSortOptions ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color="#555"
-            />
+          <TouchableOpacity style={styles.seeAll} onPress={() => router.push('/(tabs)/recipes')}>
+            <Text style={styles.seeAllText}>Tout voir</Text>
+            <Ionicons name="chevron-forward" size={16} color={palette.primaryDark} />
           </TouchableOpacity>
-        </View>
       </View>
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.sortRow}
+      >
+        {SORT_OPTIONS.map((o) => {
+          const on = sortBy === o.value;
+          return (
+            <TouchableOpacity
+              key={o.value}
+              style={[styles.sortChip, on && styles.sortChipOn]}
+              onPress={() => setSortBy(o.value)}
+            >
+              <Text style={[styles.sortText, on && styles.sortTextOn]}>{o.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF9F1C" />
+        <View style={styles.state}>
+          <ActivityIndicator size="large" color={palette.primary} />
         </View>
       ) : error ? (
-        <View style={styles.errorContainer}>
+        <View style={styles.state}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
+      ) : sorted.length === 0 ? (
+        <View style={styles.state}>
+          <Text style={styles.emptyText}>Pas encore de tendance cette semaine.</Text>
+        </View>
+      ) : isMobile ? (
+        // Carrousel horizontal sur mobile, avec flèches de défilement
+        <View>
+        <ScrollView
+          ref={carouselRef}
+          onScroll={onCarouselScroll}
+          scrollEventThrottle={16}
+          onContentSizeChange={(w) => setContentWidth(w)}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={252}
+          decelerationRate="fast"
+          contentContainerStyle={styles.carousel}
+        >
+          {sorted.map((item, i) => renderCard(item, i, 240))}
+        </ScrollView>
+        {sorted.length > 1 && (
+          <View style={styles.arrows}>
+            <TouchableOpacity
+              onPress={() => scrollByCards(-1)}
+              disabled={!canPrev}
+              style={[styles.arrowBtn, !canPrev && styles.arrowOff]}
+              accessibilityLabel="Recettes précédentes"
+            >
+              <Ionicons name="chevron-back" size={20} color={canPrev ? '#FFF' : palette.textFaint} />
+            </TouchableOpacity>
+            <View style={styles.dots}>
+              {sorted.slice(0, 8).map((r, i) => {
+                const active = Math.round(scrollX / CARD_STEP) === i;
+                return <View key={r.id} style={[styles.dot, active && styles.dotOn]} />;
+              })}
+            </View>
+            <TouchableOpacity
+              onPress={() => scrollByCards(1)}
+              disabled={!canNext}
+              style={[styles.arrowBtn, !canNext && styles.arrowOff]}
+              accessibilityLabel="Recettes suivantes"
+            >
+              <Ionicons name="chevron-forward" size={20} color={canNext ? '#FFF' : palette.textFaint} />
+            </TouchableOpacity>
+          </View>
+        )}
+        </View>
       ) : (
-        <FlatList
-          data={sortedTrendingRecipes}
-          keyExtractor={(item) => item.id.toString()}
-          key={numColumns}
-          numColumns={numColumns}
-          columnWrapperStyle={numColumns > 1 ? getColumnWrapperStyle() : undefined}
-          contentContainerStyle={[styles.listContent, !isMobile && styles.listContentDesktop]}
-          style={styles.trendingList}
-          scrollEnabled={false}
-          renderItem={({ item }) => (
-            <TrendingRecipeCard
-              item={item}
-              isDesktop={isDesktop}
-              isTablet={isTablet}
-              isMobile={isMobile}
-              reviewCount={getRatingsCount(item)}
-              averageRating={getAverageRating(item)}
-              formatAverageRating={formatAverageRating}
-            />
+        // Grille sur tablette / desktop
+        <View style={styles.grid}>
+          {sorted.map((item, i) =>
+            renderCard(item, i, `${100 / Math.max(numColumns, 2) - 2}%` as `${number}%`),
           )}
-        />
+        </View>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    paddingHorizontal: 20,
-    marginTop: 25,
-    marginHorizontal: '3.60%',
-    position: 'relative',
-    zIndex: 20,
-    elevation: 20,
-    overflow: 'visible',
-  },
-  sectionHeader: {
+  section: { marginTop: 28 },
+  header: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-    gap: 12,
-  },
-  sectionHeaderTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    minWidth: 0,
-  },
-  trendingIcon: {
-    marginRight: 8,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1A1A2E',
-  },
-  sortControl: {
-    position: 'relative',
     alignItems: 'flex-end',
-    zIndex: 100,
-    elevation: 100,
+    paddingHorizontal: 20,
+    marginBottom: 12,
   },
-  sortSelect: {
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  kicker: { fontSize: 11.5, fontWeight: '800', color: palette.primaryDark, letterSpacing: 1 },
+  title: { fontSize: 22, fontWeight: '800', color: palette.ink, letterSpacing: -0.4 },
+  seeAll: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    flexShrink: 1,
-    minWidth: 150,
-  },
-  sortSelectText: {
-    color: '#333',
-    fontWeight: '600',
-  },
-  sortOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 9999,
-    elevation: 9999,
-  },
-  sortDropdown: {
-    position: 'absolute',
-    top: 45,
-    right: 20,
-    width: 220,
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 9999,
-  },
-  sortOption: {
+    gap: 2,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    backgroundColor: palette.primarySoft,
   },
-  sortOptionActive: {
-    backgroundColor: '#FFF3E6',
+  seeAllText: { color: palette.primaryDark, fontWeight: '800', fontSize: 13 },
+  sortRow: { gap: 8, paddingHorizontal: 20, paddingBottom: 14 },
+  sortChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.border,
   },
-  sortOptionText: {
-    color: '#555',
-  },
-  sortOptionTextActive: {
-    color: '#FF9F1C',
-    fontWeight: '700',
-  },
-  loadingContainer: {
-    paddingVertical: 30,
+  sortChipOn: { backgroundColor: palette.ink, borderColor: palette.ink },
+  sortText: { fontSize: 13, fontWeight: '700', color: palette.textMuted },
+  sortTextOn: { color: '#FFF' },
+  carousel: { gap: 12, paddingHorizontal: 20, paddingBottom: 12 },
+  arrows: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 2 },
+  arrowBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: palette.primary,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  errorContainer: {
-    paddingVertical: 20,
+  arrowOff: { backgroundColor: palette.surface, borderWidth: 1, borderColor: palette.border },
+  dots: { flexDirection: 'row', gap: 5 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#E5D5BF' },
+  dotOn: { width: 16, backgroundColor: palette.primary },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    paddingHorizontal: 20,
   },
-  errorText: {
-    color: '#DC2626',
-  },
-  listContent: {
-    paddingBottom: 0,
-  },
-  listContentDesktop: {
-    paddingHorizontal: 0,
-  },
-  trendingList: {
-    zIndex: 0,
-    elevation: 0,
-  },
-  columnWrapperDesktop: {
-    justifyContent: 'space-between',
-  },
-  columnWrapperTablet: {
-    justifyContent: 'space-between',
-  },
+  state: { paddingVertical: 30, alignItems: 'center', paddingHorizontal: 20 },
+  errorText: { color: palette.danger, fontWeight: '600' },
+  emptyText: { color: palette.textMuted },
 });

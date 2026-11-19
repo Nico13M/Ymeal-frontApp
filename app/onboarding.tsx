@@ -523,10 +523,10 @@ const SLIDES: Slide[] = [
       },
 
       {
-        icon: 'people-outline',
-        title: 'Communauté',
+        icon: 'book-outline',
+        title: 'Mes recettes',
         desc:
-          'Partage et découvre les recettes préférées.',
+          'Crée et garde tes propres recettes.',
       },
     ],
   },

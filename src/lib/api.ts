@@ -8,12 +8,15 @@ export const API_BASE_URL =
 export class ApiError extends Error {
   status: number;
   details: unknown;
+  /** Délai (secondes) avant de pouvoir réessayer, lu dans l'en-tête Retry-After (429). */
+  retryAfter: number | null;
 
-  constructor(message: string, status: number, details?: unknown) {
+  constructor(message: string, status: number, details?: unknown, retryAfter: number | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.details = details;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -154,9 +157,18 @@ export async function apiRequest<T = unknown>(
   const payload = await parseResponsePayload(response);
 
   if (!response.ok) {
-    const message =
-      getErrorMessageFromPayload(payload) ?? `Erreur API (${response.status})`;
-    throw new ApiError(message, response.status, payload);
+    const raw = getErrorMessageFromPayload(payload);
+    let message = raw ?? `Erreur API (${response.status})`;
+    let retryAfter: number | null = null;
+
+    if (response.status === 403 && (!raw || /^forbidden$/i.test(raw.trim()))) {
+      message = FORBIDDEN_MESSAGE;
+    }
+    if (response.status === 429) {
+      retryAfter = parseRetryAfter(response.headers.get("Retry-After"));
+      message = tooManyAttemptsMessage(retryAfter);
+    }
+    throw new ApiError(message, response.status, payload, retryAfter);
   }
 
   return payload as T;

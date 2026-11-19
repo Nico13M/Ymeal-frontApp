@@ -4,7 +4,8 @@ import InputField from "@/components/ui/InputField";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { COLORS } from "@/constants/profileConfig";
 import { STORAGE_KEYS } from "@/constants/storage";
-import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
+import { ApiError, getHumanErrorMessage, isTooManyAttempts } from "@/src/lib/api";
+import useRateLimit from "@/src/hooks/useRateLimit";
 import { loginRequest, resolveUserId, saveSession } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -40,11 +41,15 @@ function parseStoredAccount(raw: string | null): StoredAccount {
 
 function getLoginErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 401 || error.status === 403) {
+    if (error.status === 401) {
       return "Email ou mot de passe incorrect.";
     }
+    if (error.status === 403) {
+      // 403 = requête refusée (ex. jeton CSRF manquant ou expiré), pas un mauvais mot de passe
+      return "Connexion refusée par le serveur. Actualise la page puis réessaie.";
+    }
     if (error.status === 429) {
-      return "Trop de tentatives. Reessaie dans quelques minutes.";
+      return error.message; // « Trop de tentatives, réessayez dans N minutes »
     }
   }
 
@@ -68,12 +73,15 @@ export default function ConnexionScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // 429 : bouton désactivé pendant le délai Retry-After (pas de nouvelle tentative automatique)
+  const rateLimit = useRateLimit("login");
 
   const canSubmit = useMemo(() => {
-    return !isSubmitting && email.trim().length > 3 && password.length >= 6;
-  }, [email, isSubmitting, password]);
+    return !isSubmitting && !rateLimit.isBlocked && email.trim().length > 3 && password.length >= 6;
+  }, [email, isSubmitting, password, rateLimit.isBlocked]);
 
   const onLogin = async () => {
+    if (rateLimit.isBlocked) return;
     const trimmedEmail = email.trim();
     setFormError(null);
 
@@ -151,7 +159,12 @@ export default function ConnexionScreen() {
         }
       }
     } catch (error) {
-      setFormError(getLoginErrorMessage(error));
+      if (isTooManyAttempts(error)) {
+        rateLimit.block((error as ApiError).retryAfter);
+        setFormError(null);
+      } else {
+        setFormError(getLoginErrorMessage(error));
+      }
     } finally {
       setIsSubmitting(false);
     }
