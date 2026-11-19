@@ -1,5 +1,6 @@
+import { MAX_CONTENT_WIDTH } from '@/constants/design';
 import DailyTipCard from '@/components/home/DailyTipCard';
-import HomeHeader from '@/components/home/HomeHeader';
+import HomeHeader, { HomeCompactBar } from '@/components/home/HomeHeader';
 import QuickActions from '@/components/home/QuickActions';
 import TrendingSection from '@/components/home/TrendingSection';
 import type { TrendingRecipeItem } from '@/components/home/types';
@@ -8,9 +9,10 @@ import useRequireAuth from '@/src/hooks/useRequireAuth';
 import { getTrendingRecipes } from '@/src/services/recipes';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -48,6 +50,11 @@ export default function DashboardScreen() {
   const numColumns = isDesktop ? 4 : isTablet ? 2 : 1;
 
   const [todaysTip, setTodaysTip] = useState(TIPS[0]);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const onScroll = useMemo(
+    () => Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false }),
+    [scrollY],
+  );
   const [displayName, setDisplayName] = useState('');
   const [fridgeCount, setFridgeCount] = useState(0);
   const [trendingRecipes, setTrendingRecipes] = useState<TrendingRecipeItem[]>([]);
@@ -175,10 +182,20 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#FF9F1C" />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <HomeCompactBar scrollY={scrollY} displayName={displayName} />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
         <HomeHeader displayName={displayName} />
 
+        <View style={styles.inner}>
         <QuickActions isMobile={isMobile} fridgeCount={fridgeCount} />
+
+        {/* Astuce du jour : juste sous les accès rapides, visible sans défiler */}
+        <DailyTipCard tip={todaysTip} />
 
         <TrendingSection
           recipes={trendingRecipes}
@@ -193,7 +210,7 @@ export default function DashboardScreen() {
           formatAverageRating={formatAverageRating}
         />
 
-        <DailyTipCard tip={todaysTip} />
+        </View>
       </ScrollView>
     </View>
   );
@@ -210,6 +227,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scrollContent: {
-    paddingBottom: 30,
+    paddingBottom: 40,
+  },
+  inner: {
+    width: '100%',
+    maxWidth: MAX_CONTENT_WIDTH,
+    alignSelf: 'center',
   },
 });

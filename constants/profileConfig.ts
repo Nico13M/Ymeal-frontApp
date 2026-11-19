@@ -3,7 +3,7 @@ export const COLORS = {
   card: "#FFFFFF",
   text: "#0F172A",
   sub: "#475569",
-  border: "#E2E8F0",
+  border: "#F1E5D5",
   orange: "#FF7A00",
   orangeSoft: "rgba(255, 122, 0, 0.12)",
   muted: "#94A3B8",

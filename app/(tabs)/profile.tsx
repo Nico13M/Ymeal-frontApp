@@ -367,9 +367,7 @@ export default function ProfileScreen() {
     }
 
     const userId = account?.id ?? resolveUserId(session?.user);
-    setEditUserDebug(
-      `userId: ${userId ?? "null"} | account.id: ${account?.id ?? "null"} | session.user: ${JSON.stringify(session?.user)}`,
-    );
+    setEditUserDebug(null);
 
     if (!userId) {
       setEditUserError(
@@ -389,7 +387,7 @@ export default function ProfileScreen() {
           pseudo: nextAccount.pseudo,
           email: nextAccount.email,
         },
-        { onDebug: (message) => setEditUserDebug(message) },
+        { onDebug: () => undefined },
       );
       await AsyncStorage.setItem(
         STORAGE_KEYS.accountProfile,
@@ -509,6 +507,7 @@ export default function ProfileScreen() {
   };
 
   const addToBlacklist = (item: ReferenceItem) => {
+    if (tmpBlacklist.length >= 10) return;
     setTmpBlacklist((prev) => [...prev, item]);
     setIngredientResults((prev) => prev.filter((r) => r.id !== item.id));
     setIngredientQuery("");
@@ -787,9 +786,6 @@ export default function ProfileScreen() {
               />
             </View>
 
-            {editUserDebug ? (
-              <Text style={styles.editDebug}>{editUserDebug}</Text>
-            ) : null}
             {editUserError ? (
               <Text style={styles.editError}>{editUserError}</Text>
             ) : null}
@@ -1149,6 +1145,7 @@ export default function ProfileScreen() {
                   <TouchableOpacity
                     key={item.id}
                     onPress={() => addToBlacklist(item)}
+                    disabled={tmpBlacklist.length >= 10}
                     style={{
                       flexDirection: "row",
                       justifyContent: "space-between",
@@ -1167,6 +1164,9 @@ export default function ProfileScreen() {
                 ))}
               </View>
             )}
+            <Text style={{ fontSize: 12, color: "#6B7280", marginBottom: 8 }}>
+              {tmpBlacklist.length}/10 ingrédients à éviter maximum
+            </Text>
             <ScrollView style={{ maxHeight: 200 }}>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 {tmpBlacklist.map((item) => (
@@ -1406,7 +1406,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF7EC" },
   scroll: { flex: 1, backgroundColor: "#FFF7EC" },
-  content: { flexGrow: 1, paddingBottom: 24 },
+  content: { flexGrow: 1, paddingBottom: 110 },
   loadingContainer: {
     flex: 1,
     backgroundColor: "#FFF7EC",
@@ -1459,7 +1459,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   identityTextWrap: { flex: 1, gap: 2 },
-  name: { fontSize: 26, fontWeight: "900", color: "#FFF" },
+  name: { fontSize: 28, fontWeight: "800", letterSpacing: -0.5, color: "#FFF" },
   subText: { fontSize: 13, color: "rgba(255,255,255,0.9)", fontWeight: "600" },
   locationRow: {
     marginTop: 12,
@@ -1477,12 +1477,17 @@ const styles = StyleSheet.create({
   sheet: {
     marginTop: -48,
     marginHorizontal: 14,
-    borderRadius: 24,
+    borderRadius: 28,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     backgroundColor: "#FFF",
     borderWidth: 1,
     borderColor: "#F1E5D5",
+    shadowColor: "#7A4800",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    elevation: 5,
   },
   sheetTitle: {
     fontSize: 19,
@@ -1537,9 +1542,9 @@ const styles = StyleSheet.create({
   },
   settingsSheet: {
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 16,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 18,
     paddingTop: 16,
     paddingBottom: 28,
     gap: 12,
@@ -1549,10 +1554,10 @@ const styles = StyleSheet.create({
   settingsAction: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    borderRadius: 14,
+    gap: 12,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: "#EAE4DA",
+    borderColor: "#F1E5D5",
     backgroundColor: "#FFFDF8",
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -1584,9 +1589,9 @@ const styles = StyleSheet.create({
   editLabel: { fontSize: 12, fontWeight: "800", color: "#334155" },
   editInput: {
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    borderColor: "#F1E5D5",
+    borderRadius: 14,
+    paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
     color: "#0F172A",
@@ -1608,8 +1613,8 @@ const styles = StyleSheet.create({
   editActionsRow: { flexDirection: "row", gap: 10, marginTop: 6 },
   editAction: {
     flex: 1,
-    minHeight: 46,
-    borderRadius: 12,
+    minHeight: 48,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },

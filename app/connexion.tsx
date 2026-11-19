@@ -1,5 +1,6 @@
 import { STORAGE_KEYS } from "@/constants/storage";
-import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
+import { ApiError, getHumanErrorMessage, isTooManyAttempts } from "@/src/lib/api";
+import useRateLimit from "@/src/hooks/useRateLimit";
 import { loginRequest, resolveUserId, saveSession } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -56,11 +57,15 @@ function parseStoredAccount(raw: string | null): StoredAccount {
 
 function getLoginErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 401 || error.status === 403) {
+    if (error.status === 401) {
       return "Email ou mot de passe incorrect.";
     }
+    if (error.status === 403) {
+      // 403 = requête refusée (ex. jeton CSRF manquant ou expiré), pas un mauvais mot de passe
+      return "Connexion refusée par le serveur. Actualise la page puis réessaie.";
+    }
     if (error.status === 429) {
-      return "Trop de tentatives. Reessaie dans quelques minutes.";
+      return error.message; // « Trop de tentatives, réessayez dans N minutes »
     }
   }
 
@@ -84,12 +89,15 @@ export default function ConnexionScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // 429 : bouton désactivé pendant le délai Retry-After (pas de nouvelle tentative automatique)
+  const rateLimit = useRateLimit("login");
 
   const canSubmit = useMemo(() => {
-    return !isSubmitting && email.trim().length > 3 && password.length >= 6;
-  }, [email, isSubmitting, password]);
+    return !isSubmitting && !rateLimit.isBlocked && email.trim().length > 3 && password.length >= 6;
+  }, [email, isSubmitting, password, rateLimit.isBlocked]);
 
   const onLogin = async () => {
+    if (rateLimit.isBlocked) return;
     const trimmedEmail = email.trim();
     setFormError(null);
 
@@ -169,7 +177,12 @@ export default function ConnexionScreen() {
         }
       }
     } catch (error) {
-      setFormError(getLoginErrorMessage(error));
+      if (isTooManyAttempts(error)) {
+        rateLimit.block((error as ApiError).retryAfter);
+        setFormError(null);
+      } else {
+        setFormError(getLoginErrorMessage(error));
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -238,12 +251,15 @@ export default function ConnexionScreen() {
         </View>
 
         <TouchableOpacity
-  onPress={() => router.push("/mot-de-passe-oublie" as any)}
->
-  <Text style={styles.forgotPassword}>
-    Mot de passe oublié ?
-  </Text>
-</TouchableOpacity>
+          onPress={() =>
+            router.push({ pathname: "/mot-de-passe", params: email.trim() ? { email: email.trim() } : {} })
+          }
+          style={styles.forgotWrap}
+          hitSlop={8}
+          accessibilityRole="link"
+        >
+          <Text style={styles.forgotPassword}>Mot de passe oublié ?</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, !canSubmit && styles.buttonDisabled]}
@@ -251,9 +267,17 @@ export default function ConnexionScreen() {
           activeOpacity={0.85}
           disabled={!canSubmit}
         >
-          <Text style={styles.buttonText}>{isSubmitting ? "Connexion..." : "Continuer"}</Text>
+          <Text style={styles.buttonText}>
+            {rateLimit.isBlocked
+              ? `Réessayer dans ${rateLimit.countdown}`
+              : isSubmitting
+                ? "Connexion..."
+                : "Continuer"}
+          </Text>
         </TouchableOpacity>
-        {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
+        {rateLimit.message || formError ? (
+          <Text style={styles.errorText}>{rateLimit.message ?? formError}</Text>
+        ) : null}
 
             <View style={styles.linksRow}>
               <Text style={styles.linkText}>Pas de compte ? </Text>
@@ -305,7 +329,7 @@ const styles = StyleSheet.create({
     fontSize: isWebDesktop ? 52 : 34,
     fontWeight: "800",
     color: "#0F172A",
-    letterSpacing: 0.2,
+    letterSpacing: -0.5,
   },
   tagline: {
     marginTop: 6,
@@ -323,15 +347,15 @@ card: {
 
   backgroundColor: "#FFFFFF",
 
-  borderRadius: isWebDesktop ? 24 : 16,
+  borderRadius: isWebDesktop ? 32 : 26,
 
   padding: isWebDesktop ? 32 : 18,
 
   ...Platform.select({
     ios: {
-      shadowColor: "#000",
-      shadowOpacity: 0.1,
-      shadowRadius: 10,
+      shadowColor: "#7A4800",
+      shadowOpacity: 0.12,
+      shadowRadius: 18,
       shadowOffset: { width: 0, height: 8 },
     },
 
@@ -340,14 +364,15 @@ card: {
     },
 
     web: {
-      boxShadow: "0px 8px 24px rgba(0,0,0,0.08)",
+      boxShadow: "0px 16px 40px rgba(122,72,0,0.12)",
     },
   }),
 },
 
   cardTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "800",
+    letterSpacing: -0.4,
     color: "#0F172A",
     marginBottom: 16,
   },
@@ -359,8 +384,8 @@ card: {
 },
 
   label: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
     color: "#334155",
     marginBottom: 8,
     marginTop: 6,
@@ -370,11 +395,11 @@ card: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 44,
-    backgroundColor: "#fff",
+    borderColor: "#F1E5D5",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 50,
+    backgroundColor: "#FFFDF9",
     marginBottom: 10,
   },
   input: {
@@ -386,8 +411,13 @@ card: {
 
   button: {
     backgroundColor: "#FF7A00",
-    paddingVertical: 14,
-    borderRadius: 10,
+    paddingVertical: 15,
+    borderRadius: 999,
+    shadowColor: "#FF7A00",
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
     alignItems: "center",
     marginTop: 8,
   },
@@ -396,8 +426,8 @@ card: {
   },
   buttonText: {
     color: "#fff",
-    fontWeight: "700",
-    fontSize: 14,
+    fontWeight: "800",
+    fontSize: 15,
   },
   errorText: {
     marginTop: 10,
@@ -421,6 +451,8 @@ card: {
     fontWeight: "700",
     color: "#FF7A00",
   },
+
+forgotWrap: { alignSelf: "flex-end" },
 
 forgotPassword: {
   alignSelf: "flex-end",
