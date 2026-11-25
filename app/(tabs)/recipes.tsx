@@ -1,7 +1,15 @@
+import MyRecipesView from "@/components/recipes/MyRecipesView";
+import RecipeListCard, { type RecipeListItem } from "@/components/recipes/RecipeListCard";
+import ScreenHeader from "@/components/ui/ScreenHeader";
+import { MAX_CONTENT_WIDTH, palette, radius, shadow } from "@/constants/design";
+import { translateDifficulty } from "@/constants/recipePresentation";
 import useRequireAuth from "@/src/hooks/useRequireAuth";
-import { getFullFridgeInventory } from "@/src/services/fridgeInventory";
 import { applyFavoriteOverrides, subscribeFavorites } from "@/src/lib/favoritesStore";
 import { sameIngredient } from "@/src/lib/ingredientName";
+import { notify } from "@/src/lib/notify";
+import { getRecipePrice, PRICE_BANDS, type PriceBand } from "@/src/lib/recipePrice";
+import { getSession, resolveUserId } from "@/src/services/auth";
+import { getFullFridgeInventory } from "@/src/services/fridgeInventory";
 import {
   addToFavorites,
   generateAiRecipe,
@@ -10,18 +18,10 @@ import {
   removeFromFavorites,
   saveAiRecipe
 } from "@/src/services/recipes";
-import RecipeListCard, { type RecipeListItem } from "@/components/recipes/RecipeListCard";
-import ScreenHeader from "@/components/ui/ScreenHeader";
-import MyRecipesView from "@/components/recipes/MyRecipesView";
-import { getSession, resolveUserId } from "@/src/services/auth";
-import { MAX_CONTENT_WIDTH, palette, radius, shadow } from "@/constants/design";
-import { getRecipePrice, PRICE_BANDS, type PriceBand } from "@/src/lib/recipePrice";
-import { notify } from "@/src/lib/notify";
 import { Ionicons } from "@expo/vector-icons";
-import { translateDifficulty } from "@/constants/recipePresentation";
+import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
