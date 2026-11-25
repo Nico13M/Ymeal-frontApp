@@ -1,10 +1,10 @@
 import CuisineSelector from "@/components/profil/CuisineSelector";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { DIETS } from "@/constants/profileConfig";
-import { ALL_CUISINES_LABEL, CuisineOption, CuisineOptionId, resolveCuisineOptionIds } from "@/src/lib/cuisine-preferences";
-import { getHumanErrorMessage } from "@/src/lib/api";
 import { STORAGE_KEYS } from "@/constants/storage";
 import useRequireAuth from "@/src/hooks/useRequireAuth";
+import { getHumanErrorMessage } from "@/src/lib/api";
+import { ALL_CUISINES_LABEL, CuisineOption, CuisineOptionId, resolveCuisineOptionIds } from "@/src/lib/cuisine-preferences";
 import {
   clearSession,
   getSession,
@@ -670,7 +670,7 @@ export default function ProfileScreen() {
               </View>
               <View style={styles.settingsActionTextWrap}>
                 <Text style={styles.settingsActionTitle}>
-                  Modifier mes infos
+                  Modifier mes infos personnelles
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#94A3B8" />

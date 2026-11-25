@@ -30,6 +30,57 @@ export class ApiNetworkError extends Error {
   }
 }
 
+
+// Messages d'erreur partagés
+export const FORBIDDEN_MESSAGE =
+  "Accès refusé. Tu n'as pas les autorisations nécessaires.";
+
+export const RECIPE_NOT_FOUND_MESSAGE =
+  "Cette recette est introuvable.";
+
+// Détecter une erreur HTTP 403
+export function isForbidden(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 403;
+}
+
+// Détecter une erreur HTTP 429
+export function isTooManyAttempts(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 429;
+}
+
+// Lire le délai Retry-After envoyé par le serveur
+export function parseRetryAfter(value: string | null): number | null {
+  if (!value) return null;
+
+  const seconds = Number(value);
+
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.ceil(seconds);
+  }
+
+  const date = Date.parse(value);
+
+  if (!Number.isNaN(date)) {
+    return Math.max(0, Math.ceil((date - Date.now()) / 1000));
+  }
+
+  return null;
+}
+// [https://ymeal-back.osc-fr1.scalingo.io](https://ymeal-back.osc-fr1.scalingo.io)
+
+// Construire un message pour les erreurs 429
+export function tooManyAttemptsMessage(
+  retryAfter: number | null
+): string {
+  if (retryAfter === null) {
+    return "Trop de tentatives. Réessaie dans quelques minutes.";
+  }
+
+  const minutes = Math.max(1, Math.ceil(retryAfter / 60));
+
+  return `Trop de tentatives. Réessaie dans ${minutes} minute${minutes > 1 ? "s" : ""}.`;
+}
+
 type ApiMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
 type ApiRequestOptions = {

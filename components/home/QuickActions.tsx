@@ -10,7 +10,7 @@ type QuickActionsProps = {
 };
 
 /** Couleurs de l'accueil */
-const FRIDGE_BG = '#FF9C1A';
+const FRIDGE_BG = '#9ca257';
 const OLIVE = '#1A1A2E'; // texte de la carte Recettes (fond transparent)
 const ACCENT = '#FF9C1A';
 

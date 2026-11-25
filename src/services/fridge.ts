@@ -88,7 +88,7 @@ export async function getAvailableIngredients(): Promise<BackendIngredient[]> {
   const PAGE_SIZE = 500;
   const MAX_PAGES = 100;
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const byId = new Map<number, BackendIngredient>();
 
     for (let page = 1; page <= MAX_PAGES; page++) {
@@ -97,7 +97,6 @@ export async function getAvailableIngredients(): Promise<BackendIngredient[]> {
         method: "GET",
         token,
         credentials: "include",
-        headers: buildHeaders(userId),
       });
       const list = extractIngredientList(payload);
       const before = byId.size;
@@ -226,7 +225,7 @@ export type BackendIngredientCreate = {
 
 export async function createIngredient(data: BackendIngredientCreate): Promise<BackendIngredient> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     let csrfToken: string | undefined;
     try {
       csrfToken = await getCsrfToken();
@@ -238,7 +237,6 @@ export async function createIngredient(data: BackendIngredientCreate): Promise<B
       token,
       credentials: "include",
       headers: {
-        ...buildHeaders(userId),
         ...(csrfToken ? { "X-CSRF-TOKEN": csrfToken } : {}),
       },
       body: data,

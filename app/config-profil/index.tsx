@@ -42,14 +42,14 @@ import { BudgetChoice, PeopleChoice } from "@/types/profil";
 
 import ProfilCard from "@/components/profil/ProfilCard";
 import ProgressBar from "@/components/profil/ProgressBar";
-import StepHeader from "@/components/profil/StepHeader";
 import StepBackButton from "@/components/profil/StepBackButton";
+import StepHeader from "@/components/profil/StepHeader";
 
 import AllergiesStep from "@/components/profil/steps/AllergiesStep";
 import AvoidIngredientsStep, { MAX_AVOID_INGREDIENTS } from "@/components/profil/steps/AvoidIngredientsStep";
 import BudgetStep from "@/components/profil/steps/BudgetStep";
 import ConfirmationStep from "@/components/profil/steps/ConfirmationStep";
-import CuisineStep, { MAX_CUISINES } from "@/components/profil/steps/CuisineStep";
+import CuisineStep from "@/components/profil/steps/CuisineStep";
 import DietStep from "@/components/profil/steps/DietStep";
 import LocalisationStep from "@/components/profil/steps/LocalisationStep";
 import PeopleStep from "@/components/profil/steps/PeopleStep";
@@ -118,6 +118,7 @@ export default function ConfigProfilScreen() {
   // Cache { name → id } pour résoudre les IDs au moment de la sauvegarde
   const [blacklistCache, setBlacklistCache] = useState<Record<string, number>>({});
   const [allergies, setAllergies] = useState<string[]>([]);
+  const [noAllergiesSelected, setNoAllergiesSelected] = useState(false);
   const [people, setPeople] = useState<PeopleChoice | null>(null);
 
   // ── State – référentiels chargés depuis l'API ────────────
@@ -286,11 +287,24 @@ export default function ConfigProfilScreen() {
   }, [step, diets, location, budget, people]);
 
   // Toggle allergy par nom
-  const toggleAllergy = (name: string) => {
-    setAllergies((prev) =>
-      prev.includes(name) ? prev.filter((x) => x !== name) : [...prev, name]
-    );
-  };
+const toggleAllergy = (name: string) => {
+  setNoAllergiesSelected(false);
+
+  setAllergies((prev) =>
+    prev.includes(name)
+      ? prev.filter((x) => x !== name)
+      : [...prev, name]
+  );
+};
+
+const toggleNoAllergies = () => {
+  if (noAllergiesSelected) {
+    setNoAllergiesSelected(false);
+  } else {
+    setAllergies([]);
+    setNoAllergiesSelected(true);
+  }
+};
 
   // Suggestions légumes/ingrédients depuis l'API
   const vegSuggestions = useMemo(
@@ -323,14 +337,41 @@ export default function ConfigProfilScreen() {
       people === "5+" ? 5 :
       null;
 
-    await Promise.all([
-      dietIds.length > 0 ? saveUserDiets(dietIds) : Promise.resolve(),
-      allergyIds.length > 0 ? saveUserAllergies(allergyIds) : Promise.resolve(),
-      shouldSaveCuisines ? saveUserCuisines(cuisineIds, refCuisines) : Promise.resolve(),
-      blacklistIds.length > 0 ? saveUserBlacklist(blacklistIds) : Promise.resolve(),
-      budgetObj ? saveUserBudget(budgetObj.id) : Promise.resolve(),
-      peopleCount != null ? saveUserPersonCount(peopleCount) : Promise.resolve(),
-    ]);
+    // await Promise.all([
+    //   dietIds.length > 0 ? saveUserDiets(dietIds) : Promise.resolve(),
+    //   allergyIds.length > 0 ? saveUserAllergies(allergyIds) : Promise.resolve(),
+    //   shouldSaveCuisines ? saveUserCuisines(cuisineIds, refCuisines) : Promise.resolve(),
+    //   blacklistIds.length > 0 ? saveUserBlacklist(blacklistIds) : Promise.resolve(),
+    //   budgetObj ? saveUserBudget(budgetObj.id) : Promise.resolve(),
+    //   peopleCount != null ? saveUserPersonCount(peopleCount) : Promise.resolve(),
+    // ]);
+
+
+if (dietIds.length > 0) {
+  await saveUserDiets(dietIds);
+}
+
+if (noAllergiesSelected || allergyIds.length > 0) {
+  await saveUserAllergies(allergyIds);
+}
+
+if (shouldSaveCuisines) {
+  await saveUserCuisines(cuisineIds, refCuisines);
+}
+
+if (blacklistIds.length > 0) {
+  await saveUserBlacklist(blacklistIds);
+}
+
+if (budgetObj) {
+  await saveUserBudget(budgetObj.id);
+}
+
+if (peopleCount != null) {
+  await saveUserPersonCount(peopleCount);
+}
+
+
 
     // Conserver la localisation localement (non gérée par l'API profil)
     const storedRaw = await AsyncStorage.getItem(STORAGE_KEYS.profileConfig);
@@ -549,6 +590,8 @@ export default function ConfigProfilScreen() {
                     <AllergiesStep
                       allergies={allergies}
                       toggleAllergy={toggleAllergy}
+                      noAllergiesSelected={noAllergiesSelected}
+                      onToggleNoAllergies={toggleNoAllergies}
                       availableAllergies={refAllergies}
                       isLoading={isLoadingRefs}
                       styles={styles}

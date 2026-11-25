@@ -1,7 +1,7 @@
 import AuthLayout from "@/components/auth/AuthLayout";
 import { authFormStyles as formStyles } from "@/components/auth/formStyles";
-import PrimaryButton from "@/components/ui/PrimaryButton";
 import InputField from "@/components/ui/InputField";
+import PrimaryButton from "@/components/ui/PrimaryButton";
 import { COLORS } from "@/constants/profileConfig";
 import { STORAGE_KEYS } from "@/constants/storage";
 import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
@@ -95,13 +95,9 @@ export default function InscriptionScreen() {
       })).catch(() => undefined);
       router.replace("/config-profil");
     } catch (error) {
-      if (isTooManyAttempts(error)) {
-        rateLimit.block((error as ApiError).retryAfter);
-        setFormError(null);
-      } else {
-        setFormError(getRegisterErrorMessage(error));
-      }
-    } finally {
+      setFormError(getRegisterErrorMessage(error));
+    }
+     finally {
       setLoading(false);
     }
   };

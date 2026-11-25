@@ -54,7 +54,7 @@ export default function LocationStep({
                 setCitySuggestions([]);
                 if (cityLookupError) setCityLookupError(null);
               }}
-              placeholder="Ex. : Paris ou 84300"
+              placeholder="Ex. : Paris ou 75000"
               placeholderTextColor={COLORS.muted}
               accessibilityLabel="Ville ou code postal"
               style={styles.input}

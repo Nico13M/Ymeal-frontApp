@@ -4,8 +4,8 @@ import InputField from "@/components/ui/InputField";
 import PrimaryButton from "@/components/ui/PrimaryButton";
 import { COLORS } from "@/constants/profileConfig";
 import { STORAGE_KEYS } from "@/constants/storage";
-import { ApiError, getHumanErrorMessage, isTooManyAttempts } from "@/src/lib/api";
 import useRateLimit from "@/src/hooks/useRateLimit";
+import { ApiError, getHumanErrorMessage } from "@/src/lib/api";
 import { loginRequest, resolveUserId, saveSession } from "@/src/services/auth";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -159,8 +159,8 @@ export default function ConnexionScreen() {
         }
       }
     } catch (error) {
-      if (isTooManyAttempts(error)) {
-        rateLimit.block((error as ApiError).retryAfter);
+      if (error instanceof ApiError && error.status === 429) {
+        rateLimit.block(error.retryAfter);
         setFormError(null);
       } else {
         setFormError(getLoginErrorMessage(error));

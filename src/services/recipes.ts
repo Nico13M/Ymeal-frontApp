@@ -1,7 +1,8 @@
 import { ApiError, apiRequest } from "@/src/lib/api";
 import { withCuisinePreferences } from "@/src/lib/cuisine-preferences";
-import { getCsrfToken, getSession } from "./auth";
 import { applyFavoriteOverrides, setFavoriteState } from "@/src/lib/favoritesStore";
+import { getCsrfToken, getSession } from "./auth";
+import { getUserCuisines } from "./profile";
 
 const COOKIE_SESSION_TOKEN = "__cookie_session__";
 
@@ -174,7 +175,7 @@ async function getToken(): Promise<{
 
 export async function getRecipes(): Promise<RecipeFull[]> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<RecipeFull[]>(`/admin/recipes/index?_=${Date.now()}`, {
       method: "GET",
       token,
@@ -193,7 +194,7 @@ export async function getRecipes(): Promise<RecipeFull[]> {
 
 export async function getRecipe(recipeId: number): Promise<RecipeFull> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     // _ : évite une réponse mise en cache par le navigateur (état favori périmé)
     const data = await apiRequest<RecipeFull>(`/admin/recipes/${recipeId}?_=${Date.now()}`, {
       method: "GET",
@@ -437,7 +438,7 @@ function normalizeFavoritesPayload(payload: unknown): RecipeMinimal[] {
 
 export async function getFavorites(): Promise<RecipeMinimal[]> {
   try {
-    const { token, userId } = await getToken();
+    const { token } = await getToken();
     const data = await apiRequest<unknown>(`/admin/recipes/favorites?_=${Date.now()}`, {
       method: "GET",
       token,
@@ -726,17 +727,19 @@ function isMissingRoute(error: unknown): boolean {
 }
 
 async function authOptions() {
-  const { token, userId } = await getToken();
+  const { token } = await getToken();
   let csrf: string | undefined;
+
   try {
     csrf = await getCsrfToken();
   } catch {
     csrf = undefined;
   }
+  
   return {
     token,
     credentials: "include" as const,
-    headers: { ...buildHeaders(userId), ...(csrf ? { "X-CSRF-TOKEN": csrf } : {}) },
+    headers: { ...(csrf ? { "X-CSRF-TOKEN": csrf } : {}) },
   };
 }
 
